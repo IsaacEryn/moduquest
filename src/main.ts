@@ -15,7 +15,9 @@ import { Announcer } from './ui/announcer'
 import { BattleUI } from './ui/battleUI'
 import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
+import { LocalSaveRepository } from './save/saveRepository'
 import { Screens } from './ui/screens'
+import { SlotPanel } from './ui/slotPanel'
 import { TextLog } from './ui/textLog'
 import { TraitPanel } from './ui/traitPanel'
 import { TraitStore } from './ui/traitStore'
@@ -40,19 +42,64 @@ const game = new Game(
     cancel: (handle) => window.clearTimeout(handle as number),
   },
   traitStore.get(),
+  () => Date.now(),
 )
 // 옵션·특성 화면이 열려 있는 동안은 게임도 멈춘다 — "언제든 멈출 수 있다"
 const pauseHooks = { onOpen: () => game.pause(), onClose: () => game.resume() }
 const options = new OptionsPanel(store, pauseHooks)
 const traitPanel = new TraitPanel(game, traitStore, pauseHooks)
 const battleUI = new BattleUI(game, bus, () => options.open())
-const screens = new Screens(game, bus, battleUI, () => options.open(), () =>
-  traitPanel.open(),
-)
+
 // 낭독과 같은 문장이 텍스트 기록 창에도 쌓인다 — 글만으로 게임을 따라가는 렌즈
 const textLog = new TextLog()
 textLog.setVisible(store.options.textLog)
-new Announcer(bus, store.options, (text) => textLog.add(text))
+const announcer = new Announcer(bus, store.options, (text) => textLog.add(text))
+
+const saves = new LocalSaveRepository(data)
+/** 지금 쓰고 있는 자리. 새로 시작하거나 이어서 할 때 정해진다 */
+let activeSlot: number | null = null
+const slotPanel = new SlotPanel(game, saves, {
+  ...pauseHooks,
+  announce: (text) => announcer.polite(text),
+  onStart: (slot) => {
+    activeSlot = slot
+    game.start()
+  },
+  onContinue: async (slot) => {
+    const snapshot = await saves.load(slot)
+    if (!snapshot) return
+    activeSlot = slot
+    game.restore(snapshot)
+  },
+})
+const screens = new Screens(
+  game,
+  bus,
+  battleUI,
+  () => options.open(),
+  () => traitPanel.open(),
+  (mode) => void slotPanel.open(mode),
+)
+
+/**
+ * 필드에서 상황이 바뀔 때마다 지금 자리에 저장한다 — 저장 버튼을 따로 두지 않는다.
+ * 걸어간 위치까지 남겨야 "이어서 하기"가 실제로 이어진다.
+ */
+const AUTOSAVE_ON = new Set(['moved', 'checkpoint', 'mode', 'traitChanged'])
+bus.on((e) => {
+  if (!AUTOSAVE_ON.has(e.type)) return
+  if (activeSlot === null || !game.canSave) return
+  void saves.save(activeSlot, game.snapshot())
+})
+
+/** 타이틀로 돌아올 때마다 "이어서 하기"를 보일지 다시 판단한다 */
+bus.on((e) => {
+  if (e.type !== 'mode' || e.mode !== 'title') return
+  void slotPanel.hasAny().then((has) => {
+    screens.hasSaves = has
+    screens.showTitle()
+  })
+})
 createRenderer(game, bus, store.options)
 // 같은 사건을 소리로도 — 방향이 있는 소리는 공간 음향으로 배치한다
 new Sfx(bus, store.options)
@@ -111,7 +158,11 @@ document.addEventListener('keydown', (e) => {
   }
 })
 
-screens.showTitle()
+// 저장된 기록이 있는지 먼저 확인하고 타이틀을 그린다
+void slotPanel.hasAny().then((has) => {
+  screens.hasSaves = has
+  screens.showTitle()
+})
 
 if (import.meta.env.DEV) {
   ;(window as unknown as Record<string, unknown>).__game = game

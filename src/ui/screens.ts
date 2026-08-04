@@ -7,12 +7,16 @@ export class Screens {
   private ui = document.querySelector<HTMLDivElement>('#ui')!
   private dialogueLine: HTMLParagraphElement | null = null
 
+  /** 타이틀에 "이어서 하기"를 보일지 — 저장된 기록이 있을 때만 */
+  hasSaves = false
+
   constructor(
     private game: Game,
     bus: EventBus,
     private battleUI: BattleUI,
     private openOptions: () => void,
     private openTraits: () => void,
+    private openSlots: (mode: 'new' | 'continue') => void,
   ) {
     bus.on((e) => {
       if (e.type === 'mode') this.render(e.mode)
@@ -68,8 +72,12 @@ export class Screens {
     const actions = s.querySelector('.actions')!
     const start = document.createElement('button')
     start.type = 'button'
-    start.textContent = '모험 시작'
-    start.addEventListener('click', () => this.game.start())
+    start.textContent = '새로 시작'
+    start.addEventListener('click', () => this.openSlots('new'))
+    const cont = document.createElement('button')
+    cont.type = 'button'
+    cont.textContent = '이어서 하기'
+    cont.addEventListener('click', () => this.openSlots('continue'))
     const traits = document.createElement('button')
     traits.type = 'button'
     traits.textContent = '특성 고르기'
@@ -78,9 +86,11 @@ export class Screens {
     opts.type = 'button'
     opts.textContent = '옵션'
     opts.addEventListener('click', () => this.openOptions())
-    actions.append(start, traits, opts)
+    if (this.hasSaves) actions.append(start, cont, traits, opts)
+    else actions.append(start, traits, opts)
     this.ui.append(s)
-    start.focus()
+    // 이어서 할 게 있으면 그쪽이 첫 포커스다
+    ;(this.hasSaves ? cont : start).focus()
   }
 
   private renderDialogue(): void {
@@ -115,7 +125,9 @@ export class Screens {
       <div class="secondary"></div>
     `
     s.querySelector('.objective')!.textContent =
-      `목표: ${this.game.stage.objective} 화살표 키나 아래 버튼으로 움직인다.`
+      `스테이지 ${this.game.currentStageIndex + 1} / ${this.game.stageCount}. ` +
+      `${this.game.stage.title}. 목표: ${this.game.stage.objective} ` +
+      `화살표 키나 아래 버튼으로 움직인다.`
 
     // 화면 방향 버튼 — 키보드가 없는 환경(터치·스위치·마우스 전용)을 위한 같은 조작
     const pad = s.querySelector<HTMLElement>('.pad')!
@@ -156,12 +168,27 @@ export class Screens {
       <div class="actions"></div>
     `
     s.querySelector('p')!.textContent = this.game.stage.clearMessage
-    const again = document.createElement('button')
-    again.type = 'button'
-    again.textContent = '처음부터 다시'
-    again.addEventListener('click', () => window.location.reload())
-    s.querySelector('.actions')!.append(again)
+    const actions = s.querySelector('.actions')!
+    const mk = (label: string, onClick: () => void) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = label
+      b.addEventListener('click', onClick)
+      actions.append(b)
+      return b
+    }
+
+    let first: HTMLButtonElement
+    if (this.game.hasNextStage) {
+      first = mk('다음 스테이지로', () => this.game.nextStage())
+      mk('이 스테이지 다시', () => this.game.restartStage())
+    } else {
+      first = mk('처음부터 다시', () => this.game.startStage(0))
+      mk('이 스테이지 다시', () => this.game.restartStage())
+    }
+    mk('타이틀로', () => this.game.returnToTitle())
+
     this.ui.append(s)
-    again.focus()
+    first.focus()
   }
 }

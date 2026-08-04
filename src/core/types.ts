@@ -112,6 +112,29 @@ export interface TraitsFile {
   traits: Record<string, TraitData>
 }
 
+/** 저장되는 진행도. 전부 숫자·불리언·데이터에 있는 id — 자유 문자열이 없다 */
+export interface SaveSnapshot {
+  schemaVersion: number
+  stageIndex: number
+  traitId: string
+  field: { pos: Pos; checkpointReached: boolean; defeated: string[] }
+  /** 최대 체력·능력치는 직업과 특성에서 다시 계산한다 — 밸런스 수정이 저장값에 박히지 않게 */
+  party: { id: string; hp: number }[]
+  seenDialogues: string[]
+  clearedStages: string[]
+  updatedAt: number
+}
+
+/** 슬롯 목록 표시용 요약 */
+export interface SlotSummary {
+  slot: number
+  empty: boolean
+  stageIndex?: number
+  traitId?: string
+  progress?: number
+  updatedAt?: number
+}
+
 export interface GameData {
   jobs: Record<string, JobData>
   monsters: Record<string, MonsterData>

@@ -1,6 +1,7 @@
 import { Battle, type StepResult } from './battle'
 import type { EventBus, GameMode } from './events'
 import { Field } from './field'
+import { SAVE_VERSION } from './save'
 import {
   applyCombat,
   applyStats,
@@ -15,6 +16,7 @@ import type {
   EncounterData,
   GameData,
   PlayerAction,
+  SaveSnapshot,
   StageData,
   TraitData,
   TraitsFile,
@@ -46,6 +48,7 @@ export class Game {
   private turnTimer: unknown = null
   private traitId: string
   private stageIndex = 0
+  private clearedStages = new Set<string>()
   private readonly monsterNames: Record<string, string>
 
   constructor(
@@ -53,6 +56,8 @@ export class Game {
     private bus: EventBus,
     private scheduler: TurnScheduler,
     traitId?: string | null,
+    /** 저장 시각 — 코어가 시계를 직접 읽지 않도록 주입받는다 */
+    private now: () => number = () => 0,
   ) {
     this.traitId = resolveTraitId(data.traits, traitId)
     this.party = this.buildParty()
@@ -249,6 +254,69 @@ export class Game {
     this.setMode('title')
   }
 
+  // --- 저장·복원 ---
+
+  /** 저장 가능한 상태인지. 전투·대사 중에는 복원이 어렵고 낭독 맥락도 끊긴다 */
+  get canSave(): boolean {
+    return this.mode === 'field'
+  }
+
+  snapshot(): SaveSnapshot {
+    return {
+      schemaVersion: SAVE_VERSION,
+      stageIndex: this.stageIndex,
+      traitId: this.traitId,
+      field: {
+        pos: { ...this.field.pos },
+        checkpointReached: this.field.checkpointReached,
+        defeated: this.field.defeatedIds,
+      },
+      party: this.party.map((c) => ({ id: c.id, hp: c.hp })),
+      seenDialogues: [...this.seenDialogues],
+      clearedStages: [...this.clearedStages],
+      updatedAt: this.now(),
+    }
+  }
+
+  /** 검증을 마친 스냅샷만 받는다 — 검사 책임은 sanitizeSnapshot이 진다 */
+  restore(s: SaveSnapshot): void {
+    this.clearTurnTimer()
+    this.battle = null
+    this.currentEncounter = null
+    this.paused = false
+    this.pausedMidTurn = false
+    this.dialogueQueue = []
+    this.dialogueIndex = 0
+    this.afterDialogue = null
+    this.bus.emit({ type: 'battleEnd' })
+
+    this.stageIndex = s.stageIndex
+    this.traitId = s.traitId
+    this.clearedStages = new Set(s.clearedStages)
+    this.seenDialogues = new Set(s.seenDialogues)
+    this.party = this.buildParty()
+    for (const saved of s.party) {
+      const c = this.party.find((p) => p.id === saved.id)
+      if (c) c.hp = Math.min(c.maxHp, Math.max(0, saved.hp))
+    }
+    this.field = new Field(this.stage, this.monsterNames, this.bus, this.perceptionRadius)
+    this.field.restore(s.field.pos, s.field.checkpointReached, s.field.defeated)
+
+    this.bus.emit({
+      type: 'stageStart',
+      index: this.stageIndex,
+      total: this.stageCount,
+      title: this.stage.title,
+      objective: this.stage.objective,
+    })
+    this.setMode('field')
+    this.bus.emit({ type: 'fieldSummary', text: this.field.summary() })
+  }
+
+  get clearedStageIds(): string[] {
+    return [...this.clearedStages]
+  }
+
   // --- 흐름 ---
 
   start(): void {
@@ -424,6 +492,7 @@ export class Game {
     if (this.currentEncounter) this.field.removeEncounter(this.currentEncounter.id)
     this.endBattle()
     if (wasBoss) {
+      this.clearedStages.add(this.stage.id)
       this.showDialogue(this.stage.script['clear'] ?? [], () => {
         this.setMode('clear')
         this.bus.emit({

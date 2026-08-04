@@ -121,6 +121,18 @@ export class Field {
     this.alive.delete(id)
   }
 
+  /** 저장된 진행도를 되돌린다. 전달값은 이미 검증된 것만 온다 */
+  restore(pos: Pos, checkpointReached: boolean, defeated: string[]): void {
+    this.pos = { ...pos }
+    this.checkpointReached = checkpointReached
+    for (const id of defeated) this.alive.delete(id)
+  }
+
+  get defeatedIds(): string[] {
+    const all = [...this.stage.encounters.map((e) => e.id), this.stage.boss.id]
+    return all.filter((id) => !this.alive.has(id))
+  }
+
   respawn(): void {
     this.pos = this.checkpointReached
       ? { ...this.stage.checkpoint }
