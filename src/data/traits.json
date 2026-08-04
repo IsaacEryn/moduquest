@@ -1,0 +1,62 @@
+{
+  "default": "balanced",
+  "limits": { "minStat": 3, "minRadius": 2 },
+  "traits": {
+    "balanced": {
+      "name": "균형",
+      "summary": "치우침 없는 기본. 아무것도 가리지 않는다.",
+      "category": "basic",
+      "stats": { "hp": 0, "atk": 0, "def": 0, "spd": 0 },
+      "combat": { "pierce": 0, "guardEvery": 0, "cooldownDelta": 0 },
+      "perception": { "radius": null }
+    },
+    "swift-step": {
+      "name": "날렵한 걸음",
+      "summary": "먼저 움직이고 공격을 흘린다. 대신 한 방이 가볍다.",
+      "category": "combat",
+      "stats": { "hp": 0, "atk": -2, "def": 0, "spd": 3 },
+      "combat": { "pierce": 0, "guardEvery": 4, "cooldownDelta": 0 },
+      "perception": { "radius": null }
+    },
+    "steady-hand": {
+      "name": "정확한 손",
+      "summary": "상대의 방어를 뚫는다. 대신 행동이 느리다.",
+      "category": "combat",
+      "stats": { "hp": 0, "atk": 0, "def": 0, "spd": -3 },
+      "combat": { "pierce": 4, "guardEvery": 0, "cooldownDelta": 0 },
+      "perception": { "radius": null }
+    },
+    "firm-stance": {
+      "name": "단단한 자세",
+      "summary": "잘 버틴다. 대신 공격이 약하고 느리다.",
+      "category": "combat",
+      "stats": { "hp": 20, "atk": -2, "def": 3, "spd": -1 },
+      "combat": { "pierce": 0, "guardEvery": 0, "cooldownDelta": 0 },
+      "perception": { "radius": null }
+    },
+    "quick-turn": {
+      "name": "짧은 호흡",
+      "summary": "판을 빨리 끝낸다. 대신 잘 버티지 못한다.",
+      "category": "combat",
+      "stats": { "hp": -10, "atk": 3, "def": -2, "spd": 2 },
+      "combat": { "pierce": 0, "guardEvery": 0, "cooldownDelta": 0 },
+      "perception": { "radius": null }
+    },
+    "measured-pace": {
+      "name": "차분한 준비",
+      "summary": "필살기를 더 자주 쓴다. 대신 평타가 약하다.",
+      "category": "combat",
+      "stats": { "hp": 0, "atk": -2, "def": 1, "spd": 0 },
+      "combat": { "pierce": 0, "guardEvery": 0, "cooldownDelta": -1 },
+      "perception": { "radius": null }
+    },
+    "narrow-focus": {
+      "name": "좁은 지각",
+      "summary": "가까운 곳만 알 수 있다. 대신 빠르고 잘 흘린다.",
+      "category": "challenge",
+      "stats": { "hp": 0, "atk": 1, "def": 0, "spd": 2 },
+      "combat": { "pierce": 0, "guardEvery": 4, "cooldownDelta": 0 },
+      "perception": { "radius": 4 }
+    }
+  }
+}

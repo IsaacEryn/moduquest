@@ -247,6 +247,69 @@ describe('NPC·몹 규칙', () => {
   })
 })
 
+describe('흘리기와 관통', () => {
+  it('N번째 피격만 흘린다', () => {
+    const r = rogue()
+    r.guardEvery = 3
+    // 골렘은 체력이 넉넉해 전투가 일찍 끝나지 않는다. 골렘 공격 (16-6)=10
+    const { battle, events } = setup([r], ['golem'])
+    const strike = () => {
+      advanceToPlayer(battle)
+      battle.playerAction({ kind: 'attack', targetId: battle.enemies[0].id })
+      advanceToPlayer(battle)
+    }
+    strike() // 1번째 피격 — 맞는다
+    expect(r.hp).toBe(90 - 10)
+    strike() // 2번째 — 맞는다
+    expect(r.hp).toBe(90 - 20)
+    strike() // 3번째 — 흘린다
+    expect(r.hp).toBe(90 - 20)
+    expect(events.some((e) => e.type === 'deflected')).toBe(true)
+  })
+
+  it('흘린 뒤에는 다시 처음부터 센다', () => {
+    const r = rogue()
+    r.guardEvery = 2
+    r.hitsSinceDeflect = 0
+    const { battle } = setup([r], ['slime'])
+    for (let i = 0; i < 4; i++) {
+      advanceToPlayer(battle)
+      battle.playerAction({ kind: 'defend' })
+      advanceToPlayer(battle)
+    }
+    // 2·4번째를 흘리므로 방어 상태로 2대만 맞는다: floor(4/2)=2씩
+    expect(r.hp).toBe(90 - 4)
+  })
+
+  it('다음 피격을 흘리는지 미리 알 수 있다', () => {
+    const r = rogue()
+    r.guardEvery = 2
+    r.hitsSinceDeflect = 1
+    expect(Battle.willDeflect(r)).toBe(true)
+    r.hitsSinceDeflect = 0
+    expect(Battle.willDeflect(r)).toBe(false)
+    // 흘리기가 없는 캐릭터는 항상 false
+    expect(Battle.willDeflect(rogue())).toBe(false)
+  })
+
+  it('관통은 상대 방어를 무시하고, 방어력 아래로 내려가도 최소 1은 준다', () => {
+    const r = rogue()
+    r.pierce = 4
+    const { battle } = setup([r], ['golem']) // 골렘 방어 9
+    advanceToPlayer(battle)
+    battle.playerAction({ kind: 'attack', targetId: battle.enemies[0].id })
+    expect(battle.enemies[0].hp).toBe(160 - (18 - (9 - 4)))
+  })
+
+  it('전투가 새로 시작되면 흘리기 카운터가 초기화된다', () => {
+    const r = rogue()
+    r.guardEvery = 2
+    r.hitsSinceDeflect = 1
+    setup([r], ['slime'])
+    expect(r.hitsSinceDeflect).toBe(0)
+  })
+})
+
 describe('승패', () => {
   it('승리하면 쓰러진 동료를 포함해 전원 30% 회복한다', () => {
     const r = rogue()

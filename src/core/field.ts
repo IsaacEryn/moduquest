@@ -21,15 +21,38 @@ export class Field {
   alive: Map<string, EncounterData>
   checkpointReached = false
 
+  /** 걸어서 이 거리 안만 알 수 있다. null이면 맵 전체를 안다 */
+  private radius: number | null
+
   constructor(
     private stage: StageData,
     private monsterNames: Record<string, string>,
     private bus: EventBus,
+    radius: number | null = null,
   ) {
     this.pos = { ...stage.map.start }
     this.alive = new Map(
       [...stage.encounters, stage.boss].map((e) => [e.id, e]),
     )
+    this.radius = radius
+  }
+
+  setPerceptionRadius(radius: number | null): void {
+    this.radius = radius
+  }
+
+  /**
+   * 아는 곳인지 — 세 렌즈(그림·글·소리)가 전부 이 판정을 통과한 것만 다룬다.
+   * 화면에만 안개를 걸면 낭독과 텍스트 기록으로 새어 나간다.
+   */
+  isKnown(p: Pos): boolean {
+    if (this.radius === null) return true
+    return Math.abs(p.x - this.pos.x) + Math.abs(p.y - this.pos.y) <= this.radius
+  }
+
+  /** 지금 아는 조우만 */
+  knownEncounters(): EncounterData[] {
+    return [...this.alive.values()].filter((e) => this.isKnown(e.pos))
   }
 
   isWall(p: Pos): boolean {
@@ -99,25 +122,32 @@ export class Field {
       : { ...this.stage.map.start }
   }
 
-  /** R 키: 주변 요약 */
+  private describeDistance(to: Pos): string {
+    const dx = to.x - this.pos.x
+    const dy = to.y - this.pos.y
+    const dist: string[] = []
+    if (dy !== 0) dist.push(`${dy < 0 ? '북쪽' : '남쪽'} ${Math.abs(dy)}칸`)
+    if (dx !== 0) dist.push(`${dx > 0 ? '동쪽' : '서쪽'} ${Math.abs(dx)}칸`)
+    return dist.join(' ')
+  }
+
+  /**
+   * R 키: 주변 요약.
+   * 지각 반경이 있으면 아는 것만 말하되, 모른다는 사실 자체는 반드시 알린다 —
+   * 조용히 빠지면 정보 누락이지만 밝히면 게임 규칙이다.
+   * 쉼터와 목표는 어떤 특성에서도 항상 알려준다. 길을 잃는 건 재미가 아니다.
+   */
   summary(): string {
     const parts: string[] = [`지금 위치 동 ${this.pos.x}, 남 ${this.pos.y}.`]
-    for (const e of this.alive.values()) {
-      const dx = e.pos.x - this.pos.x
-      const dy = e.pos.y - this.pos.y
-      const dist: string[] = []
-      if (dy !== 0) dist.push(`${dy < 0 ? '북쪽' : '남쪽'} ${Math.abs(dy)}칸`)
-      if (dx !== 0) dist.push(`${dx > 0 ? '동쪽' : '서쪽'} ${Math.abs(dx)}칸`)
-      parts.push(`${dist.join(' ')}에 ${this.encounterName(e)}.`)
+    for (const e of this.knownEncounters()) {
+      parts.push(`${this.describeDistance(e.pos)}에 ${this.encounterName(e)}.`)
     }
     const cp = this.stage.checkpoint
     if (!(this.pos.x === cp.x && this.pos.y === cp.y)) {
-      const dx = cp.x - this.pos.x
-      const dy = cp.y - this.pos.y
-      const dist: string[] = []
-      if (dy !== 0) dist.push(`${dy < 0 ? '북쪽' : '남쪽'} ${Math.abs(dy)}칸`)
-      if (dx !== 0) dist.push(`${dx > 0 ? '동쪽' : '서쪽'} ${Math.abs(dx)}칸`)
-      parts.push(`${dist.join(' ')}에 쉼터.`)
+      parts.push(`${this.describeDistance(cp)}에 쉼터.`)
+    }
+    if (this.radius !== null) {
+      parts.push(`걸어서 ${this.radius}칸 안만 알 수 있다. 그 밖은 알 수 없다.`)
     }
     parts.push(`목표: ${this.stage.objective}`)
     return parts.join(' ')

@@ -14,6 +14,8 @@ export type GameEvent =
   | { type: 'healed'; actor: Combatant; target: Combatant; amount: number }
   | { type: 'taunted'; actor: Combatant; duration: number }
   | { type: 'defended'; actor: Combatant }
+  | { type: 'deflected'; actor: Combatant; target: Combatant }
+  | { type: 'traitChanged'; name: string; description: string }
   | { type: 'downed'; target: Combatant }
   | { type: 'victory'; boss: boolean; revived: Combatant[] }
   | { type: 'defeat' }

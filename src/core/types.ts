@@ -79,11 +79,39 @@ export interface PartyMemberData {
   isPlayer: boolean
 }
 
+/**
+ * 특성 — 이득과 대가가 함께 붙은 플레이 스타일.
+ * 장애 유형이 아니라 기능으로 이름 붙이고, 누구나 아무거나 고를 수 있다.
+ */
+export interface TraitData {
+  name: string
+  summary: string
+  category: 'basic' | 'combat' | 'challenge'
+  stats: { hp: number; atk: number; def: number; spd: number }
+  combat: {
+    /** 상대 방어력을 이만큼 무시한다 */
+    pierce: number
+    /** N번째 피격을 흘린다(피해 0). 0이면 흘리지 않는다 */
+    guardEvery: number
+    /** 스킬 쿨다운 가감 */
+    cooldownDelta: number
+  }
+  /** null이면 맵 전체를 안다 */
+  perception: { radius: number | null }
+}
+
+export interface TraitsFile {
+  default: string
+  limits: { minStat: number; minRadius: number }
+  traits: Record<string, TraitData>
+}
+
 export interface GameData {
   jobs: Record<string, JobData>
   monsters: Record<string, MonsterData>
   party: PartyMemberData[]
   stage: StageData
+  traits: TraitsFile
 }
 
 export type Dir = 'north' | 'south' | 'east' | 'west'
@@ -104,6 +132,14 @@ export interface Combatant {
   defending: boolean
   sprite?: string
   isBoss?: boolean
+  /** 상대 방어력 무시량 */
+  pierce?: number
+  /** N번째 피격을 흘린다. 0·미지정이면 흘리지 않는다 */
+  guardEvery?: number
+  /** 마지막으로 흘린 뒤 맞은 횟수 */
+  hitsSinceDeflect?: number
+  /** 스킬 쿨다운 가감 */
+  cooldownDelta?: number
 }
 
 export type PlayerAction =

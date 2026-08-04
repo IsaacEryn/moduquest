@@ -1,6 +1,13 @@
 import { Battle, type StepResult } from './battle'
 import type { EventBus, GameMode } from './events'
 import { Field } from './field'
+import {
+  applyCombat,
+  applyStats,
+  perceptionRadius,
+  resolveTrait,
+  resolveTraitId,
+} from './traits'
 import type {
   Combatant,
   DialogueLine,
@@ -8,6 +15,8 @@ import type {
   EncounterData,
   GameData,
   PlayerAction,
+  TraitData,
+  TraitsFile,
 } from './types'
 
 /** NPC·몹 턴 사이 간격(ms). 낭독이 따라올 시간을 준다. */
@@ -34,39 +43,100 @@ export class Game {
   private currentEncounter: EncounterData | null = null
   private seenDialogues = new Set<string>()
   private turnTimer: unknown = null
+  private traitId: string
 
   constructor(
     private data: GameData,
     private bus: EventBus,
     private scheduler: TurnScheduler,
+    traitId?: string | null,
   ) {
+    this.traitId = resolveTraitId(data.traits, traitId)
     this.party = this.buildParty()
     const monsterNames = Object.fromEntries(
       Object.entries(data.monsters).map(([id, m]) => [id, m.name]),
     )
-    this.field = new Field(data.stage, monsterNames, bus)
+    this.field = new Field(data.stage, monsterNames, bus, this.perceptionRadius)
   }
 
-  /** 파티는 party.json이 정한다. 배치 순서가 몹의 공격 순서 기준이 된다. */
+  /**
+   * 파티는 party.json이 정한다. 배치 순서가 몹의 공격 순서 기준이 된다.
+   * 특성은 플레이어 자신에게만 적용된다 — 내가 고른 플레이 스타일이기 때문이다.
+   */
   private buildParty(): Combatant[] {
+    const trait = this.trait
     return this.data.party.map(({ job, isPlayer }) => {
       const j = this.data.jobs[job]
-      return {
+      const base = { hp: j.hp, atk: j.atk, def: j.def, spd: j.spd }
+      const s = isPlayer ? applyStats(base, trait, this.data.traits.limits) : base
+      const c: Combatant = {
         id: job,
         name: j.name,
-        side: 'ally' as const,
+        side: 'ally',
         isPlayer,
-        hp: j.hp,
-        maxHp: j.hp,
-        atk: j.atk,
-        def: j.def,
-        spd: j.spd,
+        hp: s.hp,
+        maxHp: s.hp,
+        atk: s.atk,
+        def: s.def,
+        spd: s.spd,
         skill: j.skill,
         cooldownLeft: 0,
         defending: false,
         sprite: j.sprite ?? job,
       }
+      if (isPlayer) applyCombat(c, trait)
+      return c
     })
+  }
+
+  // --- 특성 ---
+
+  get trait(): TraitData {
+    return resolveTrait(this.data.traits, this.traitId)
+  }
+
+  get traits(): TraitsFile {
+    return this.data.traits
+  }
+
+  get perceptionRadius(): number | null {
+    return perceptionRadius(this.trait, this.data.traits.limits)
+  }
+
+  /**
+   * 특성 변경. 전투 중에는 거부한다 — 규칙의 단일 진실 원천은 코어다.
+   * 최대 체력이 바뀌면 비율을 유지해 특성을 껐다 켜서 회복하는 악용을 막는다.
+   */
+  setTrait(id: string): boolean {
+    if (this.mode === 'battle') return false
+    const next = resolveTraitId(this.data.traits, id)
+    if (next === this.traitId) return false
+
+    const player = this.player
+    const ratio = player.hp / player.maxHp
+    this.traitId = next
+
+    const trait = this.trait
+    const j = this.data.jobs[player.id]
+    const s = applyStats(
+      { hp: j.hp, atk: j.atk, def: j.def, spd: j.spd },
+      trait,
+      this.data.traits.limits,
+    )
+    player.maxHp = s.hp
+    player.hp = Math.max(1, Math.min(s.hp, Math.round(s.hp * ratio)))
+    player.atk = s.atk
+    player.def = s.def
+    player.spd = s.spd
+    applyCombat(player, trait)
+
+    this.field.setPerceptionRadius(this.perceptionRadius)
+    this.bus.emit({ type: 'traitChanged', name: trait.name, description: trait.summary })
+    return true
+  }
+
+  get currentTraitId(): string {
+    return this.traitId
   }
 
   get player(): Combatant {

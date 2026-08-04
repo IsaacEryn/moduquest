@@ -63,6 +63,7 @@ export class Battle {
     for (const a of this.allies) {
       a.cooldownLeft = 0
       a.defending = false
+      a.hitsSinceDeflect = 0
     }
   }
 
@@ -163,7 +164,7 @@ export class Battle {
         break
       }
     }
-    actor.cooldownLeft = skill.cooldown
+    actor.cooldownLeft = Math.max(0, skill.cooldown + (actor.cooldownDelta ?? 0))
     return true
   }
 
@@ -204,12 +205,40 @@ export class Battle {
     if (target) this.attack(actor, target)
   }
 
+  /**
+   * 피해 계산 순서: 흘림 판정 → 기본 피해(관통 반영) → 방어 시 절반 → 최소 1.
+   * 흘림은 최소 1 규칙의 유일한 예외다.
+   */
   private attack(actor: Combatant, target: Combatant, multiplier = 1): void {
-    let damage = Math.max(1, Math.floor(actor.atk * multiplier) - target.def)
-    if (target.defending) damage = Math.floor(damage / 2)
+    if (this.tryDeflect(target)) {
+      this.bus.emit({ type: 'deflected', actor, target })
+      return
+    }
+    const effectiveDef = Math.max(0, target.def - (actor.pierce ?? 0))
+    let damage = Math.max(1, Math.floor(actor.atk * multiplier) - effectiveDef)
+    if (target.defending) damage = Math.max(1, Math.floor(damage / 2))
     target.hp = Math.max(0, target.hp - damage)
     this.bus.emit({ type: 'attacked', actor, target, damage })
     if (target.hp === 0) this.bus.emit({ type: 'downed', target })
+  }
+
+  /** N번째 피격이면 흘린다. 확률이 아니라 세는 규칙이라 미리 알 수 있다 */
+  private tryDeflect(target: Combatant): boolean {
+    const every = target.guardEvery ?? 0
+    if (every <= 0) return false
+    const hits = (target.hitsSinceDeflect ?? 0) + 1
+    if (hits >= every) {
+      target.hitsSinceDeflect = 0
+      return true
+    }
+    target.hitsSinceDeflect = hits
+    return false
+  }
+
+  /** 다음 피격을 흘리는지 — 상태 표시와 낭독용 */
+  static willDeflect(c: Combatant): boolean {
+    const every = c.guardEvery ?? 0
+    return every > 0 && (c.hitsSinceDeflect ?? 0) + 1 >= every
   }
 
   private afterAction(): StepResult {
@@ -252,7 +281,9 @@ export class Battle {
       list
         .map((c) => {
           const name = c.isPlayer ? '나' : c.name
-          return c.hp > 0 ? `${name} 체력 ${c.hp}/${c.maxHp}` : `${name} 쓰러짐`
+          if (c.hp <= 0) return `${name} 쓰러짐`
+          const deflect = Battle.willDeflect(c) ? ', 다음 피격 흘림' : ''
+          return `${name} 체력 ${c.hp}/${c.maxHp}${deflect}`
         })
         .join(', ')
     return `아군: ${side(this.allies)}. 적: ${side(this.enemies)}.`
