@@ -3,28 +3,25 @@ import type { EventBus } from '../core/events'
 import type { Game } from '../core/game'
 import type { Combatant, Pos } from '../core/types'
 import type { Options } from '../ui/optionsStore'
+import { SPRITES, drawSprite, drawTile } from './sprites'
 
 const TILE = 32
 
 interface Palette {
   bg: number
   floor: number
+  floorSpeck: number
   wall: number
-  player: number
-  ally: number
-  monster: number
-  boss: number
+  wallSpeck: number
   checkpoint: number
 }
 
 const NORMAL: Palette = {
   bg: 0x101418,
   floor: 0x2e4d3a,
+  floorSpeck: 0x3a5c45,
   wall: 0x1a2620,
-  player: 0x7fd08a,
-  ally: 0x8ab8d0,
-  monster: 0xe8875f,
-  boss: 0xd95555,
+  wallSpeck: 0x243229,
   checkpoint: 0xffd166,
 }
 
@@ -32,13 +29,13 @@ const NORMAL: Palette = {
 const LOW_STIM: Palette = {
   bg: 0x14171a,
   floor: 0x39443e,
+  floorSpeck: 0x424d46,
   wall: 0x22282b,
-  player: 0x93ac97,
-  ally: 0x93a4ac,
-  monster: 0xac9184,
-  boss: 0xa87f7f,
+  wallSpeck: 0x2a3134,
   checkpoint: 0xbfae85,
 }
+
+const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
 
 /**
  * 시각 레이어. 게임 상태는 코어가 소유하고, 여기서는 그리기만 한다.
@@ -48,8 +45,34 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
   const palette = () => (options.lowStim ? LOW_STIM : NORMAL)
   const px = (p: Pos) => ({ x: p.x * TILE + TILE / 2, y: p.y * TILE + TILE / 2 })
 
+  /** 스프라이트·타일 텍스처를 만들어 등록한다. 저자극 모드는 팔레트가 달라 키를 나눈다 */
+  function loadTextures(scene: Phaser.Scene): void {
+    const suffix = options.lowStim ? '-low' : ''
+    for (const [name, def] of Object.entries(SPRITES)) {
+      const key = name + suffix
+      if (scene.textures.exists(key)) continue
+      scene.textures.addCanvas(key, drawSprite(def, 2, options.lowStim))
+    }
+    const pal = palette()
+    const tiles: Array<[string, number, number]> = [
+      ['tile-floor', pal.floor, pal.floorSpeck],
+      ['tile-wall', pal.wall, pal.wallSpeck],
+    ]
+    for (const [name, base, speck] of tiles) {
+      const key = name + suffix
+      if (scene.textures.exists(key)) continue
+      scene.textures.addCanvas(
+        key,
+        drawTile(hex(base), hex(speck), TILE, options.lowStim),
+      )
+    }
+  }
+
+  const texKey = (name: string) => name + (options.lowStim ? '-low' : '')
+  const spriteOf = (c: { sprite?: string; id: string }) => texKey(c.sprite ?? c.id)
+
   class FieldScene extends Phaser.Scene {
-    private playerRect!: Phaser.GameObjects.Rectangle
+    private player!: Phaser.GameObjects.Image
     private statics: Phaser.GameObjects.GameObject[] = []
 
     constructor() {
@@ -63,10 +86,10 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
         if (e.type === 'moved' && this.scene.isActive()) {
           const to = px(e.pos)
           if (options.lowStim) {
-            this.playerRect.setPosition(to.x, to.y)
+            this.player.setPosition(to.x, to.y)
           } else {
             this.tweens.add({
-              targets: this.playerRect,
+              targets: this.player,
               x: to.x,
               y: to.y,
               duration: 110,
@@ -80,47 +103,46 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
     }
 
     private redraw() {
+      loadTextures(this)
       const pal = palette()
       this.cameras.main.setBackgroundColor(pal.bg)
       for (const obj of this.statics) obj.destroy()
       this.statics = []
-      this.playerRect?.destroy()
+      this.player?.destroy()
 
       const { width, height, tiles } = game.stage.map
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-          const color = tiles[y][x] === 1 ? pal.wall : pal.floor
-          const r = this.add
-            .rectangle(x * TILE + TILE / 2, y * TILE + TILE / 2, TILE - 2, TILE - 2, color)
+          const key = texKey(tiles[y][x] === 1 ? 'tile-wall' : 'tile-floor')
+          const t = this.add
+            .image(x * TILE + TILE / 2, y * TILE + TILE / 2, key)
             .setDepth(0)
-          this.statics.push(r)
+          this.statics.push(t)
         }
       }
 
+      // 쉼터 — 바닥 위의 표식
       const cp = px(game.stage.checkpoint)
       this.statics.push(
-        this.add.rectangle(cp.x, cp.y, TILE - 10, TILE - 10, pal.checkpoint).setDepth(1),
+        this.add.rectangle(cp.x, cp.y, TILE - 12, TILE - 12, pal.checkpoint).setDepth(1),
       )
 
       for (const e of game.field.alive.values()) {
-        const isBoss = game.isBossEncounter(e)
         const p = px(e.pos)
-        this.statics.push(
-          this.add
-            .rectangle(p.x, p.y, TILE - 8, TILE - 8, isBoss ? pal.boss : pal.monster)
-            .setDepth(1),
-        )
+        const first = e.monsters[0]
+        const key = texKey(game.spriteOfMonster(first) ?? 'slime')
+        const img = this.add.image(p.x, p.y, key).setDepth(1)
+        if (game.isBossEncounter(e)) img.setScale(1.15)
+        this.statics.push(img)
       }
 
       const pp = px(game.field.pos)
-      this.playerRect = this.add
-        .rectangle(pp.x, pp.y, TILE - 8, TILE - 8, pal.player)
-        .setDepth(2)
+      this.player = this.add.image(pp.x, pp.y, spriteOf(game.player)).setDepth(2)
     }
   }
 
   class BattleScene extends Phaser.Scene {
-    private rects = new Map<string, Phaser.GameObjects.Rectangle>()
+    private figures = new Map<string, Phaser.GameObjects.Image>()
 
     constructor() {
       super('battle')
@@ -131,17 +153,17 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
         if (!this.scene.isActive()) return
         if (e.type === 'attacked') this.hit(e.target, e.damage)
         if (e.type === 'healed') this.pop(e.target, `+${e.amount}`, '#9fd8a8')
-        if (e.type === 'downed') this.rects.get(e.target.id)?.setAlpha(0.25)
+        if (e.type === 'downed') this.figures.get(e.target.id)?.setAlpha(0.25)
       })
       this.events.on('wake', () => this.build())
       this.build()
     }
 
     private build() {
-      const pal = palette()
-      this.cameras.main.setBackgroundColor(pal.bg)
-      for (const r of this.rects.values()) r.destroy()
-      this.rects.clear()
+      loadTextures(this)
+      this.cameras.main.setBackgroundColor(palette().bg)
+      for (const r of this.figures.values()) r.destroy()
+      this.figures.clear()
       this.children.list
         .filter((c) => c instanceof Phaser.GameObjects.Text)
         .forEach((c) => c.destroy())
@@ -149,25 +171,25 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       const battle = game.battle
       if (!battle) return
 
-      game.party.forEach((c, i) => {
-        this.spawn(c, 96, 80 + i * 64, c.isPlayer ? pal.player : pal.ally)
-      })
-      battle.enemies.forEach((c, i) => {
-        this.spawn(c, 288, 80 + i * 64, c.isBoss ? pal.boss : pal.monster)
-      })
+      game.party.forEach((c, i) => this.spawn(c, 96, 72 + i * 68))
+      battle.enemies.forEach((c, i) => this.spawn(c, 288, 72 + i * 68))
     }
 
-    private spawn(c: Combatant, x: number, y: number, color: number) {
-      const r = this.add.rectangle(x, y, 40, 40, color)
-      if (c.hp <= 0) r.setAlpha(0.25)
-      this.rects.set(c.id, r)
+    private spawn(c: Combatant, x: number, y: number) {
+      const img = this.add.image(x, y, spriteOf(c))
+      if (c.isBoss) img.setScale(1.3)
+      if (c.hp <= 0) img.setAlpha(0.25)
+      this.figures.set(c.id, img)
       this.add
-        .text(x, y + 30, c.name, { fontSize: '12px', color: '#b7c2cc' })
+        .text(x, y + 20, c.isPlayer ? `${c.name} (나)` : c.name, {
+          fontSize: '11px',
+          color: '#b7c2cc',
+        })
         .setOrigin(0.5, 0)
     }
 
     private hit(target: Combatant, damage: number) {
-      const r = this.rects.get(target.id)
+      const r = this.figures.get(target.id)
       if (!r) return
       if (!options.lowStim) {
         this.tweens.add({ targets: r, alpha: 0.3, yoyo: true, duration: 90 })
@@ -177,7 +199,7 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
 
     /** 피해·회복 숫자. 저자극 모드에서는 움직임 없이 잠깐 표시만 한다 */
     private pop(target: Combatant, text: string, color: string) {
-      const r = this.rects.get(target.id)
+      const r = this.figures.get(target.id)
       if (!r) return
       const t = this.add
         .text(r.x, r.y - 28, text, { fontSize: '14px', color })

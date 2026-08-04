@@ -29,8 +29,7 @@ export class OptionsPanel {
         <label for="opt-textlog">텍스트 기록 표시</label>
         <input type="checkbox" id="opt-textlog" />
       </div>
-      <!-- 아직 오디오가 없어 감춰 둔다 — 효과음이 들어올 때 hidden 제거 -->
-      <div class="row" hidden>
+      <div class="row">
         <label for="opt-volume">소리 크기</label>
         <input type="range" id="opt-volume" min="0" max="100" step="10" />
       </div>

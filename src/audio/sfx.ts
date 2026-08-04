@@ -1,0 +1,180 @@
+import type { EventBus, GameEvent } from '../core/events'
+import type { Dir } from '../core/types'
+import type { Options } from '../ui/optionsStore'
+
+/** 방향을 좌우·앞뒤 좌표로 — 헤드폰에서 북쪽은 앞, 동쪽은 오른쪽으로 들린다 */
+const DIR_VECTOR: Record<Dir, { x: number; z: number }> = {
+  north: { x: 0, z: -1 },
+  south: { x: 0, z: 1 },
+  east: { x: 1, z: 0 },
+  west: { x: -1, z: 0 },
+}
+
+interface ToneSpec {
+  /** 시작 주파수(Hz) */
+  from: number
+  /** 끝 주파수 — 생략하면 일정하게 유지 */
+  to?: number
+  duration: number
+  type?: OscillatorType
+  /** 최대 음량(0~1) */
+  gain?: number
+}
+
+/**
+ * 효과음을 Web Audio로 합성한다. 음원 파일을 쓰지 않으므로 라이선스 문제가 없고
+ * 용량도 들지 않는다. 자막(`[타격]` 등)과 짝을 이루는 청각 채널이다.
+ *
+ * 브라우저 정책상 오디오는 사용자 조작 이후에만 시작할 수 있어서,
+ * 첫 입력 때 컨텍스트를 깨운다.
+ */
+export class Sfx {
+  private ctx: AudioContext | null = null
+  private master: GainNode | null = null
+
+  constructor(
+    bus: EventBus,
+    private options: Options,
+  ) {
+    const wake = () => this.ensureContext()
+    document.addEventListener('pointerdown', wake, { once: true })
+    document.addEventListener('keydown', wake, { once: true })
+    bus.on((e) => this.handle(e))
+  }
+
+  private ensureContext(): AudioContext | null {
+    if (!this.ctx) {
+      const Ctor = window.AudioContext ?? (window as any).webkitAudioContext
+      if (!Ctor) return null
+      this.ctx = new Ctor()
+      this.master = this.ctx.createGain()
+      this.master.connect(this.ctx.destination)
+    }
+    if (this.ctx.state === 'suspended') void this.ctx.resume()
+    if (this.master) this.master.gain.value = this.options.volume
+    return this.ctx
+  }
+
+  /**
+   * 소리 하나를 낸다. dir을 주면 그 방향에서 들리도록 공간에 배치한다
+   * (PannerNode HRTF — 시각 정보를 소리의 방향으로 옮기는 통로).
+   */
+  private tone(spec: ToneSpec, dir?: Dir): void {
+    const ctx = this.ensureContext()
+    if (!ctx || !this.master || this.options.volume === 0) return
+
+    const now = ctx.currentTime
+    const osc = ctx.createOscillator()
+    osc.type = spec.type ?? 'triangle'
+    osc.frequency.setValueAtTime(spec.from, now)
+    if (spec.to !== undefined) {
+      osc.frequency.exponentialRampToValueAtTime(Math.max(1, spec.to), now + spec.duration)
+    }
+
+    const env = ctx.createGain()
+    // 저자극 모드에서는 소리도 절반으로 — 감각 과부하 방지
+    const peak = (spec.gain ?? 0.25) * (this.options.lowStim ? 0.5 : 1)
+    env.gain.setValueAtTime(0, now)
+    env.gain.linearRampToValueAtTime(peak, now + 0.012)
+    env.gain.exponentialRampToValueAtTime(0.0001, now + spec.duration)
+
+    osc.connect(env)
+    if (dir) {
+      const panner = ctx.createPanner()
+      panner.panningModel = 'HRTF'
+      panner.distanceModel = 'linear'
+      const v = DIR_VECTOR[dir]
+      panner.positionX.value = v.x
+      panner.positionY.value = 0
+      panner.positionZ.value = v.z
+      env.connect(panner)
+      panner.connect(this.master)
+    } else {
+      env.connect(this.master)
+    }
+
+    osc.start(now)
+    osc.stop(now + spec.duration + 0.02)
+  }
+
+  private chord(specs: ToneSpec[]): void {
+    for (const s of specs) this.tone(s)
+  }
+
+  private handle(e: GameEvent): void {
+    switch (e.type) {
+      case 'moved':
+        this.tone({ from: 210, to: 170, duration: 0.07, type: 'square', gain: 0.08 }, e.dir)
+        break
+      case 'blocked':
+        // 막힌 방향에서 둔탁하게 — 어느 쪽이 벽인지 소리로도 알 수 있다
+        this.tone({ from: 90, to: 60, duration: 0.14, type: 'square', gain: 0.16 }, e.dir)
+        break
+      case 'checkpoint':
+        this.chord([
+          { from: 523, duration: 0.3, gain: 0.16 },
+          { from: 784, duration: 0.4, gain: 0.12 },
+        ])
+        break
+      case 'battleStart':
+        this.chord([
+          { from: 330, to: 660, duration: 0.28, type: 'sawtooth', gain: 0.14 },
+          { from: 110, duration: 0.35, gain: 0.12 },
+        ])
+        break
+      case 'playerTurn':
+        this.tone({ from: 660, to: 880, duration: 0.12, gain: 0.14 })
+        break
+      case 'attacked': {
+        // 아군이 때리면 오른쪽(적 진영), 맞으면 왼쪽에서 들린다
+        const dir: Dir = e.actor.side === 'ally' ? 'east' : 'west'
+        this.tone({ from: 320, to: 90, duration: 0.16, type: 'sawtooth', gain: 0.22 }, dir)
+        break
+      }
+      case 'healed':
+        this.chord([
+          { from: 587, to: 880, duration: 0.28, gain: 0.14 },
+          { from: 880, duration: 0.2, gain: 0.08 },
+        ])
+        break
+      case 'taunted':
+        this.tone({ from: 150, to: 300, duration: 0.3, type: 'sawtooth', gain: 0.18 })
+        break
+      case 'defended':
+        this.tone({ from: 400, to: 260, duration: 0.16, gain: 0.14 })
+        break
+      case 'downed':
+        this.tone({
+          from: e.target.side === 'enemy' ? 300 : 220,
+          to: 60,
+          duration: 0.32,
+          type: e.target.side === 'enemy' ? 'triangle' : 'sine',
+          gain: 0.18,
+        })
+        break
+      case 'victory':
+        this.chord([
+          { from: 523, duration: 0.5, gain: 0.14 },
+          { from: 659, duration: 0.5, gain: 0.12 },
+          { from: 784, duration: 0.6, gain: 0.12 },
+        ])
+        break
+      case 'defeat':
+        this.chord([
+          { from: 330, to: 110, duration: 0.7, gain: 0.16 },
+          { from: 220, to: 82, duration: 0.8, gain: 0.12 },
+        ])
+        break
+      case 'stageClear':
+        this.chord([
+          { from: 523, duration: 0.7, gain: 0.14 },
+          { from: 784, duration: 0.7, gain: 0.12 },
+          { from: 1047, duration: 0.9, gain: 0.1 },
+        ])
+        break
+      case 'optionsChanged':
+        if (this.master) this.master.gain.value = this.options.volume
+        break
+    }
+  }
+}

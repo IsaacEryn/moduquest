@@ -18,6 +18,8 @@ export interface SkillData {
 export interface JobData {
   name: string
   role: string
+  /** 스프라이트 키 — 생략하면 직업 id를 쓴다 */
+  sprite?: string
   hp: number
   atk: number
   def: number

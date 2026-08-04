@@ -1,0 +1,225 @@
+/**
+ * 픽셀 스프라이트를 코드로 그린다. 외부 에셋을 쓰지 않으므로 라이선스 문제가 없고,
+ * 저자극 모드의 채도 낮춘 팔레트도 같은 그림에서 바로 만들어 낼 수 있다.
+ *
+ * 각 스프라이트는 문자 하나가 픽셀 하나인 16×16 격자다. 공백은 투명.
+ */
+
+export interface SpriteDef {
+  pixels: string[]
+  palette: Record<string, string>
+}
+
+const SKIN = '#e8c39e'
+
+export const SPRITES: Record<string, SpriteDef> = {
+  // 도적 — 후드와 단검, 날렵한 실루엣.
+  // 숲 바닥이 초록이라 후드는 대비되는 남색 계열로 둔다(색만이 아니라 형태로도 구분되게)
+  rogue: {
+    palette: { h: '#5a6ea8', H: '#3c4a76', s: SKIN, d: '#c9ced4', b: '#2a3038' },
+    pixels: [
+      '                ',
+      '     hhhhhh     ',
+      '    hHHHHHHh    ',
+      '    hHssssHh    ',
+      '    hHsbsbsh    ',
+      '    hHssssHh    ',
+      '     hHssHh     ',
+      '    hhhhhhhh    ',
+      '   hHhhhhhhHh d ',
+      '  hHhhhhhhhhHhd ',
+      '  hh hhhhhh hhd ',
+      '     hhhhhh   d ',
+      '     hh  hh     ',
+      '     hh  hh     ',
+      '    bbb  bbb    ',
+      '                ',
+    ],
+  },
+  // 전사 — 투구와 방패, 두꺼운 어깨
+  warrior: {
+    palette: { a: '#8fa6b8', A: '#5c7182', s: SKIN, r: '#b5573f', b: '#2a3038' },
+    pixels: [
+      '                ',
+      '     aaaaaa     ',
+      '    aAAAAAAa    ',
+      '    aAssssAa    ',
+      '    aAsbsbsa    ',
+      '    aAssssAa    ',
+      '     aAssAa     ',
+      '   aaaaaaaaaa   ',
+      '  aAaarrrraaAa  ',
+      '  aAaarrrraaAa  ',
+      '  aa aaaaaa aa  ',
+      '     aaaaaa     ',
+      '     aa  aa     ',
+      '     aa  aa     ',
+      '    bbb  bbb    ',
+      '                ',
+    ],
+  },
+  // 힐러 — 두건과 지팡이, 부드러운 윤곽
+  healer: {
+    palette: { c: '#d8e3ec', C: '#9fb3c4', s: SKIN, g: '#7fd08a', w: '#a97f4f' },
+    pixels: [
+      '                ',
+      '     cccccc     ',
+      '    cCCCCCCc    ',
+      '    cCssssCc    ',
+      '    cCsssssc    ',
+      '    cCssssCc    ',
+      '     cCssCc     ',
+      '    cccccccc  g ',
+      '   cCccggcccC w ',
+      '  cCcccggccccCw ',
+      '  cc ccggcc ccw ',
+      '     cccccc   w ',
+      '     cccccc   w ',
+      '    cccccccc  w ',
+      '   cccccccccc   ',
+      '                ',
+    ],
+  },
+  // 슬라임 — 둥글고 말랑한 덩어리
+  slime: {
+    palette: { s: '#6fbf8a', S: '#4a8f64', e: '#16241c', l: '#b7e8c8' },
+    pixels: [
+      '                ',
+      '                ',
+      '      ssss      ',
+      '    sslssssS    ',
+      '   sslsssssSS   ',
+      '  sslssssssSS   ',
+      '  sssssssssSS   ',
+      ' ssseessseesSS  ',
+      ' ssseessseesSS  ',
+      ' ssssssssssssS  ',
+      ' ssssssssssssS  ',
+      ' SssssssssssSS  ',
+      '  SSssssssSSS   ',
+      '   SSSSSSSSS    ',
+      '                ',
+      '                ',
+    ],
+  },
+  // 고블린 — 뾰족한 귀와 몽둥이
+  goblin: {
+    palette: { g: '#8fae5c', G: '#5f7a3a', e: '#c8412c', b: '#6b4a2f', t: '#f0f0e0' },
+    pixels: [
+      '                ',
+      '  g          g  ',
+      '  gg  gggg  gg  ',
+      '  ggggGGGGgggg  ',
+      '   ggGGGGGGgg   ',
+      '   gGeGGGGeGg   ',
+      '   gGGGGGGGGg   ',
+      '   gGGttttGGg   ',
+      '    gGGGGGGg  b ',
+      '   ggggggggg  b ',
+      '  gGgggggggGg b ',
+      '  gg gggggg gbb ',
+      '     gg  gg     ',
+      '     gg  gg     ',
+      '    GGG  GGG    ',
+      '                ',
+    ],
+  },
+  // 돌 골렘 — 각지고 큰 바위 덩어리
+  golem: {
+    palette: { r: '#8b8f96', R: '#5c6067', e: '#e0b050', d: '#3a3d42' },
+    pixels: [
+      '                ',
+      '   rrrrrrrrrr   ',
+      '  rRRRRRRRRRRr  ',
+      '  rRRrrrrrrRRr  ',
+      '  rReRRRRRReRr  ',
+      '  rRRRRRRRRRRr  ',
+      '  rRRRddddRRRr  ',
+      ' rrrRRRRRRRRrrr ',
+      ' rRrRRRRRRRRrRr ',
+      ' rRrRRRRRRRRrRr ',
+      ' rRrRRRRRRRRrRr ',
+      ' rrrRRRRRRRRrrr ',
+      '    RRRR RRRR   ',
+      '    rrrr rrrr   ',
+      '   RRRRR RRRRR  ',
+      '                ',
+    ],
+  },
+}
+
+/** 색을 회색 쪽으로 당긴다 — 저자극 모드용 팔레트 */
+export function desaturate(hex: string, amount = 0.55): string {
+  const n = parseInt(hex.slice(1), 16)
+  const r = (n >> 16) & 255
+  const g = (n >> 8) & 255
+  const b = n & 255
+  const gray = Math.round(0.299 * r + 0.587 * g + 0.114 * b)
+  const mix = (c: number) => Math.round(c + (gray - c) * amount)
+  return `#${((mix(r) << 16) | (mix(g) << 8) | mix(b)).toString(16).padStart(6, '0')}`
+}
+
+const OUTLINE = '#0d1013'
+
+/**
+ * 픽셀 격자를 캔버스로 그려 텍스처 소스로 쓴다.
+ * 바깥 테두리를 한 겹 두르는 이유는 배경색과 관계없이 실루엣이 살아 있어야
+ * 저시력·인지 접근성에 유리하기 때문이다(색 대비에만 기대지 않는다).
+ */
+export function drawSprite(def: SpriteDef, scale: number, lowStim: boolean): HTMLCanvasElement {
+  const size = def.pixels.length
+  const canvas = document.createElement('canvas')
+  canvas.width = (size + 2) * scale
+  canvas.height = (size + 2) * scale
+  const ctx = canvas.getContext('2d')!
+  const filled = (x: number, y: number) =>
+    y >= 0 && y < size && x >= 0 && x < size && !!def.palette[def.pixels[y][x]]
+
+  // 1) 채워진 픽셀에 이웃한 빈 칸을 테두리로
+  ctx.fillStyle = OUTLINE
+  for (let y = -1; y <= size; y++) {
+    for (let x = -1; x <= size; x++) {
+      if (filled(x, y)) continue
+      const touching =
+        filled(x - 1, y) || filled(x + 1, y) || filled(x, y - 1) || filled(x, y + 1)
+      if (touching) ctx.fillRect((x + 1) * scale, (y + 1) * scale, scale, scale)
+    }
+  }
+
+  // 2) 본체
+  def.pixels.forEach((row, y) => {
+    for (let x = 0; x < row.length; x++) {
+      const color = def.palette[row[x]]
+      if (!color) continue
+      ctx.fillStyle = lowStim ? desaturate(color) : color
+      ctx.fillRect((x + 1) * scale, (y + 1) * scale, scale, scale)
+    }
+  })
+  return canvas
+}
+
+/** 타일 텍스처: 같은 좌표면 같은 무늬가 나오도록 결정적으로 얼룩을 찍는다 */
+export function drawTile(
+  base: string,
+  speck: string,
+  size: number,
+  lowStim: boolean,
+): HTMLCanvasElement {
+  const canvas = document.createElement('canvas')
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext('2d')!
+  ctx.fillStyle = lowStim ? desaturate(base) : base
+  ctx.fillRect(0, 0, size, size)
+  ctx.fillStyle = lowStim ? desaturate(speck) : speck
+  const step = 4
+  for (let y = 0; y < size; y += step) {
+    for (let x = 0; x < size; x += step) {
+      // 좌표 해시 — 무작위처럼 보이지만 항상 같은 무늬
+      if (((x * 73856093) ^ (y * 19349663)) % 7 === 0) {
+        ctx.fillRect(x, y, step / 2, step / 2)
+      }
+    }
+  }
+  return canvas
+}

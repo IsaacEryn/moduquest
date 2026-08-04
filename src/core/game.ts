@@ -64,6 +64,7 @@ export class Game {
         skill: j.skill,
         cooldownLeft: 0,
         defending: false,
+        sprite: j.sprite ?? job,
       }
     })
   }
@@ -148,6 +149,11 @@ export class Game {
   /** 조우에 보스 몹이 포함되는지 — 렌더러의 표시용 */
   isBossEncounter(encounter: EncounterData): boolean {
     return encounter.monsters.some((id) => this.data.monsters[id]?.isBoss)
+  }
+
+  /** 몹 id의 스프라이트 키 — 렌더러가 데이터를 직접 뒤지지 않게 한다 */
+  spriteOfMonster(id: string): string | undefined {
+    return this.data.monsters[id]?.sprite
   }
 
   fieldSummary(): void {

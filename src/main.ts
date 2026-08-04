@@ -3,6 +3,7 @@ import jobs from './data/jobs.json'
 import monsters from './data/monsters.json'
 import party from './data/party.json'
 import stage from './data/stages/stage1.json'
+import { Sfx } from './audio/sfx'
 import { EventBus } from './core/events'
 import { Game } from './core/game'
 import type { Dir, GameData, StageData } from './core/types'
@@ -39,6 +40,8 @@ const textLog = new TextLog()
 textLog.setVisible(store.options.textLog)
 new Announcer(bus, store.options, (text) => textLog.add(text))
 createRenderer(game, bus, store.options)
+// 같은 사건을 소리로도 — 방향이 있는 소리는 공간 음향으로 배치한다
+new Sfx(bus, store.options)
 
 // 물리 키(e.code) 기준 — 한글 IME 상태에서도 W/A/S/D·R이 동작해야 한다.
 // e.key는 code가 비는 합성 이벤트를 위한 보조 경로.
