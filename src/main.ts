@@ -3,6 +3,7 @@ import jobs from './data/jobs.json'
 import monsters from './data/monsters.json'
 import party from './data/party.json'
 import stage from './data/stages/stage1.json'
+import traits from './data/traits.json'
 import { Sfx } from './audio/sfx'
 import { EventBus } from './core/events'
 import { Game } from './core/game'
@@ -14,27 +15,37 @@ import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
 import { Screens } from './ui/screens'
 import { TextLog } from './ui/textLog'
+import { TraitPanel } from './ui/traitPanel'
+import { TraitStore } from './ui/traitStore'
 
 const data: GameData = {
   jobs: jobs as GameData['jobs'],
   monsters,
   party,
   stage: stage as StageData,
+  traits: traits as GameData['traits'],
 }
 
 const bus = new EventBus()
 const store = new OptionsStore(bus)
-const game = new Game(data, bus, {
-  schedule: (fn, ms) => window.setTimeout(fn, ms),
-  cancel: (handle) => window.clearTimeout(handle as number),
-})
-// 옵션 화면이 열려 있는 동안은 게임도 멈춘다 — "언제든 멈출 수 있다"
-const options = new OptionsPanel(store, {
-  onOpen: () => game.pause(),
-  onClose: () => game.resume(),
-})
+const traitStore = new TraitStore()
+const game = new Game(
+  data,
+  bus,
+  {
+    schedule: (fn, ms) => window.setTimeout(fn, ms),
+    cancel: (handle) => window.clearTimeout(handle as number),
+  },
+  traitStore.get(),
+)
+// 옵션·특성 화면이 열려 있는 동안은 게임도 멈춘다 — "언제든 멈출 수 있다"
+const pauseHooks = { onOpen: () => game.pause(), onClose: () => game.resume() }
+const options = new OptionsPanel(store, pauseHooks)
+const traitPanel = new TraitPanel(game, traitStore, pauseHooks)
 const battleUI = new BattleUI(game, bus, () => options.open())
-const screens = new Screens(game, bus, battleUI, () => options.open())
+const screens = new Screens(game, bus, battleUI, () => options.open(), () =>
+  traitPanel.open(),
+)
 // 낭독과 같은 문장이 텍스트 기록 창에도 쌓인다 — 글만으로 게임을 따라가는 렌즈
 const textLog = new TextLog()
 textLog.setVisible(store.options.textLog)
@@ -73,6 +84,8 @@ function isSummaryKey(e: KeyboardEvent): boolean {
 
 document.addEventListener('keydown', (e) => {
   if (options.isOpen) return
+
+  if (traitPanel.isOpen) return
 
   if (e.key === 'Escape') {
     // 전투의 대상 선택 화면은 자체적으로 ESC를 처리(뒤로)하고 전파를 막는다

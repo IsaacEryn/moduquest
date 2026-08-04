@@ -1,3 +1,4 @@
+import { Battle } from '../core/battle'
 import type { EventBus } from '../core/events'
 import type { Game } from '../core/game'
 import type { Combatant } from '../core/types'
@@ -31,6 +32,7 @@ export class BattleUI {
         case 'attacked':
         case 'healed':
         case 'downed':
+        case 'deflected':
         case 'victory':
           this.renderStatus()
           break
@@ -95,9 +97,13 @@ export class BattleUI {
     if (!battle) return
     const item = (c: Combatant) => {
       const li = document.createElement('li')
-      if (c.hp <= 0) li.className = 'downed'
-      li.textContent =
-        c.hp > 0 ? `${c.name} — 체력 ${c.hp}/${c.maxHp}` : `${c.name} — 쓰러짐`
+      if (c.hp <= 0) {
+        li.className = 'downed'
+        li.textContent = `${c.name} — 쓰러짐`
+        return li
+      }
+      const deflect = Battle.willDeflect(c) ? ' · 다음 피격 흘림' : ''
+      li.textContent = `${c.name} — 체력 ${c.hp}/${c.maxHp}${deflect}`
       return li
     }
     this.allyList.replaceChildren(...this.game.party.map(item))

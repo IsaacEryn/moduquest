@@ -12,6 +12,7 @@ export class Screens {
     bus: EventBus,
     private battleUI: BattleUI,
     private openOptions: () => void,
+    private openTraits: () => void,
   ) {
     bus.on((e) => {
       if (e.type === 'mode') this.render(e.mode)
@@ -69,11 +70,15 @@ export class Screens {
     start.type = 'button'
     start.textContent = '모험 시작'
     start.addEventListener('click', () => this.game.start())
+    const traits = document.createElement('button')
+    traits.type = 'button'
+    traits.textContent = '특성 고르기'
+    traits.addEventListener('click', () => this.openTraits())
     const opts = document.createElement('button')
     opts.type = 'button'
     opts.textContent = '옵션'
     opts.addEventListener('click', () => this.openOptions())
-    actions.append(start, opts)
+    actions.append(start, traits, opts)
     this.ui.append(s)
     start.focus()
   }
@@ -129,11 +134,15 @@ export class Screens {
     padButton('→', '동쪽으로 이동', 'right', () => this.game.moveField('east'))
     padButton('↓', '남쪽으로 이동', 'down', () => this.game.moveField('south'))
 
+    const traitBtn = document.createElement('button')
+    traitBtn.type = 'button'
+    traitBtn.textContent = '특성'
+    traitBtn.addEventListener('click', () => this.openTraits())
     const optBtn = document.createElement('button')
     optBtn.type = 'button'
     optBtn.textContent = '옵션'
     optBtn.addEventListener('click', () => this.openOptions())
-    s.querySelector('.secondary')!.append(optBtn)
+    s.querySelector('.secondary')!.append(traitBtn, optBtn)
     this.ui.append(s)
     s.querySelector<HTMLElement>('#field-region')!.focus()
   }

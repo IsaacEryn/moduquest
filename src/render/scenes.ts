@@ -14,6 +14,8 @@ interface Palette {
   wall: number
   wallSpeck: number
   checkpoint: number
+  /** 아직 모르는 칸 */
+  fog: number
 }
 
 const NORMAL: Palette = {
@@ -23,6 +25,7 @@ const NORMAL: Palette = {
   wall: 0x1a2620,
   wallSpeck: 0x243229,
   checkpoint: 0xffd166,
+  fog: 0x0c1013,
 }
 
 // 저자극 모드: 채도를 낮춘 같은 구성의 팔레트
@@ -33,6 +36,7 @@ const LOW_STIM: Palette = {
   wall: 0x22282b,
   wallSpeck: 0x2a3134,
   checkpoint: 0xbfae85,
+  fog: 0x111417,
 }
 
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
@@ -84,6 +88,11 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       this.events.on('wake', () => this.redraw())
       bus.on((e) => {
         if (e.type === 'moved' && this.scene.isActive()) {
+          // 지각 반경이 있으면 움직일 때마다 아는 범위가 바뀐다
+          if (game.perceptionRadius !== null) {
+            this.redraw()
+            return
+          }
           const to = px(e.pos)
           if (options.lowStim) {
             this.player.setPosition(to.x, to.y)
@@ -116,6 +125,15 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       const { width, height, tiles } = game.stage.map
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
+          // 모르는 칸은 평면 색으로 덮는다. 그라디언트·애니메이션을 쓰지 않는 이유는
+          // 대비를 떨어뜨리면 저시력 사용자에게 회귀가 되기 때문이다.
+          if (!game.field.isKnown({ x, y })) {
+            const f = this.add
+              .rectangle(x * TILE + TILE / 2, y * TILE + TILE / 2, TILE, TILE, pal.fog)
+              .setDepth(0)
+            this.statics.push(f)
+            continue
+          }
           const key = texKey(tiles[y][x] === 1 ? 'tile-wall' : 'tile-floor')
           const t = this.add
             .image(x * TILE + TILE / 2, y * TILE + TILE / 2, key)
@@ -124,13 +142,14 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
         }
       }
 
-      // 쉼터 — 바닥 위의 표식
+      // 쉼터 — 어떤 특성에서도 항상 보인다. 길을 가리지는 않는다
       const cp = px(game.stage.checkpoint)
       this.statics.push(
         this.add.rectangle(cp.x, cp.y, TILE - 12, TILE - 12, pal.checkpoint).setDepth(1),
       )
 
-      for (const e of game.field.alive.values()) {
+      // 모르는 몹은 어둡게 덮지 않고 아예 그리지 않는다
+      for (const e of game.field.knownEncounters()) {
         const p = px(e.pos)
         const first = e.monsters[0]
         const key = texKey(game.spriteOfMonster(first) ?? 'slime')

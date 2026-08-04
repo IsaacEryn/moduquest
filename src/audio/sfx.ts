@@ -131,6 +131,12 @@ export class Sfx {
         this.tone({ from: 320, to: 90, duration: 0.16, type: 'sawtooth', gain: 0.22 }, dir)
         break
       }
+      case 'deflected': {
+        // 맞는 소리와 확실히 구분되게 위로 스치는 음
+        const dir: Dir = e.actor.side === 'ally' ? 'east' : 'west'
+        this.tone({ from: 500, to: 900, duration: 0.12, gain: 0.13 }, dir)
+        break
+      }
       case 'healed':
         this.chord([
           { from: 587, to: 880, duration: 0.28, gain: 0.14 },

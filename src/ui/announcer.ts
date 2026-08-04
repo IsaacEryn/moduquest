@@ -155,6 +155,15 @@ export class Announcer {
       case 'defended':
         this.polite(`${josa(who(e.actor), '은', '는')} 방어 자세를 잡았다.`)
         break
+      case 'deflected': {
+        const target = e.target.isPlayer ? '나는' : josa(e.target.name, '은', '는')
+        this.polite(`${who(e.actor)}의 공격. ${target} 흘렸다. 피해 없음.`)
+        this.caption('[흘림]')
+        break
+      }
+      case 'traitChanged':
+        this.polite(`특성을 ${e.name}으로 바꿨다. ${e.description}`)
+        break
       case 'downed': {
         if (e.target.side === 'enemy') {
           this.polite(`${josa(e.target.name, '을', '를')} 물리쳤다.`)
