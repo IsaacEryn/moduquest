@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>모두의 원정대</title>
+    <meta name="description" content="서로 다른 감각과 인지 방식의 플레이어가 한 파티로 모험하는 접근성 우선 RPG" />
+  </head>
+  <body>
+    <main id="app">
+      <h1 class="visually-hidden">모두의 원정대</h1>
+
+      <!-- 시각 레이어: 게임 화면. 의미는 아래 DOM이 전달한다 -->
+      <div id="game" aria-hidden="true"></div>
+
+      <!-- 의미 레이어: 메뉴·대화·전투는 전부 여기서 -->
+      <div id="ui"></div>
+
+      <!-- 스크린리더 낭독 채널 -->
+      <div id="sr-log" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
+      <div id="sr-alert" class="visually-hidden" aria-live="assertive" aria-atomic="true"></div>
+
+      <!-- 효과음 자막 -->
+      <p id="captions" aria-hidden="true"></p>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,254 @@
+:root {
+  font-size: 16px;
+  --bg: #101418;
+  --panel: #1c232b;
+  --panel-border: #3a4653;
+  --text: #f2f5f7;
+  --text-dim: #b7c2cc;
+  --accent: #7fd08a;
+  --danger: #e8875f;
+  --focus: #ffd166;
+}
+
+html.text-large {
+  font-size: 20px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+#app {
+  position: relative;
+  max-width: 60rem;
+  margin: 0 auto;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+#game {
+  width: 100%;
+  max-width: 48rem;
+}
+
+#game canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  image-rendering: pixelated;
+  border: 2px solid var(--panel-border);
+  border-radius: 4px;
+}
+
+#ui {
+  width: 100%;
+  max-width: 48rem;
+}
+
+/* 패널 공통 */
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+button {
+  font: inherit;
+  color: var(--text);
+  background: #2a3540;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #35424f;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* 타이틀 */
+.title-screen {
+  text-align: center;
+  padding: 3rem 1rem;
+}
+
+.title-screen h2 {
+  font-size: 2rem;
+  margin: 0 0 0.25rem;
+}
+
+.title-screen p {
+  color: var(--text-dim);
+  margin: 0 0 1.5rem;
+}
+
+.title-screen .actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+}
+
+/* 필드 */
+#field-region {
+  padding: 0.75rem 1rem;
+}
+
+#field-region p {
+  margin: 0;
+  color: var(--text-dim);
+}
+
+/* 대화 */
+.dialogue {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dialogue .line {
+  margin: 0;
+  min-height: 3rem;
+}
+
+.dialogue .speaker {
+  color: var(--accent);
+  font-weight: 700;
+  margin-right: 0.5rem;
+}
+
+.dialogue button {
+  align-self: flex-end;
+}
+
+/* 전투 */
+.battle {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.battle .parties {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.battle .parties > section {
+  flex: 1;
+  min-width: 14rem;
+  margin: 0;
+}
+
+.battle h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+  color: var(--text-dim);
+}
+
+.battle ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.battle .downed {
+  color: var(--text-dim);
+  text-decoration: line-through;
+}
+
+.battle .menu {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.battle .log {
+  max-height: 8rem;
+  overflow-y: auto;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+.battle .log p {
+  margin: 0 0 0.15rem;
+}
+
+/* 옵션 */
+dialog.options {
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  min-width: 18rem;
+}
+
+dialog.options::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+}
+
+dialog.options h2 {
+  margin: 0 0 1rem;
+  font-size: 1.2rem;
+}
+
+dialog.options .row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+/* 자막 */
+#captions {
+  min-height: 1.5rem;
+  margin: 0;
+  text-align: center;
+  color: var(--text-dim);
+}
+
+/* 저자극 모드: 화면 전환·애니메이션 제거 */
+html.low-stim * {
+  animation: none !important;
+  transition: none !important;
+}
