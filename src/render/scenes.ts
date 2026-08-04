@@ -62,12 +62,16 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       bus.on((e) => {
         if (e.type === 'moved' && this.scene.isActive()) {
           const to = px(e.pos)
-          this.tweens.add({
-            targets: this.playerRect,
-            x: to.x,
-            y: to.y,
-            duration: 110,
-          })
+          if (options.lowStim) {
+            this.playerRect.setPosition(to.x, to.y)
+          } else {
+            this.tweens.add({
+              targets: this.playerRect,
+              x: to.x,
+              y: to.y,
+              duration: 110,
+            })
+          }
         }
         if ((e.type === 'mode' && e.mode === 'field') || e.type === 'optionsChanged') {
           if (this.scene.isActive()) this.redraw()

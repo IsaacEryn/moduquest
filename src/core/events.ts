@@ -15,7 +15,7 @@ export type GameEvent =
   | { type: 'taunted'; actor: Combatant; duration: number }
   | { type: 'defended'; actor: Combatant }
   | { type: 'downed'; target: Combatant }
-  | { type: 'victory'; boss: boolean }
+  | { type: 'victory'; boss: boolean; revived: Combatant[] }
   | { type: 'defeat' }
   | { type: 'battleEnd' }
   | { type: 'battleSummary'; text: string }

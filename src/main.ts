@@ -26,10 +26,17 @@ const game = new Game(data, bus, {
   schedule: (fn, ms) => window.setTimeout(fn, ms),
   cancel: (handle) => window.clearTimeout(handle as number),
 })
-const options = new OptionsPanel(store)
-const battleUI = new BattleUI(game, bus)
-new Announcer(bus, store.options, (text) => battleUI.addLog(text))
+// 옵션 화면이 열려 있는 동안은 게임도 멈춘다 — "언제든 멈출 수 있다"
+const options = new OptionsPanel(store, {
+  onOpen: () => game.pause(),
+  onClose: () => game.resume(),
+})
+const battleUI = new BattleUI(game, bus, () => options.open())
 const screens = new Screens(game, bus, battleUI, () => options.open())
+new Announcer(bus, store.options, (text) => {
+  battleUI.addLog(text)
+  screens.showMessage(text)
+})
 createRenderer(game, bus, store.options)
 
 // 물리 키(e.code) 기준 — 한글 IME 상태에서도 W/A/S/D·R이 동작해야 한다.

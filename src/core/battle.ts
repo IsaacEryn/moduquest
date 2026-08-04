@@ -64,6 +64,10 @@ export class Battle {
       a.cooldownLeft = 0
       a.defending = false
     }
+  }
+
+  /** 전투 시작 알림. UI가 화면을 준비한 뒤에 호출해야 안내가 유실되지 않는다. */
+  begin(): void {
     this.bus.emit({ type: 'battleStart', enemies: this.enemies, order: this.order })
   }
 
@@ -211,11 +215,12 @@ export class Battle {
   private afterAction(): StepResult {
     if (this.aliveEnemies().length === 0) {
       // 승리: 파티 전원(쓰러진 동료 포함) 최대 체력의 30% 회복
+      const revived = this.allies.filter((a) => a.hp === 0)
       for (const a of this.allies) {
         a.hp = Math.min(a.maxHp, a.hp + Math.floor(a.maxHp * 0.3))
         a.defending = false
       }
-      this.bus.emit({ type: 'victory', boss: this.isBossBattle })
+      this.bus.emit({ type: 'victory', boss: this.isBossBattle, revived })
       return 'victory'
     }
     if (this.aliveAllies().length === 0) {
@@ -241,10 +246,15 @@ export class Battle {
     return 'continue'
   }
 
-  /** R 키: 전황 요약 */
+  /** R 키: 전황 요약. 아군·적 같은 규칙으로 — 쓰러진 개체도 누락하지 않는다 */
   summary(): string {
     const side = (list: Combatant[]) =>
-      list.map((c) => `${c.name} ${c.hp > 0 ? c.hp : '쓰러짐'}`).join(', ')
-    return `아군: ${side(this.allies)}. 적: ${side(this.aliveEnemies())}.`
+      list
+        .map((c) => {
+          const name = c.isPlayer ? '나' : c.name
+          return c.hp > 0 ? `${name} 체력 ${c.hp}/${c.maxHp}` : `${name} 쓰러짐`
+        })
+        .join(', ')
+    return `아군: ${side(this.allies)}. 적: ${side(this.enemies)}.`
   }
 }

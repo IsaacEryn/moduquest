@@ -49,7 +49,11 @@ export class OptionsStore {
     } catch {
       // 깨진 저장값은 기본값으로
     }
-    return { ...DEFAULTS }
+    // 저장된 설정이 없으면 OS의 동작 줄이기 설정을 저자극 초기값으로 존중한다
+    return {
+      ...DEFAULTS,
+      lowStim: window.matchMedia('(prefers-reduced-motion: reduce)').matches,
+    }
   }
 
   set<K extends keyof Options>(key: K, value: Options[K]): void {

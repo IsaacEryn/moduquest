@@ -166,7 +166,9 @@ export class Game {
         this.data.monsters,
         this.bus,
       )
+      // 화면(전투 UI)이 먼저 준비돼야 시작 안내가 로그·낭독에 실린다
       this.setMode('battle')
+      this.battle.begin()
       this.stepBattle()
     }
     const dialogueKey = encounter.dialogue
@@ -219,6 +221,29 @@ export class Game {
     }
   }
 
+  // --- 일시정지 (옵션 화면이 열려 있는 동안) ---
+
+  private paused = false
+  private pausedMidTurn = false
+
+  pause(): void {
+    if (this.paused) return
+    this.paused = true
+    if (this.turnTimer !== null) {
+      this.pausedMidTurn = true
+      this.clearTurnTimer()
+    }
+  }
+
+  resume(): void {
+    if (!this.paused) return
+    this.paused = false
+    if (this.pausedMidTurn) {
+      this.pausedMidTurn = false
+      this.turnTimer = this.scheduler.schedule(() => this.stepBattle(), TURN_DELAY)
+    }
+  }
+
   battleSummary(): void {
     if (!this.battle || this.mode !== 'battle') return
     this.bus.emit({ type: 'battleSummary', text: this.battle.summary() })
@@ -235,6 +260,8 @@ export class Game {
       })
     } else {
       this.setMode('field')
+      // 전투 후 위치 감각을 되찾도록 주변을 알려준다
+      this.bus.emit({ type: 'fieldSummary', text: this.field.summary() })
     }
   }
 
@@ -248,6 +275,8 @@ export class Game {
     }
     this.field.respawn()
     this.setMode('field')
+    // 순간이동한 위치를 반드시 알려준다 — 공간 지도를 잃지 않도록
+    this.bus.emit({ type: 'fieldSummary', text: this.field.summary() })
   }
 
   private endBattle(): void {

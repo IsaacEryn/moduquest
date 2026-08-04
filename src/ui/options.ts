@@ -5,7 +5,10 @@ export class OptionsPanel {
   private dialog: HTMLDialogElement
   private prevFocus: Element | null = null
 
-  constructor(private store: OptionsStore) {
+  constructor(
+    private store: OptionsStore,
+    private hooks: { onOpen?: () => void; onClose?: () => void } = {},
+  ) {
     this.dialog = document.createElement('dialog')
     this.dialog.className = 'options'
     this.dialog.innerHTML = `
@@ -22,7 +25,8 @@ export class OptionsPanel {
         <label for="opt-textlarge">큰 글씨</label>
         <input type="checkbox" id="opt-textlarge" />
       </div>
-      <div class="row">
+      <!-- 아직 오디오가 없어 감춰 둔다 — 효과음이 들어올 때 hidden 제거 -->
+      <div class="row" hidden>
         <label for="opt-volume">소리 크기</label>
         <input type="range" id="opt-volume" min="0" max="100" step="10" />
       </div>
@@ -41,12 +45,10 @@ export class OptionsPanel {
     })
 
     this.dialog.querySelector('#opt-close')!.addEventListener('click', () => {
-      this.dialog.close()
+      this.close()
     })
-    this.dialog.addEventListener('close', () => {
-      this.applyGlobal()
-      if (this.prevFocus instanceof HTMLElement) this.prevFocus.focus()
-    })
+    // ESC(cancel) 등 브라우저가 닫는 경로도 같은 정리 루틴을 타게 한다
+    this.dialog.addEventListener('close', () => this.afterClose())
 
     this.applyGlobal()
   }
@@ -63,7 +65,28 @@ export class OptionsPanel {
     return this.dialog.open
   }
 
+  close(): void {
+    if (this.dialog.open) this.dialog.close()
+    this.afterClose()
+  }
+
+  /** 닫힘 정리 — 어떤 경로로 닫혀도 1회만 실행 */
+  private afterClose(): void {
+    if (this.closed) return
+    this.closed = true
+    this.applyGlobal()
+    // 옵션이 열려 있는 동안 화면이 바뀌었을 수 있다(전투 종료 등)
+    if (this.prevFocus instanceof HTMLElement && this.prevFocus.isConnected) {
+      this.prevFocus.focus()
+    }
+    this.hooks.onClose?.()
+  }
+
+  private closed = true
+
   open(): void {
+    this.closed = false
+    this.hooks.onOpen?.()
     this.prevFocus = document.activeElement
     const o = this.store.options
     this.dialog.querySelector<HTMLInputElement>('#opt-captions')!.checked = o.captions

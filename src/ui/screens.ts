@@ -6,6 +6,7 @@ import type { BattleUI } from './battleUI'
 export class Screens {
   private ui = document.querySelector<HTMLDivElement>('#ui')!
   private dialogueLine: HTMLParagraphElement | null = null
+  private fieldMsg: HTMLParagraphElement | null = null
 
   constructor(
     private game: Game,
@@ -32,6 +33,7 @@ export class Screens {
   private clear(): void {
     this.battleUI.unmount()
     this.dialogueLine = null
+    this.fieldMsg = null
     this.ui.replaceChildren()
   }
 
@@ -82,6 +84,10 @@ export class Screens {
     const s = document.createElement('section')
     s.className = 'panel dialogue'
     s.setAttribute('aria-label', '대화')
+    const h = document.createElement('h2')
+    h.className = 'visually-hidden'
+    h.textContent = '대화'
+    s.append(h)
     const line = document.createElement('p')
     line.className = 'line'
     const next = document.createElement('button')
@@ -97,18 +103,29 @@ export class Screens {
   private renderField(): void {
     const s = document.createElement('section')
     s.className = 'panel'
-    s.id = 'field-region'
-    s.tabIndex = 0
-    s.setAttribute('role', 'application')
-    s.setAttribute(
-      'aria-label',
-      '게임 필드. 화살표 키로 이동, R 키로 주변 확인, ESC 키로 옵션.',
-    )
-    const p = document.createElement('p')
-    p.textContent = `목표: ${this.game.stage.objective} — 이동: 화살표 키 · 주변 확인: R`
-    s.append(p)
+    s.innerHTML = `
+      <h2 class="visually-hidden">필드</h2>
+      <p class="objective"></p>
+      <p class="field-msg" aria-hidden="true"></p>
+      <div id="field-region" role="application" tabindex="0"
+        aria-label="게임 필드. 화살표 키로 이동, R 키로 주변 확인, ESC 키로 옵션."></div>
+      <div class="secondary"></div>
+    `
+    s.querySelector('.objective')!.textContent =
+      `목표: ${this.game.stage.objective} 이동은 화살표 키, 주변 확인은 R 키.`
+    const optBtn = document.createElement('button')
+    optBtn.type = 'button'
+    optBtn.textContent = '옵션'
+    optBtn.addEventListener('click', () => this.openOptions())
+    s.querySelector('.secondary')!.append(optBtn)
     this.ui.append(s)
-    s.focus()
+    this.fieldMsg = s.querySelector('.field-msg')
+    s.querySelector<HTMLElement>('#field-region')!.focus()
+  }
+
+  /** 낭독과 같은 내용을 필드 화면에도 보여준다 — 시각·낭독·자막 세 채널 정렬 */
+  showMessage(text: string): void {
+    if (this.fieldMsg?.isConnected) this.fieldMsg.textContent = text
   }
 
   private renderClear(): void {

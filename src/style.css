@@ -93,8 +93,11 @@ button:hover:not(:disabled) {
   background: #35424f;
 }
 
+/* 비활성 버튼도 상태 정보("N라운드 남음")를 담으므로 읽을 수 있는 대비를 유지한다 */
 button:disabled {
-  opacity: 0.45;
+  color: var(--text-dim);
+  background: #1d252d;
+  border-color: #2a333c;
   cursor: default;
 }
 
@@ -126,13 +129,20 @@ button:disabled {
 }
 
 /* 필드 */
-#field-region {
-  padding: 0.75rem 1rem;
+.objective {
+  margin: 0 0 0.25rem;
+  color: var(--text-dim);
 }
 
-#field-region p {
+.field-msg {
   margin: 0;
-  color: var(--text-dim);
+  min-height: 1.5rem;
+}
+
+.secondary {
+  margin-top: 0.75rem;
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* 대화 */
