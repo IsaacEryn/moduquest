@@ -34,6 +34,13 @@ export class EventBus {
   }
 
   emit(e: GameEvent): void {
-    for (const fn of this.listeners) fn(e)
+    // 리스너 하나가 죽어도 나머지는 이벤트를 받아야 한다
+    for (const fn of this.listeners) {
+      try {
+        fn(e)
+      } catch (err) {
+        console.error('이벤트 리스너 오류:', e.type, err)
+      }
+    }
   }
 }

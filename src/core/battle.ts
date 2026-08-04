@@ -99,21 +99,29 @@ export class Battle {
     return this.afterAction()
   }
 
-  playerAction(action: PlayerAction): StepResult {
+  /**
+   * 플레이어 행동. 규칙 검증은 UI가 아니라 여기가 최종 책임진다 —
+   * 내 차례가 아니거나 쿨다운 중이면 null을 반환하고 아무 일도 일어나지 않는다.
+   */
+  playerAction(action: PlayerAction): StepResult | null {
     const actor = this.currentActor
+    if (!actor.isPlayer || actor.hp <= 0) return null
     if (action.kind === 'attack') {
       const target = this.enemies.find((e) => e.id === action.targetId)
-      if (target) this.attack(actor, target)
+      if (!target || target.hp <= 0) return null
+      this.attack(actor, target)
     } else if (action.kind === 'skill' && actor.skill) {
+      if (actor.cooldownLeft > 0) return null
       // 도적 급습: 배수 공격
       const target = this.enemies.find((e) => e.id === action.targetId)
-      if (target) {
-        this.attack(actor, target, actor.skill.multiplier ?? 1)
-        actor.cooldownLeft = actor.skill.cooldown
-      }
+      if (!target || target.hp <= 0) return null
+      this.attack(actor, target, actor.skill.multiplier ?? 1)
+      actor.cooldownLeft = actor.skill.cooldown
     } else if (action.kind === 'defend') {
       actor.defending = true
       this.bus.emit({ type: 'defended', actor })
+    } else {
+      return null
     }
     return this.afterAction()
   }
@@ -162,7 +170,7 @@ export class Battle {
   }
 
   private attack(actor: Combatant, target: Combatant, multiplier = 1): void {
-    let damage = Math.max(1, actor.atk * multiplier - target.def)
+    let damage = Math.max(1, Math.floor(actor.atk * multiplier) - target.def)
     if (target.defending) damage = Math.floor(damage / 2)
     target.hp = Math.max(0, target.hp - damage)
     this.bus.emit({ type: 'attacked', actor, target, damage })

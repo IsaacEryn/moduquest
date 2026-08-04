@@ -25,20 +25,32 @@ new Announcer(bus, game.options, (text) => battleUI.addLog(text))
 const screens = new Screens(game, bus, battleUI, () => options.open())
 createRenderer(game, bus)
 
+// 물리 키(e.code) 기준 — 한글 IME 상태에서도 W/A/S/D·R이 동작해야 한다.
+// e.key는 code가 비는 합성 이벤트를 위한 보조 경로.
+const DIR_CODES: Record<string, Dir> = {
+  ArrowUp: 'north',
+  ArrowDown: 'south',
+  ArrowLeft: 'west',
+  ArrowRight: 'east',
+  KeyW: 'north',
+  KeyS: 'south',
+  KeyA: 'west',
+  KeyD: 'east',
+}
+
 const DIR_KEYS: Record<string, Dir> = {
   ArrowUp: 'north',
   ArrowDown: 'south',
   ArrowLeft: 'west',
   ArrowRight: 'east',
-  // 일부 브라우저·입력기가 쓰는 구식 키 이름
-  Up: 'north',
-  Down: 'south',
-  Left: 'west',
-  Right: 'east',
   w: 'north',
   s: 'south',
   a: 'west',
   d: 'east',
+}
+
+function isSummaryKey(e: KeyboardEvent): boolean {
+  return e.code === 'KeyR' || e.key.toLowerCase() === 'r'
 }
 
 document.addEventListener('keydown', (e) => {
@@ -51,15 +63,17 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (game.mode === 'field') {
-    const dir = DIR_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]
+    const dir =
+      DIR_CODES[e.code] ??
+      DIR_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]
     if (dir) {
       e.preventDefault()
       game.moveField(dir)
       return
     }
-    if (e.key.toLowerCase() === 'r') game.fieldSummary()
+    if (isSummaryKey(e)) game.fieldSummary()
   } else if (game.mode === 'battle') {
-    if (e.key.toLowerCase() === 'r') game.battleSummary()
+    if (isSummaryKey(e)) game.battleSummary()
   }
 })
 

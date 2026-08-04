@@ -1,4 +1,4 @@
-import { Battle } from './battle'
+import { Battle, type StepResult } from './battle'
 import type { EventBus, GameMode } from './events'
 import { Field } from './field'
 import type {
@@ -97,6 +97,10 @@ export class Game {
   }
 
   private showDialogue(lines: DialogueLine[], after: () => void): void {
+    if (lines.length === 0) {
+      after()
+      return
+    }
     this.dialogueQueue = lines
     this.dialogueIndex = 0
     this.afterDialogue = after
@@ -169,21 +173,43 @@ export class Game {
 
   private stepBattle(): void {
     if (!this.battle) return
-    const result = this.battle.step()
-    this.handleStep(result)
+    this.handleStep(this.battle.step())
   }
 
   playerAction(action: PlayerAction): void {
     if (!this.battle || this.mode !== 'battle') return
-    this.handleStep(this.battle.playerAction(action))
+    const result = this.battle.playerAction(action)
+    // null이면 규칙상 무효한 입력(내 차례 아님, 쿨다운 등) — 아무 일도 없다
+    if (result !== null) this.handleStep(result)
   }
 
-  private handleStep(result: string): void {
+  private handleStep(result: StepResult): void {
     if (!this.battle) return
-    if (result === 'victory') return this.onVictory()
-    if (result === 'defeat') return this.onDefeat()
-    // 다음 턴으로 — 낭독이 따라오도록 간격을 두고 진행
-    this.turnTimer = setTimeout(() => this.stepBattle(), TURN_DELAY)
+    switch (result) {
+      case 'victory':
+        return this.onVictory()
+      case 'defeat':
+        return this.onDefeat()
+      case 'waiting-player':
+        // 플레이어 입력을 기다린다 — 타이머를 걸지 않는다
+        return this.clearTurnTimer()
+      case 'continue':
+        // 다음 턴으로 — 낭독이 따라오도록 간격을 두고 진행
+        this.clearTurnTimer()
+        this.turnTimer = setTimeout(() => this.stepBattle(), TURN_DELAY)
+        return
+      default: {
+        const never: never = result
+        throw new Error(`처리되지 않은 전투 상태: ${never}`)
+      }
+    }
+  }
+
+  private clearTurnTimer(): void {
+    if (this.turnTimer) {
+      clearTimeout(this.turnTimer)
+      this.turnTimer = null
+    }
   }
 
   battleSummary(): void {
@@ -218,7 +244,7 @@ export class Game {
   }
 
   private endBattle(): void {
-    if (this.turnTimer) clearTimeout(this.turnTimer)
+    this.clearTurnTimer()
     this.battle = null
     this.currentEncounter = null
     this.bus.emit({ type: 'battleEnd' })

@@ -59,15 +59,14 @@ export class Field {
     this.pos = next
     this.bus.emit({ type: 'moved', dir, pos: { ...this.pos }, ahead: this.describeAdjacent() })
 
-    const adjacent = this.adjacentEncounter()
-    if (adjacent) return adjacent
-
+    // 체크포인트 판정을 조우 판정보다 먼저 — 몹 옆에 배치된 쉼터도 기록돼야 한다
     const cp = this.stage.checkpoint
     if (!this.checkpointReached && this.pos.x === cp.x && this.pos.y === cp.y) {
       this.checkpointReached = true
       this.bus.emit({ type: 'checkpoint' })
     }
-    return undefined
+
+    return this.adjacentEncounter()
   }
 
   private adjacentEncounter(): EncounterData | undefined {
