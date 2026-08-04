@@ -12,7 +12,6 @@ export class BattleUI {
   private allyList!: HTMLUListElement
   private enemyList!: HTMLUListElement
   private menu!: HTMLDivElement
-  private logEl!: HTMLElement
   private myTurn = false
 
   constructor(
@@ -57,7 +56,6 @@ export class BattleUI {
         <section aria-label="적"><h3>적</h3><ul data-side="enemy"></ul></section>
       </div>
       <div class="menu" role="group" aria-label="행동 선택"></div>
-      <section class="log" aria-label="전투 기록"></section>
       <div class="secondary"></div>
     `
     const optBtn = document.createElement('button')
@@ -71,7 +69,6 @@ export class BattleUI {
     this.allyList = section.querySelector('ul[data-side="ally"]')!
     this.enemyList = section.querySelector('ul[data-side="enemy"]')!
     this.menu = section.querySelector('.menu')!
-    this.logEl = section.querySelector('.log')!
 
     // ESC로 대상 선택 취소 — 개별 버튼이 아니라 컨테이너에서 한 번만 처리
     this.menu.addEventListener('keydown', (ev) => {
@@ -91,14 +88,6 @@ export class BattleUI {
   unmount(): void {
     this.root?.remove()
     this.root = null
-  }
-
-  addLog(text: string): void {
-    if (!this.root) return
-    const p = document.createElement('p')
-    p.textContent = text
-    this.logEl.append(p)
-    this.logEl.scrollTop = this.logEl.scrollHeight
   }
 
   private renderStatus(): void {

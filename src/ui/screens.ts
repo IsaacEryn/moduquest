@@ -6,7 +6,6 @@ import type { BattleUI } from './battleUI'
 export class Screens {
   private ui = document.querySelector<HTMLDivElement>('#ui')!
   private dialogueLine: HTMLParagraphElement | null = null
-  private fieldMsg: HTMLParagraphElement | null = null
 
   constructor(
     private game: Game,
@@ -33,7 +32,6 @@ export class Screens {
   private clear(): void {
     this.battleUI.unmount()
     this.dialogueLine = null
-    this.fieldMsg = null
     this.ui.replaceChildren()
   }
 
@@ -106,7 +104,6 @@ export class Screens {
     s.innerHTML = `
       <h2 class="visually-hidden">필드</h2>
       <p class="objective"></p>
-      <p class="field-msg" aria-hidden="true"></p>
       <div id="field-region" role="application" tabindex="0"
         aria-label="게임 필드. 화살표 키로 이동, R 키로 주변 확인, ESC 키로 옵션."></div>
       <div class="secondary"></div>
@@ -119,13 +116,7 @@ export class Screens {
     optBtn.addEventListener('click', () => this.openOptions())
     s.querySelector('.secondary')!.append(optBtn)
     this.ui.append(s)
-    this.fieldMsg = s.querySelector('.field-msg')
     s.querySelector<HTMLElement>('#field-region')!.focus()
-  }
-
-  /** 낭독과 같은 내용을 필드 화면에도 보여준다 — 시각·낭독·자막 세 채널 정렬 */
-  showMessage(text: string): void {
-    if (this.fieldMsg?.isConnected) this.fieldMsg.textContent = text
   }
 
   private renderClear(): void {

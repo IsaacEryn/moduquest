@@ -5,6 +5,7 @@ export interface Options {
   lowStim: boolean
   volume: number
   textLarge: boolean
+  textLog: boolean
 }
 
 const KEY = 'moduquest-options'
@@ -14,6 +15,7 @@ const DEFAULTS: Options = {
   lowStim: false,
   volume: 0.8,
   textLarge: false,
+  textLog: true,
 }
 
 /** 저장값은 신뢰하지 않는다 — 키별로 타입·범위를 확인하고 나머지는 기본값 */
@@ -24,6 +26,7 @@ function sanitize(raw: unknown): Options {
     if (typeof r.captions === 'boolean') o.captions = r.captions
     if (typeof r.lowStim === 'boolean') o.lowStim = r.lowStim
     if (typeof r.textLarge === 'boolean') o.textLarge = r.textLarge
+    if (typeof r.textLog === 'boolean') o.textLog = r.textLog
     if (typeof r.volume === 'number' && r.volume >= 0 && r.volume <= 1) {
       o.volume = r.volume
     }

@@ -25,6 +25,10 @@ export class OptionsPanel {
         <label for="opt-textlarge">큰 글씨</label>
         <input type="checkbox" id="opt-textlarge" />
       </div>
+      <div class="row">
+        <label for="opt-textlog">텍스트 기록 표시</label>
+        <input type="checkbox" id="opt-textlog" />
+      </div>
       <!-- 아직 오디오가 없어 감춰 둔다 — 효과음이 들어올 때 hidden 제거 -->
       <div class="row" hidden>
         <label for="opt-volume">소리 크기</label>
@@ -38,6 +42,7 @@ export class OptionsPanel {
     this.bind('opt-captions', 'captions')
     this.bind('opt-lowstim', 'lowStim')
     this.bind('opt-textlarge', 'textLarge')
+    this.bind('opt-textlog', 'textLog')
 
     const volume = this.dialog.querySelector<HTMLInputElement>('#opt-volume')!
     volume.addEventListener('change', () => {
@@ -53,7 +58,7 @@ export class OptionsPanel {
     this.applyGlobal()
   }
 
-  private bind(id: string, key: 'captions' | 'lowStim' | 'textLarge'): void {
+  private bind(id: string, key: 'captions' | 'lowStim' | 'textLarge' | 'textLog'): void {
     const input = this.dialog.querySelector<HTMLInputElement>(`#${id}`)!
     input.addEventListener('change', () => {
       this.store.set(key, input.checked)
@@ -92,13 +97,14 @@ export class OptionsPanel {
     this.dialog.querySelector<HTMLInputElement>('#opt-captions')!.checked = o.captions
     this.dialog.querySelector<HTMLInputElement>('#opt-lowstim')!.checked = o.lowStim
     this.dialog.querySelector<HTMLInputElement>('#opt-textlarge')!.checked = o.textLarge
+    this.dialog.querySelector<HTMLInputElement>('#opt-textlog')!.checked = o.textLog
     this.dialog.querySelector<HTMLInputElement>('#opt-volume')!.value = String(
       Math.round(o.volume * 100),
     )
     this.dialog.showModal()
   }
 
-  /** 문서 전역에 반영되는 옵션: 글씨 크기·저자극 팔레트, 자막 영역 표시 */
+  /** 문서 전역에 반영되는 옵션: 글씨 크기·저자극 팔레트, 자막·텍스트 기록 표시 */
   private applyGlobal(): void {
     const o = this.store.options
     document.documentElement.classList.toggle('text-large', o.textLarge)
@@ -106,5 +112,6 @@ export class OptionsPanel {
     document.querySelector<HTMLElement>('#captions')!.style.visibility = o.captions
       ? 'visible'
       : 'hidden'
+    document.querySelector<HTMLElement>('#text-log')!.hidden = !o.textLog
   }
 }

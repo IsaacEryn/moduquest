@@ -212,17 +212,6 @@ button:disabled {
   flex-wrap: wrap;
 }
 
-.battle .log {
-  max-height: 8rem;
-  overflow-y: auto;
-  font-size: 0.9rem;
-  color: var(--text-dim);
-}
-
-.battle .log p {
-  margin: 0 0 0.15rem;
-}
-
 /* 옵션 */
 dialog.options {
   background: var(--panel);
@@ -248,6 +237,33 @@ dialog.options .row {
   justify-content: space-between;
   gap: 1rem;
   margin-bottom: 0.75rem;
+}
+
+/* 텍스트 기록 — 옛 통신망 텍스트 게임 느낌의 서사 창 */
+#text-log {
+  width: 100%;
+  max-width: 48rem;
+  max-height: 10rem;
+  overflow-y: auto;
+  background: #0a0e11;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
+#text-log p {
+  margin: 0 0 0.2rem;
+}
+
+#text-log p::before {
+  content: '> ';
+  color: var(--accent);
+}
+
+#text-log p:last-child {
+  color: var(--text);
 }
 
 /* 자막 */

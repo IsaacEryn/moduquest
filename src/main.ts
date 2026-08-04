@@ -12,6 +12,7 @@ import { BattleUI } from './ui/battleUI'
 import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
 import { Screens } from './ui/screens'
+import { TextLog } from './ui/textLog'
 
 const data: GameData = {
   jobs: jobs as GameData['jobs'],
@@ -33,10 +34,10 @@ const options = new OptionsPanel(store, {
 })
 const battleUI = new BattleUI(game, bus, () => options.open())
 const screens = new Screens(game, bus, battleUI, () => options.open())
-new Announcer(bus, store.options, (text) => {
-  battleUI.addLog(text)
-  screens.showMessage(text)
-})
+// 낭독과 같은 문장이 텍스트 기록 창에도 쌓인다 — 글만으로 게임을 따라가는 렌즈
+const textLog = new TextLog()
+textLog.setVisible(store.options.textLog)
+new Announcer(bus, store.options, (text) => textLog.add(text))
 createRenderer(game, bus, store.options)
 
 // 물리 키(e.code) 기준 — 한글 IME 상태에서도 W/A/S/D·R이 동작해야 한다.

@@ -16,6 +16,10 @@
       <!-- 의미 레이어: 메뉴·대화·전투는 전부 여기서 -->
       <div id="ui"></div>
 
+      <!-- 텍스트 렌즈: 게임 전체를 글로 따라가는 기록 창.
+           스크린리더는 live region으로 같은 내용을 들으므로 여기는 시각 전용 -->
+      <section id="text-log" aria-hidden="true"></section>
+
       <!-- 스크린리더 낭독 채널 -->
       <div id="sr-log" class="visually-hidden" aria-live="polite" aria-atomic="true"></div>
       <div id="sr-alert" class="visually-hidden" aria-live="assertive" aria-atomic="true"></div>
