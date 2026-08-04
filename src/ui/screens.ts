@@ -105,11 +105,30 @@ export class Screens {
       <h2 class="visually-hidden">필드</h2>
       <p class="objective"></p>
       <div id="field-region" role="application" tabindex="0"
-        aria-label="게임 필드. 화살표 키로 이동, R 키로 주변 확인, ESC 키로 옵션."></div>
+        aria-label="게임 필드. 화살표 키로 이동, R 키로 주변 확인, ESC 키로 옵션. 아래 방향 버튼으로도 같은 조작을 할 수 있다."></div>
+      <div class="pad" role="group" aria-label="이동 조작"></div>
       <div class="secondary"></div>
     `
     s.querySelector('.objective')!.textContent =
-      `목표: ${this.game.stage.objective} 이동은 화살표 키, 주변 확인은 R 키.`
+      `목표: ${this.game.stage.objective} 화살표 키나 아래 버튼으로 움직인다.`
+
+    // 화면 방향 버튼 — 키보드가 없는 환경(터치·스위치·마우스 전용)을 위한 같은 조작
+    const pad = s.querySelector<HTMLElement>('.pad')!
+    const padButton = (label: string, aria: string, cls: string, onPress: () => void) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = cls
+      b.textContent = label
+      b.setAttribute('aria-label', aria)
+      b.addEventListener('click', onPress)
+      pad.append(b)
+    }
+    padButton('↑', '북쪽으로 이동', 'up', () => this.game.moveField('north'))
+    padButton('←', '서쪽으로 이동', 'left', () => this.game.moveField('west'))
+    padButton('둘러보기', '주변 확인', 'look', () => this.game.fieldSummary())
+    padButton('→', '동쪽으로 이동', 'right', () => this.game.moveField('east'))
+    padButton('↓', '남쪽으로 이동', 'down', () => this.game.moveField('south'))
+
     const optBtn = document.createElement('button')
     optBtn.type = 'button'
     optBtn.textContent = '옵션'

@@ -86,7 +86,7 @@ export class Game {
       this.setMode('field')
       this.bus.emit({
         type: 'fieldSummary',
-        text: '화살표 키로 움직인다. R 키를 누르면 주변을 알려준다.',
+        text: '화살표 키나 화면의 방향 버튼으로 움직인다. 둘러보기를 누르면 주변을 알려준다.',
       })
     })
   }

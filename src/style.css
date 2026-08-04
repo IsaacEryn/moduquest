@@ -57,6 +57,29 @@ body {
   aspect-ratio: 6 / 5; /* 12×10 타일 맵과 같은 비율 */
 }
 
+/* 화면이 좁거나 낮으면 게임 화면을 줄여 조작 버튼이 화면 밖으로 밀리지 않게 한다 */
+@media (max-width: 480px) {
+  #app {
+    padding: 0.5rem;
+    gap: 0.6rem;
+    justify-content: flex-start;
+  }
+
+  .panel {
+    padding: 0.75rem;
+  }
+}
+
+@media (max-height: 760px) {
+  #game {
+    max-width: min(30rem, 46vh);
+  }
+
+  #text-log {
+    max-height: 6rem;
+  }
+}
+
 #game canvas {
   display: block;
   width: 100% !important; /* Phaser가 넣는 인라인 크기보다 우선 — 리플로우(WCAG 1.4.10) 보장 */
@@ -87,6 +110,10 @@ button {
   border-radius: 6px;
   padding: 0.5rem 1rem;
   cursor: pointer;
+  /* 손가락으로 누르기 충분한 크기, 더블탭 확대 지연 없음 */
+  min-height: 2.75rem;
+  min-width: 2.75rem;
+  touch-action: manipulation;
 }
 
 button:hover:not(:disabled) {
@@ -143,6 +170,37 @@ button:disabled {
   margin-top: 0.75rem;
   display: flex;
   justify-content: flex-end;
+}
+
+/* 화면 방향 버튼 — 십자 배치 */
+.pad {
+  margin-top: 0.75rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(2.75rem, 5rem));
+  grid-template-areas:
+    '. up .'
+    'left look right'
+    '. down .';
+  gap: 0.4rem;
+  justify-content: center;
+}
+
+.pad .up {
+  grid-area: up;
+}
+.pad .left {
+  grid-area: left;
+}
+.pad .look {
+  grid-area: look;
+  font-size: 0.8rem;
+  padding: 0.5rem 0.25rem;
+}
+.pad .right {
+  grid-area: right;
+}
+.pad .down {
+  grid-area: down;
 }
 
 /* 대화 */
