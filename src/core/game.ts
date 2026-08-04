@@ -7,46 +7,44 @@ import type {
   Dir,
   EncounterData,
   GameData,
-  Options,
   PlayerAction,
 } from './types'
 
-const OPTIONS_KEY = 'moduquest-options'
-
-const DEFAULT_OPTIONS: Options = {
-  captions: true,
-  lowStim: false,
-  volume: 0.8,
-  textLarge: false,
-}
-
 /** NPC·몹 턴 사이 간격(ms). 낭독이 따라올 시간을 준다. */
 const TURN_DELAY = 900
+
+/**
+ * 턴 진행 타이머의 추상화. 코어는 실행 환경(브라우저·테스트·향후 원격 턴)을
+ * 모르므로 스케줄러를 주입받는다.
+ */
+export interface TurnScheduler {
+  schedule(fn: () => void, delayMs: number): unknown
+  cancel(handle: unknown): void
+}
 
 export class Game {
   mode: GameMode = 'title'
   field: Field
   battle: Battle | null = null
   party: Combatant[]
-  options: Options
 
   private dialogueQueue: DialogueLine[] = []
   private dialogueIndex = 0
   private afterDialogue: (() => void) | null = null
   private currentEncounter: EncounterData | null = null
   private seenDialogues = new Set<string>()
-  private turnTimer: ReturnType<typeof setTimeout> | null = null
+  private turnTimer: unknown = null
 
   constructor(
     private data: GameData,
     private bus: EventBus,
+    private scheduler: TurnScheduler,
   ) {
     this.party = this.buildParty()
     const monsterNames = Object.fromEntries(
       Object.entries(data.monsters).map(([id, m]) => [id, m.name]),
     )
     this.field = new Field(data.stage, monsterNames, bus)
-    this.options = this.loadOptions()
   }
 
   /** 파티는 party.json이 정한다. 배치 순서가 몹의 공격 순서 기준이 된다. */
@@ -205,7 +203,7 @@ export class Game {
       case 'continue':
         // 다음 턴으로 — 낭독이 따라오도록 간격을 두고 진행
         this.clearTurnTimer()
-        this.turnTimer = setTimeout(() => this.stepBattle(), TURN_DELAY)
+        this.turnTimer = this.scheduler.schedule(() => this.stepBattle(), TURN_DELAY)
         return
       default: {
         const never: never = result
@@ -215,8 +213,8 @@ export class Game {
   }
 
   private clearTurnTimer(): void {
-    if (this.turnTimer) {
-      clearTimeout(this.turnTimer)
+    if (this.turnTimer !== null) {
+      this.scheduler.cancel(this.turnTimer)
       this.turnTimer = null
     }
   }
@@ -259,25 +257,4 @@ export class Game {
     this.bus.emit({ type: 'battleEnd' })
   }
 
-  restart(): void {
-    window.location.reload()
-  }
-
-  // --- 옵션 ---
-
-  private loadOptions(): Options {
-    try {
-      const raw = localStorage.getItem(OPTIONS_KEY)
-      if (raw) return { ...DEFAULT_OPTIONS, ...JSON.parse(raw) }
-    } catch {
-      // 저장값이 깨졌으면 기본값으로
-    }
-    return { ...DEFAULT_OPTIONS }
-  }
-
-  setOption<K extends keyof Options>(key: K, value: Options[K]): void {
-    this.options[key] = value
-    localStorage.setItem(OPTIONS_KEY, JSON.stringify(this.options))
-    this.bus.emit({ type: 'optionsChanged' })
-  }
 }

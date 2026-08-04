@@ -2,6 +2,7 @@ import Phaser from 'phaser'
 import type { EventBus } from '../core/events'
 import type { Game } from '../core/game'
 import type { Combatant, Pos } from '../core/types'
+import type { Options } from '../ui/optionsStore'
 
 const TILE = 32
 
@@ -43,8 +44,8 @@ const LOW_STIM: Palette = {
  * 시각 레이어. 게임 상태는 코어가 소유하고, 여기서는 그리기만 한다.
  * 캔버스는 aria-hidden — 의미 전달은 전부 DOM 레이어의 몫.
  */
-export function createRenderer(game: Game, bus: EventBus): void {
-  const palette = () => (game.options.lowStim ? LOW_STIM : NORMAL)
+export function createRenderer(game: Game, bus: EventBus, options: Options): void {
+  const palette = () => (options.lowStim ? LOW_STIM : NORMAL)
   const px = (p: Pos) => ({ x: p.x * TILE + TILE / 2, y: p.y * TILE + TILE / 2 })
 
   class FieldScene extends Phaser.Scene {
@@ -164,7 +165,7 @@ export function createRenderer(game: Game, bus: EventBus): void {
     private hit(target: Combatant, damage: number) {
       const r = this.rects.get(target.id)
       if (!r) return
-      if (!game.options.lowStim) {
+      if (!options.lowStim) {
         this.tweens.add({ targets: r, alpha: 0.3, yoyo: true, duration: 90 })
       }
       this.pop(target, `-${damage}`, '#f0a58a')
@@ -177,7 +178,7 @@ export function createRenderer(game: Game, bus: EventBus): void {
       const t = this.add
         .text(r.x, r.y - 28, text, { fontSize: '14px', color })
         .setOrigin(0.5)
-      if (game.options.lowStim) {
+      if (options.lowStim) {
         this.time.delayedCall(700, () => t.destroy())
       } else {
         this.tweens.add({

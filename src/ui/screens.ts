@@ -123,7 +123,7 @@ export class Screens {
     const again = document.createElement('button')
     again.type = 'button'
     again.textContent = '처음부터 다시'
-    again.addEventListener('click', () => this.game.restart())
+    again.addEventListener('click', () => window.location.reload())
     s.querySelector('.actions')!.append(again)
     this.ui.append(s)
     again.focus()

@@ -108,10 +108,3 @@ export type PlayerAction =
   | { kind: 'attack'; targetId: string }
   | { kind: 'skill'; targetId?: string }
   | { kind: 'defend' }
-
-export interface Options {
-  captions: boolean
-  lowStim: boolean
-  volume: number
-  textLarge: boolean
-}

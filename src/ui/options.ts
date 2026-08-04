@@ -1,11 +1,11 @@
-import type { Game } from '../core/game'
+import type { OptionsStore } from './optionsStore'
 
 /** 접근성·소리 옵션 패널. <dialog>라 포커스 트랩과 ESC 닫기는 브라우저가 처리한다. */
 export class OptionsPanel {
   private dialog: HTMLDialogElement
   private prevFocus: Element | null = null
 
-  constructor(private game: Game) {
+  constructor(private store: OptionsStore) {
     this.dialog = document.createElement('dialog')
     this.dialog.className = 'options'
     this.dialog.innerHTML = `
@@ -37,7 +37,7 @@ export class OptionsPanel {
 
     const volume = this.dialog.querySelector<HTMLInputElement>('#opt-volume')!
     volume.addEventListener('change', () => {
-      this.game.setOption('volume', Number(volume.value) / 100)
+      this.store.set('volume', Number(volume.value) / 100)
     })
 
     this.dialog.querySelector('#opt-close')!.addEventListener('click', () => {
@@ -54,7 +54,7 @@ export class OptionsPanel {
   private bind(id: string, key: 'captions' | 'lowStim' | 'textLarge'): void {
     const input = this.dialog.querySelector<HTMLInputElement>(`#${id}`)!
     input.addEventListener('change', () => {
-      this.game.setOption(key, input.checked)
+      this.store.set(key, input.checked)
       this.applyGlobal()
     })
   }
@@ -65,7 +65,7 @@ export class OptionsPanel {
 
   open(): void {
     this.prevFocus = document.activeElement
-    const o = this.game.options
+    const o = this.store.options
     this.dialog.querySelector<HTMLInputElement>('#opt-captions')!.checked = o.captions
     this.dialog.querySelector<HTMLInputElement>('#opt-lowstim')!.checked = o.lowStim
     this.dialog.querySelector<HTMLInputElement>('#opt-textlarge')!.checked = o.textLarge
@@ -77,7 +77,7 @@ export class OptionsPanel {
 
   /** 문서 전역에 반영되는 옵션: 글씨 크기·저자극 팔레트, 자막 영역 표시 */
   private applyGlobal(): void {
-    const o = this.game.options
+    const o = this.store.options
     document.documentElement.classList.toggle('text-large', o.textLarge)
     document.documentElement.classList.toggle('low-stim', o.lowStim)
     document.querySelector<HTMLElement>('#captions')!.style.visibility = o.captions

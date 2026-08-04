@@ -1,6 +1,7 @@
 import type { EventBus, GameEvent } from '../core/events'
 import { DIR_KO } from '../core/field'
-import type { Combatant, Options } from '../core/types'
+import type { Combatant } from '../core/types'
+import type { Options } from './optionsStore'
 
 /** 받침 유무에 따라 조사를 고른다 (을/를, 이/가, 은/는). "슬라임 1"처럼 숫자로 끝나는 이름도 처리 */
 export function josa(word: string, withFinal: string, withoutFinal: string): string {

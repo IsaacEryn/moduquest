@@ -10,6 +10,7 @@ import { createRenderer } from './render/scenes'
 import { Announcer } from './ui/announcer'
 import { BattleUI } from './ui/battleUI'
 import { OptionsPanel } from './ui/options'
+import { OptionsStore } from './ui/optionsStore'
 import { Screens } from './ui/screens'
 
 const data: GameData = {
@@ -20,12 +21,16 @@ const data: GameData = {
 }
 
 const bus = new EventBus()
-const game = new Game(data, bus)
-const options = new OptionsPanel(game)
+const store = new OptionsStore(bus)
+const game = new Game(data, bus, {
+  schedule: (fn, ms) => window.setTimeout(fn, ms),
+  cancel: (handle) => window.clearTimeout(handle as number),
+})
+const options = new OptionsPanel(store)
 const battleUI = new BattleUI(game, bus)
-new Announcer(bus, game.options, (text) => battleUI.addLog(text))
+new Announcer(bus, store.options, (text) => battleUI.addLog(text))
 const screens = new Screens(game, bus, battleUI, () => options.open())
-createRenderer(game, bus)
+createRenderer(game, bus, store.options)
 
 // 물리 키(e.code) 기준 — 한글 IME 상태에서도 W/A/S/D·R이 동작해야 한다.
 // e.key는 code가 비는 합성 이벤트를 위한 보조 경로.
