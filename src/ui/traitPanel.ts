@@ -59,8 +59,8 @@ export class TraitPanel {
     this.dialog.setAttribute('aria-labelledby', 'traits-title')
     this.dialog.innerHTML = `
       <h2 id="traits-title">특성 고르기</h2>
-      <p class="intro">이득과 대가가 함께 붙은 플레이 스타일이다. 언제든 바꿀 수 있고,
-        어떤 특성을 골라도 낭독·키보드·저자극 모드는 그대로 동작한다.</p>
+      <p class="intro">이득과 대가가 함께 붙은 플레이 스타일이다. 타이틀 화면과 쉼터에서
+        바꿀 수 있고, 어떤 특성을 골라도 낭독·키보드·저자극 모드는 그대로 동작한다.</p>
       <fieldset><legend class="visually-hidden">특성</legend></fieldset>
       <button type="button" id="traits-close">닫기</button>
     `
@@ -116,14 +116,14 @@ export class TraitPanel {
     const current = this.game.currentTraitId
     const input = this.dialog.querySelector<HTMLInputElement>(`#trait-${CSS.escape(current)}`)
     if (input) input.checked = true
-    // 전투 중에는 코어가 변경을 거부하므로 UI에서도 이유를 알린다
-    const inBattle = this.game.mode === 'battle'
+    // 바꿀 수 없는 자리라면 이유를 그대로 보여 준다 — 코어가 거부하는 근거와 같은 문장
+    const { ok, reason } = this.game.canChangeTrait()
     this.dialog.querySelectorAll('input').forEach((el) => {
-      el.disabled = inBattle
+      el.disabled = !ok
     })
-    this.dialog.querySelector<HTMLElement>('.intro')!.textContent = inBattle
-      ? '전투 중에는 특성을 바꿀 수 없다. 전투가 끝난 뒤에 다시 열어 보자.'
-      : '이득과 대가가 함께 붙은 플레이 스타일이다. 언제든 바꿀 수 있고, 어떤 특성을 골라도 낭독·키보드·저자극 모드는 그대로 동작한다.'
+    this.dialog.querySelector<HTMLElement>('.intro')!.textContent = ok
+      ? '이득과 대가가 함께 붙은 플레이 스타일이다. 어떤 특성을 골라도 낭독·키보드·저자극 모드는 그대로 동작한다.'
+      : `${reason} 지금 특성은 ${this.game.trait.name}이다.`
     this.dialog.showModal()
   }
 

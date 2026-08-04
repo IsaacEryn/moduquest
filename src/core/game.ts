@@ -107,8 +107,26 @@ export class Game {
    * 특성 변경. 전투 중에는 거부한다 — 규칙의 단일 진실 원천은 코어다.
    * 최대 체력이 바뀌면 비율을 유지해 특성을 껐다 켜서 회복하는 악용을 막는다.
    */
+  /**
+   * 특성을 바꿀 수 있는 곳인지.
+   * 이득과 대가는 한 묶음이어야 한다 — 아무 데서나 바꿀 수 있으면 필드에서는 넓게 보다가
+   * 전투 직전에만 갈아 끼워 대가 없이 이득만 챙길 수 있다. 그래서 준비하는 자리
+   * (타이틀과 쉼터)에서만 허용한다.
+   */
+  canChangeTrait(): { ok: boolean; reason?: string } {
+    if (this.mode === 'title') return { ok: true }
+    if (this.mode === 'battle') {
+      return { ok: false, reason: '전투 중에는 특성을 바꿀 수 없다.' }
+    }
+    if (this.mode === 'field' && this.field.atCheckpoint) return { ok: true }
+    return {
+      ok: false,
+      reason: '특성은 쉼터에서만 바꿀 수 있다. 이득과 대가는 한 묶음이기 때문이다.',
+    }
+  }
+
   setTrait(id: string): boolean {
-    if (this.mode === 'battle') return false
+    if (!this.canChangeTrait().ok) return false
     const next = resolveTraitId(this.data.traits, id)
     if (next === this.traitId) return false
 

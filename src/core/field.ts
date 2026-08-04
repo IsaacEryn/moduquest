@@ -41,6 +41,11 @@ export class Field {
     this.radius = radius
   }
 
+  get atCheckpoint(): boolean {
+    const cp = this.stage.checkpoint
+    return this.pos.x === cp.x && this.pos.y === cp.y
+  }
+
   /**
    * 아는 곳인지 — 세 렌즈(그림·글·소리)가 전부 이 판정을 통과한 것만 다룬다.
    * 화면에만 안개를 걸면 낭독과 텍스트 기록으로 새어 나간다.

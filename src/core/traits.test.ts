@@ -88,6 +88,32 @@ describe('특성 적용', () => {
     expect(game.player.spd).toBe(before.spd)
   })
 
+  it('이득만 챙기고 대가를 피할 수 없다 — 준비하는 자리에서만 바꾼다', () => {
+    const { game } = makeGame('balanced')
+    game.start() // 인트로 대사 → 필드
+    while (game.mode === 'dialogue') game.advanceDialogue()
+    expect(game.mode).toBe('field')
+
+    // 필드 한복판에서는 거부한다. 넓게 보다가 전투 직전에 갈아 끼우는 길을 막는다
+    expect(game.field.atCheckpoint).toBe(false)
+    expect(game.canChangeTrait().ok).toBe(false)
+    expect(game.setTrait('narrow-focus')).toBe(false)
+    expect(game.currentTraitId).toBe('balanced')
+
+    // 쉼터에서는 허용한다
+    game.field.pos = { ...game.stage.checkpoint }
+    expect(game.canChangeTrait().ok).toBe(true)
+    expect(game.setTrait('narrow-focus')).toBe(true)
+    expect(game.currentTraitId).toBe('narrow-focus')
+  })
+
+  it('타이틀에서는 자유롭게 고를 수 있다', () => {
+    const { game } = makeGame('balanced')
+    expect(game.mode).toBe('title')
+    expect(game.canChangeTrait().ok).toBe(true)
+    expect(game.setTrait('swift-step')).toBe(true)
+  })
+
   it('바꾸면 알림이 나간다', () => {
     const { game, bus } = makeGame('balanced')
     const seen: string[] = []
