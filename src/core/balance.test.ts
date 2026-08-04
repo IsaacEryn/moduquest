@@ -2,10 +2,13 @@ import { describe, expect, it } from 'vitest'
 import { Battle } from './battle'
 import { EventBus } from './events'
 import { applyCombat, applyStats, resolveTrait } from './traits'
-import type { Combatant, GameData, TraitsFile } from './types'
+import type { Combatant, GameData, StageData, TraitsFile } from './types'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
+import stage1 from '../data/stages/stage1.json'
+import stage2 from '../data/stages/stage2.json'
+import stage3 from '../data/stages/stage3.json'
 import traitsFile from '../data/traits.json'
 
 const TRAITS = traitsFile as TraitsFile
@@ -68,32 +71,61 @@ function simulate(traitId: string, enemyIds: string[]) {
   throw new Error(`전투가 끝나지 않음: ${traitId}`)
 }
 
-describe('밸런스 — 모든 특성으로 스테이지를 끝낼 수 있어야 한다', () => {
+const STAGES = [stage1, stage2, stage3] as StageData[]
+
+describe('밸런스 — 모든 특성으로 모든 스테이지를 끝낼 수 있어야 한다', () => {
   const ids = Object.keys(TRAITS.traits)
 
-  it.each(ids)('%s — 보스전 승리', (id) => {
-    const { outcome } = simulate(id, ['boss_golem'])
-    expect(outcome).toBe('victory')
-  })
+  for (const stage of STAGES) {
+    describe(stage.id, () => {
+      it.each(ids)('%s — 모든 조우에서 승리', (traitId) => {
+        for (const e of stage.encounters) {
+          expect(simulate(traitId, e.monsters).outcome, e.id).toBe('victory')
+        }
+      })
 
-  it.each(ids)('%s — 일반 조우 승리', (id) => {
-    expect(simulate(id, ['slime', 'slime']).outcome).toBe('victory')
-    expect(simulate(id, ['goblin', 'slime']).outcome).toBe('victory')
-  })
+      it.each(ids)('%s — 보스전 승리', (traitId) => {
+        expect(simulate(traitId, stage.boss.monsters).outcome).toBe('victory')
+      })
+    })
+  }
 
-  it('특성별 보스전 길이 스냅샷 — 수치를 만지면 여기서 드러난다', () => {
+  it('보스전 길이 스냅샷 — 수치를 만지면 여기서 드러난다', () => {
     const rounds = Object.fromEntries(
-      ids.map((id) => [id, simulate(id, ['boss_golem']).rounds]),
+      STAGES.map((s) => [
+        s.id,
+        Object.fromEntries(ids.map((id) => [id, simulate(id, s.boss.monsters).rounds])),
+      ]),
     )
     expect(rounds).toMatchInlineSnapshot(`
       {
-        "balanced": 7,
-        "firm-stance": 8,
-        "measured-pace": 6,
-        "narrow-focus": 7,
-        "quick-turn": 6,
-        "steady-hand": 6,
-        "swift-step": 8,
+        "stage1": {
+          "balanced": 7,
+          "firm-stance": 8,
+          "measured-pace": 6,
+          "narrow-focus": 7,
+          "quick-turn": 6,
+          "steady-hand": 6,
+          "swift-step": 8,
+        },
+        "stage2": {
+          "balanced": 9,
+          "firm-stance": 10,
+          "measured-pace": 7,
+          "narrow-focus": 8,
+          "quick-turn": 7,
+          "steady-hand": 7,
+          "swift-step": 10,
+        },
+        "stage3": {
+          "balanced": 9,
+          "firm-stance": 11,
+          "measured-pace": 9,
+          "narrow-focus": 9,
+          "quick-turn": 9,
+          "steady-hand": 9,
+          "swift-step": 11,
+        },
       }
     `)
   })

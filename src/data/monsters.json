@@ -23,5 +23,39 @@
     "def": 9,
     "spd": 4,
     "isBoss": true
+  },
+  "cave_bat": {
+    "name": "굴박쥐",
+    "sprite": "bat",
+    "hp": 38,
+    "atk": 12,
+    "def": 3,
+    "spd": 14
+  },
+  "echo_shard": {
+    "name": "울림 조각",
+    "sprite": "shard",
+    "hp": 36,
+    "atk": 9,
+    "def": 10,
+    "spd": 2
+  },
+  "echo_golem": {
+    "name": "울림 골렘",
+    "sprite": "golem_echo",
+    "hp": 185,
+    "atk": 18,
+    "def": 10,
+    "spd": 5,
+    "isBoss": true
+  },
+  "bell_keeper": {
+    "name": "종지기",
+    "sprite": "keeper",
+    "hp": 140,
+    "atk": 17,
+    "def": 8,
+    "spd": 10,
+    "isBoss": true
   }
 }

@@ -21,7 +21,8 @@ export type GameEvent =
   | { type: 'defeat' }
   | { type: 'battleEnd' }
   | { type: 'battleSummary'; text: string }
-  | { type: 'stageClear' }
+  | { type: 'stageStart'; index: number; total: number; title: string; objective: string }
+  | { type: 'stageClear'; index: number; total: number; hasNext: boolean }
   | { type: 'optionsChanged' }
 
 export type GameMode = 'title' | 'dialogue' | 'field' | 'battle' | 'clear'

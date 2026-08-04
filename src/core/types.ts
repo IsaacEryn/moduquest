@@ -66,6 +66,12 @@ export interface StageData {
     height: number
     tiles: number[][]
     start: Pos
+    /**
+     * 스테이지가 강제하는 지각 반경. 특성 반경과 작은 쪽을 쓴다.
+     * note는 왜 좁아졌는지 낭독에 붙일 문구 — 이유 없이 정보가 줄면 누락이고,
+     * 밝히면 게임 규칙이다.
+     */
+    darkness?: { radius: number; note: string }
   }
   encounters: EncounterData[]
   checkpoint: Pos
@@ -110,7 +116,8 @@ export interface GameData {
   jobs: Record<string, JobData>
   monsters: Record<string, MonsterData>
   party: PartyMemberData[]
-  stage: StageData
+  /** 배열 순서가 진행 순서다 — 같은 사실을 두 곳에 두지 않으려고 nextStageId를 두지 않는다 */
+  stages: StageData[]
   traits: TraitsFile
 }
 

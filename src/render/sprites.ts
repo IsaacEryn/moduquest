@@ -12,6 +12,26 @@ export interface SpriteDef {
 
 const SKIN = '#e8c39e'
 
+/** 골렘 형제는 같은 몸을 쓰고 팔레트만 다르다 */
+const GOLEM_PIXELS = [
+  '                ',
+  '   rrrrrrrrrr   ',
+  '  rRRRRRRRRRRr  ',
+  '  rRRrrrrrrRRr  ',
+  '  rReRRRRRReRr  ',
+  '  rRRRRRRRRRRr  ',
+  '  rRRRddddRRRr  ',
+  ' rrrRRRRRRRRrrr ',
+  ' rRrRRRRRRRRrRr ',
+  ' rRrRRRRRRRRrRr ',
+  ' rRrRRRRRRRRrRr ',
+  ' rrrRRRRRRRRrrr ',
+  '    RRRR RRRR   ',
+  '    rrrr rrrr   ',
+  '   RRRRR RRRRR  ',
+  '                ',
+]
+
 export const SPRITES: Record<string, SpriteDef> = {
   // 도적 — 후드와 단검, 날렵한 실루엣.
   // 숲 바닥이 초록이라 후드는 대비되는 남색 계열로 둔다(색만이 아니라 형태로도 구분되게)
@@ -127,22 +147,76 @@ export const SPRITES: Record<string, SpriteDef> = {
   // 돌 골렘 — 각지고 큰 바위 덩어리
   golem: {
     palette: { r: '#8b8f96', R: '#5c6067', e: '#e0b050', d: '#3a3d42' },
+    pixels: GOLEM_PIXELS,
+  },
+  // 울림 골렘 — 같은 몸에 파란 울림돌. 숲의 골렘과 형제라는 걸 형태로 보여준다
+  golem_echo: {
+    palette: { r: '#7a8fa8', R: '#4a5c72', e: '#8fd0e8', d: '#2e3a48' },
+    pixels: GOLEM_PIXELS,
+  },
+  // 굴박쥐 — 펼친 날개. 가로로 넓어 다른 몹과 실루엣이 겹치지 않는다
+  bat: {
+    palette: { b: '#6b5a7a', B: '#463a55', w: '#9a8aa8', e: '#e0b050' },
     pixels: [
       '                ',
-      '   rrrrrrrrrr   ',
-      '  rRRRRRRRRRRr  ',
-      '  rRRrrrrrrRRr  ',
-      '  rReRRRRRReRr  ',
-      '  rRRRRRRRRRRr  ',
-      '  rRRRddddRRRr  ',
-      ' rrrRRRRRRRRrrr ',
-      ' rRrRRRRRRRRrRr ',
-      ' rRrRRRRRRRRrRr ',
-      ' rRrRRRRRRRRrRr ',
-      ' rrrRRRRRRRRrrr ',
-      '    RRRR RRRR   ',
-      '    rrrr rrrr   ',
-      '   RRRRR RRRRR  ',
+      '                ',
+      '  bb        bb  ',
+      ' bBBb      bBBb ',
+      ' bBBBb    bBBBb ',
+      ' bBBBBb  bBBBBb ',
+      ' bBBBBBbwwBBBBBb',
+      ' bBBBBBbwwBBBBBb',
+      '  bBBBwwwwwwBBb ',
+      '   bBBweewwBBb  ',
+      '    bwwwwwwwb   ',
+      '      wwwwww    ',
+      '       wwww     ',
+      '        ww      ',
+      '                ',
+      '                ',
+    ],
+  },
+  // 울림 조각 — 마름모 결정. 생물이 아니라 사물이라는 게 형태로 드러난다
+  shard: {
+    palette: { c: '#8fd0e8', C: '#3f7c98', l: '#e8f6ff' },
+    pixels: [
+      '                ',
+      '       c        ',
+      '      ccc       ',
+      '      cCc       ',
+      '     ccCcc      ',
+      '     cCCCc      ',
+      '    ccCCCcc     ',
+      '    cCClCCc     ',
+      '    cCClCCc     ',
+      '    cCCCCCc     ',
+      '     cCCCc      ',
+      '     cCCCc      ',
+      '      cCc       ',
+      '      ccc       ',
+      '       c        ',
+      '                ',
+    ],
+  },
+  // 종지기 — 놋쇠빛 옷에 종을 들었다. 힐러와 겹치지 않게 어깨를 넓게
+  keeper: {
+    palette: { k: '#b8a06a', K: '#8a7448', e: '#e8f6ff', b: '#e0c060', B: '#d8c070' },
+    pixels: [
+      '                ',
+      '     kkkkkk     ',
+      '    kKKKKKKk    ',
+      '    kKeKKeKk    ',
+      '    kKKKKKKk    ',
+      '     kKKKKk     ',
+      '   kkkkkkkkkk   ',
+      '  kKkkkkkkkKk B ',
+      '  kKkkbbkkkKkBBB',
+      '  kk kkbbkk kBBB',
+      '     kkkkkk  BBB',
+      '     kkkkkk   B ',
+      '    kkkkkkkk    ',
+      '   kkkkkkkkkk   ',
+      '   kkkkkkkkkk   ',
       '                ',
     ],
   },

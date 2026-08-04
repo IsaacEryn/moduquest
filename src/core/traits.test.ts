@@ -16,7 +16,7 @@ function makeGame(traitId?: string) {
     jobs: jobs as GameData['jobs'],
     monsters,
     party,
-    stage: stage as StageData,
+    stages: [stage as StageData],
     traits: TRAITS,
   }
   const bus = new EventBus()

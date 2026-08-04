@@ -15,6 +15,7 @@ import type {
   EncounterData,
   GameData,
   PlayerAction,
+  StageData,
   TraitData,
   TraitsFile,
 } from './types'
@@ -44,6 +45,8 @@ export class Game {
   private seenDialogues = new Set<string>()
   private turnTimer: unknown = null
   private traitId: string
+  private stageIndex = 0
+  private readonly monsterNames: Record<string, string>
 
   constructor(
     private data: GameData,
@@ -53,10 +56,10 @@ export class Game {
   ) {
     this.traitId = resolveTraitId(data.traits, traitId)
     this.party = this.buildParty()
-    const monsterNames = Object.fromEntries(
+    this.monsterNames = Object.fromEntries(
       Object.entries(data.monsters).map(([id, m]) => [id, m.name]),
     )
-    this.field = new Field(data.stage, monsterNames, bus, this.perceptionRadius)
+    this.field = new Field(this.stage, this.monsterNames, bus, this.perceptionRadius)
   }
 
   /**
@@ -99,14 +102,15 @@ export class Game {
     return this.data.traits
   }
 
+  /** 특성과 스테이지 어둠 중 좁은 쪽을 쓴다 */
   get perceptionRadius(): number | null {
-    return perceptionRadius(this.trait, this.data.traits.limits)
+    const byTrait = perceptionRadius(this.trait, this.data.traits.limits)
+    const byStage = this.stage.map.darkness?.radius ?? null
+    if (byTrait === null) return byStage
+    if (byStage === null) return byTrait
+    return Math.min(byTrait, byStage)
   }
 
-  /**
-   * 특성 변경. 전투 중에는 거부한다 — 규칙의 단일 진실 원천은 코어다.
-   * 최대 체력이 바뀌면 비율을 유지해 특성을 껐다 켜서 회복하는 악용을 막는다.
-   */
   /**
    * 특성을 바꿀 수 있는 곳인지.
    * 이득과 대가는 한 묶음이어야 한다 — 아무 데서나 바꿀 수 있으면 필드에서는 넓게 보다가
@@ -163,20 +167,92 @@ export class Game {
     return p
   }
 
-  get stage() {
-    return this.data.stage
+  // --- 스테이지 ---
+
+  get stage(): StageData {
+    return this.data.stages[this.stageIndex]
   }
 
-  // --- 흐름 ---
+  get currentStageIndex(): number {
+    return this.stageIndex
+  }
 
-  start(): void {
-    this.showDialogue(this.data.stage.script['intro'] ?? [], () => {
+  get stageCount(): number {
+    return this.data.stages.length
+  }
+
+  get hasNextStage(): boolean {
+    return this.stageIndex + 1 < this.stageCount
+  }
+
+  stageAt(index: number): StageData | undefined {
+    return this.data.stages[index]
+  }
+
+  /**
+   * 지정한 스테이지를 처음부터 시작한다.
+   * 진행 중이던 것을 남김없이 정리하는 것이 이 메서드의 핵심이다 —
+   * 특히 턴 타이머가 남으면 새 스테이지에서 전투가 저절로 진행된다.
+   */
+  startStage(index: number): void {
+    if (index < 0 || index >= this.stageCount) return
+
+    this.clearTurnTimer()
+    this.battle = null
+    this.currentEncounter = null
+    this.paused = false
+    this.pausedMidTurn = false
+    this.dialogueQueue = []
+    this.dialogueIndex = 0
+    this.afterDialogue = null
+    this.seenDialogues.clear()
+    this.bus.emit({ type: 'battleEnd' })
+
+    this.stageIndex = index
+    this.party = this.buildParty()
+    this.field = new Field(this.stage, this.monsterNames, this.bus, this.perceptionRadius)
+
+    this.bus.emit({
+      type: 'stageStart',
+      index,
+      total: this.stageCount,
+      title: this.stage.title,
+      objective: this.stage.objective,
+    })
+    this.showDialogue(this.stage.script['intro'] ?? [], () => {
       this.setMode('field')
       this.bus.emit({
         type: 'fieldSummary',
         text: '화살표 키나 화면의 방향 버튼으로 움직인다. 둘러보기를 누르면 주변을 알려준다.',
       })
     })
+  }
+
+  nextStage(): void {
+    if (this.hasNextStage) this.startStage(this.stageIndex + 1)
+  }
+
+  restartStage(): void {
+    this.startStage(this.stageIndex)
+  }
+
+  returnToTitle(): void {
+    this.clearTurnTimer()
+    this.battle = null
+    this.currentEncounter = null
+    this.paused = false
+    this.pausedMidTurn = false
+    this.dialogueQueue = []
+    this.dialogueIndex = 0
+    this.afterDialogue = null
+    this.bus.emit({ type: 'battleEnd' })
+    this.setMode('title')
+  }
+
+  // --- 흐름 ---
+
+  start(): void {
+    this.startStage(0)
   }
 
   private setMode(mode: GameMode): void {
@@ -228,7 +304,7 @@ export class Game {
     }
     // 쉼터에 처음 도착하면 보스 전 대사
     if (!wasAtCheckpoint && this.field.checkpointReached) {
-      this.showDialogue(this.data.stage.script['beforeBoss'] ?? [], () =>
+      this.showDialogue(this.stage.script['beforeBoss'] ?? [], () =>
         this.setMode('field'),
       )
     }
@@ -268,7 +344,7 @@ export class Game {
     const dialogueKey = encounter.dialogue
     if (dialogueKey && !this.seenDialogues.has(dialogueKey)) {
       this.seenDialogues.add(dialogueKey)
-      this.showDialogue(this.data.stage.script[dialogueKey] ?? [], begin)
+      this.showDialogue(this.stage.script[dialogueKey] ?? [], begin)
     } else {
       begin()
     }
@@ -348,9 +424,14 @@ export class Game {
     if (this.currentEncounter) this.field.removeEncounter(this.currentEncounter.id)
     this.endBattle()
     if (wasBoss) {
-      this.showDialogue(this.data.stage.script['clear'] ?? [], () => {
+      this.showDialogue(this.stage.script['clear'] ?? [], () => {
         this.setMode('clear')
-        this.bus.emit({ type: 'stageClear' })
+        this.bus.emit({
+          type: 'stageClear',
+          index: this.stageIndex,
+          total: this.stageCount,
+          hasNext: this.hasNextStage,
+        })
       })
     } else {
       this.setMode('field')

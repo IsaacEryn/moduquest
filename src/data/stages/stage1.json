@@ -2,7 +2,7 @@
   "id": "stage1",
   "title": "고요한 숲",
   "objective": "돌 골렘을 물리치자.",
-  "clearMessage": "숲의 길이 다시 열렸다. 함께라서 가능했다.",
+  "clearMessage": "숲의 길이 열렸다. 골렘 안에서 종소리가 났다.",
   "map": {
     "width": 12,
     "height": 10,
@@ -28,7 +28,8 @@
   "boss": { "id": "boss", "pos": { "x": 10, "y": 1 }, "monsters": ["boss_golem"] },
   "script": {
     "intro": [
-      { "speaker": "힐러", "text": "숲이 너무 조용하다." },
+      { "speaker": "힐러", "text": "숲이 조용하다. 새 소리가 하나도 없다." },
+      { "speaker": "전사", "text": "땅이 떨린다. 무거운 것이 걷고 있어." },
       { "speaker": "전사", "text": "돌 골렘이 숲의 길을 막고 있어." },
       { "speaker": "힐러", "text": "함께 가자. 내가 뒤를 지킬게." }
     ],
@@ -41,7 +42,9 @@
     ],
     "clear": [
       { "speaker": "전사", "text": "해냈다! 골렘이 멈췄어." },
-      { "speaker": "힐러", "text": "숲의 길이 다시 열렸다. 모두 잘했어." }
+      { "speaker": "힐러", "text": "골렘 안에서 종소리가 났다." },
+      { "speaker": "전사", "text": "돌 골렘은 스스로 오지 않았다. 누가 보냈어." },
+      { "speaker": "힐러", "text": "소리는 북쪽 굴에서 왔다. 가 보자." }
     ]
   }
 }

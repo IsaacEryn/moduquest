@@ -152,7 +152,11 @@ export class Field {
       parts.push(`${this.describeDistance(cp)}에 쉼터.`)
     }
     if (this.radius !== null) {
-      parts.push(`걸어서 ${this.radius}칸 안만 알 수 있다. 그 밖은 알 수 없다.`)
+      // 왜 좁아졌는지 스테이지가 이유를 주면 함께 말한다
+      const note = this.stage.map.darkness?.note
+      parts.push(
+        `${note ? `${note} ` : ''}걸어서 ${this.radius}칸 안만 알 수 있다. 그 밖은 알 수 없다.`,
+      )
     }
     parts.push(`목표: ${this.stage.objective}`)
     return parts.join(' ')
