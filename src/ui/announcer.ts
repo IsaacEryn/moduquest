@@ -162,7 +162,13 @@ export class Announcer {
         break
       }
       case 'traitChanged':
-        this.polite(`특성을 ${e.name}으로 바꿨다. ${e.description}`)
+        this.polite(`특성을 ${josa(e.name, '으로', '로')} 바꿨다. ${e.description}`)
+        break
+      case 'stageStart':
+        // 지금 어디쯤인지가 문장 안에 늘 있어야 한다
+        this.polite(
+          `스테이지 ${e.index + 1}. 셋 중 ${e.index + 1}번째. ${e.title}. 목표: ${e.objective}`,
+        )
         break
       case 'downed': {
         if (e.target.side === 'enemy') {
@@ -186,7 +192,11 @@ export class Announcer {
         this.assertive('파티가 쓰러졌다. 모두 회복하고 다시 시작한다.')
         break
       case 'stageClear':
-        this.assertive('스테이지 클리어!')
+        this.assertive(
+          e.hasNext
+            ? `스테이지 클리어! 셋 중 ${e.index + 1}을 끝냈다. 다음 스테이지로 갈 수 있다.`
+            : '스테이지 클리어! 모든 스테이지를 끝냈다.',
+        )
         this.caption('[축하 소리]')
         break
     }

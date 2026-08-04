@@ -24,6 +24,20 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # 관례를 사람의 기억이 아니라 파이프라인이 지키게 한다
+      - name: 데이터 문자열을 innerHTML에 끼워 넣지 않았는지
+        run: |
+          if grep -rn "innerHTML" src --include='*.ts' | grep '\${'; then
+            echo "innerHTML에 값을 보간하고 있다. textContent를 쓸 것."
+            exit 1
+          fi
+      # 패턴에 [_]를 쓴 것은 이 검사 줄 자신이 걸리지 않게 하기 위해서다
+      - name: 서버 전용 키가 섞여 들어가지 않았는지
+        run: |
+          if grep -rniE "service[_]role|SUPABASE[_]SERVICE" src .github; then
+            echo "서버 전용 키가 클라이언트나 워크플로에 들어갔다."
+            exit 1
+          fi
       - run: npm test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3

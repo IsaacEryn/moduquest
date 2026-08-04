@@ -18,6 +18,7 @@ import { OptionsStore } from './ui/optionsStore'
 import { LocalSaveRepository } from './save/saveRepository'
 import { Screens } from './ui/screens'
 import { SlotPanel } from './ui/slotPanel'
+import { StageSelect } from './ui/stageSelect'
 import { TextLog } from './ui/textLog'
 import { TraitPanel } from './ui/traitPanel'
 import { TraitStore } from './ui/traitStore'
@@ -72,6 +73,10 @@ const slotPanel = new SlotPanel(game, saves, {
     game.restore(snapshot)
   },
 })
+const stageSelect = new StageSelect(game, {
+  ...pauseHooks,
+  onPick: (index) => game.startStage(index),
+})
 const screens = new Screens(
   game,
   bus,
@@ -79,6 +84,7 @@ const screens = new Screens(
   () => options.open(),
   () => traitPanel.open(),
   (mode) => void slotPanel.open(mode),
+  () => stageSelect.open(),
 )
 
 /**
@@ -133,9 +139,21 @@ function isSummaryKey(e: KeyboardEvent): boolean {
 }
 
 document.addEventListener('keydown', (e) => {
-  if (options.isOpen) return
-
-  if (traitPanel.isOpen) return
+  // 글자를 입력하는 중이면 게임 조작으로 가로채지 않는다.
+  // 없으면 이메일 칸에 'sad'를 치는 순간 캐릭터가 남·서·동으로 움직인다
+  const t = e.target
+  if (
+    t instanceof HTMLElement &&
+    (t.isContentEditable ||
+      t.tagName === 'INPUT' ||
+      t.tagName === 'TEXTAREA' ||
+      t.tagName === 'SELECT')
+  ) {
+    return
+  }
+  // 열린 대화상자가 있으면 게임 키를 처리하지 않는다.
+  // 패널마다 플래그를 늘리는 대신 한 줄로 — 앞으로 대화상자가 늘어도 그대로 동작한다
+  if (document.querySelector('dialog[open]')) return
 
   if (e.key === 'Escape') {
     // 전투의 대상 선택 화면은 자체적으로 ESC를 처리(뒤로)하고 전파를 막는다
