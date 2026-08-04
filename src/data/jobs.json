@@ -1,0 +1,50 @@
+{
+  "warrior": {
+    "name": "전사",
+    "role": "탱커",
+    "hp": 120,
+    "atk": 14,
+    "def": 10,
+    "spd": 6,
+    "skill": {
+      "id": "taunt",
+      "name": "도발",
+      "cooldown": 3,
+      "duration": 2,
+      "description": "2라운드 동안 적의 공격을 나에게 모은다."
+    },
+    "advantages": {}
+  },
+  "rogue": {
+    "name": "도적",
+    "role": "딜러",
+    "hp": 90,
+    "atk": 18,
+    "def": 6,
+    "spd": 12,
+    "skill": {
+      "id": "ambush",
+      "name": "급습",
+      "cooldown": 2,
+      "multiplier": 2,
+      "description": "두 배의 힘으로 공격한다."
+    },
+    "advantages": {}
+  },
+  "healer": {
+    "name": "힐러",
+    "role": "지원",
+    "hp": 80,
+    "atk": 8,
+    "def": 7,
+    "spd": 9,
+    "skill": {
+      "id": "heal",
+      "name": "치유",
+      "cooldown": 2,
+      "healRatio": 0.4,
+      "description": "동료의 상처를 치료한다."
+    },
+    "advantages": {}
+  }
+}

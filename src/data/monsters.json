@@ -1,0 +1,27 @@
+{
+  "slime": {
+    "name": "슬라임",
+    "sprite": "slime",
+    "hp": 40,
+    "atk": 10,
+    "def": 4,
+    "spd": 5
+  },
+  "goblin": {
+    "name": "고블린",
+    "sprite": "goblin",
+    "hp": 55,
+    "atk": 13,
+    "def": 6,
+    "spd": 8
+  },
+  "boss_golem": {
+    "name": "돌 골렘",
+    "sprite": "golem",
+    "hp": 160,
+    "atk": 16,
+    "def": 9,
+    "spd": 4,
+    "isBoss": true
+  }
+}
