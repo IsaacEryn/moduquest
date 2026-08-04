@@ -34,7 +34,15 @@ function rogue(): Combatant {
     atk: 18,
     def: 6,
     spd: 12,
-    skill: { id: 'ambush', name: '급습', cooldown: 2, multiplier: 2, description: '' },
+    skill: {
+      id: 'ambush',
+      name: '급습',
+      kind: 'damage',
+      targeting: 'enemy',
+      cooldown: 2,
+      multiplier: 2,
+      description: '',
+    },
   })
 }
 
@@ -47,7 +55,15 @@ function warrior(): Combatant {
     atk: 14,
     def: 10,
     spd: 6,
-    skill: { id: 'taunt', name: '도발', cooldown: 3, duration: 2, description: '' },
+    skill: {
+      id: 'taunt',
+      name: '도발',
+      kind: 'taunt',
+      targeting: 'self',
+      cooldown: 3,
+      duration: 2,
+      description: '',
+    },
   })
 }
 
@@ -60,7 +76,15 @@ function healer(): Combatant {
     atk: 8,
     def: 7,
     spd: 9,
-    skill: { id: 'heal', name: '치유', cooldown: 2, healRatio: 0.4, description: '' },
+    skill: {
+      id: 'heal',
+      name: '치유',
+      kind: 'heal',
+      targeting: 'ally',
+      cooldown: 2,
+      healRatio: 0.4,
+      description: '',
+    },
   })
 }
 
@@ -130,6 +154,33 @@ describe('플레이어 행동 검증', () => {
     const before = battle.enemies[0].hp
     expect(battle.playerAction({ kind: 'skill', targetId: battle.enemies[0].id })).toBeNull()
     expect(battle.enemies[0].hp).toBe(before)
+  })
+
+  it('치유 스킬을 가진 플레이어도 아군을 대상으로 스킬을 쓸 수 있다', () => {
+    // 직업 선택 확장 대비 — 스킬 동작이 데이터(kind·targeting)로 결정되는지
+    const h = healer()
+    h.isPlayer = true
+    h.spd = 20
+    const w = warrior()
+    w.hp = 50
+    const { battle } = setup([h, w], ['slime'])
+    advanceToPlayer(battle)
+    battle.playerAction({ kind: 'skill', targetId: 'warrior' })
+    expect(w.hp).toBe(50 + Math.floor(120 * 0.4))
+  })
+
+  it('자기 대상 스킬(도발)은 대상 없이 실행된다', () => {
+    const w = warrior()
+    w.isPlayer = true
+    w.spd = 20
+    const r = rogue()
+    r.isPlayer = false
+    r.hp = 30 // 도발 없이는 몹이 첫 아군(전사)을 치므로 무관 — 도발 자체의 발동 확인
+    const { battle, events } = setup([w, r], ['slime'])
+    advanceToPlayer(battle)
+    battle.playerAction({ kind: 'skill' })
+    expect(events.some((e) => e.type === 'taunted')).toBe(true)
+    expect(w.cooldownLeft).toBe(3)
   })
 
   it('급습은 공격력 2배로 계산된다', () => {

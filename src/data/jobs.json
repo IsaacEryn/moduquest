@@ -9,6 +9,8 @@
     "skill": {
       "id": "taunt",
       "name": "도발",
+      "kind": "taunt",
+      "targeting": "self",
       "cooldown": 3,
       "duration": 2,
       "description": "2라운드 동안 적의 공격을 나에게 모은다."
@@ -25,6 +27,8 @@
     "skill": {
       "id": "ambush",
       "name": "급습",
+      "kind": "damage",
+      "targeting": "enemy",
       "cooldown": 2,
       "multiplier": 2,
       "description": "두 배의 힘으로 공격한다."
@@ -41,6 +45,8 @@
     "skill": {
       "id": "heal",
       "name": "치유",
+      "kind": "heal",
+      "targeting": "ally",
       "cooldown": 2,
       "healRatio": 0.4,
       "description": "동료의 상처를 치료한다."

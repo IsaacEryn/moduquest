@@ -98,7 +98,7 @@ export function createRenderer(game: Game, bus: EventBus): void {
       )
 
       for (const e of game.field.alive.values()) {
-        const isBoss = e.id === 'boss'
+        const isBoss = game.isBossEncounter(e)
         const p = px(e.pos)
         this.statics.push(
           this.add
@@ -148,7 +148,7 @@ export function createRenderer(game: Game, bus: EventBus): void {
         this.spawn(c, 96, 80 + i * 64, c.isPlayer ? pal.player : pal.ally)
       })
       battle.enemies.forEach((c, i) => {
-        this.spawn(c, 288, 80 + i * 64, c.sprite === 'golem' ? pal.boss : pal.monster)
+        this.spawn(c, 288, 80 + i * 64, c.isBoss ? pal.boss : pal.monster)
       })
     }
 

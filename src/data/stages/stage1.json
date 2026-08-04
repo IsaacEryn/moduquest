@@ -2,6 +2,7 @@
   "id": "stage1",
   "title": "고요한 숲",
   "objective": "돌 골렘을 물리치자.",
+  "clearMessage": "숲의 길이 다시 열렸다. 함께라서 가능했다.",
   "map": {
     "width": 12,
     "height": 10,
@@ -20,7 +21,7 @@
     "start": { "x": 1, "y": 8 }
   },
   "encounters": [
-    { "id": "e1", "pos": { "x": 4, "y": 6 }, "monsters": ["slime", "slime"] },
+    { "id": "e1", "pos": { "x": 4, "y": 6 }, "monsters": ["slime", "slime"], "dialogue": "firstBattle" },
     { "id": "e2", "pos": { "x": 7, "y": 4 }, "monsters": ["goblin", "slime"] }
   ],
   "checkpoint": { "x": 9, "y": 2 },

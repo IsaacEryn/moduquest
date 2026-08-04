@@ -1,0 +1,5 @@
+[
+  { "job": "rogue", "isPlayer": true },
+  { "job": "warrior", "isPlayer": false },
+  { "job": "healer", "isPlayer": false }
+]

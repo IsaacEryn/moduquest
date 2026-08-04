@@ -37,6 +37,7 @@ export class Battle {
         cooldownLeft: 0,
         defending: false,
         sprite: m.sprite,
+        isBoss: m.isBoss,
       }
     })
     // 같은 몹이 여럿이면 "슬라임 1, 슬라임 2"로 구분 — 대상 선택과 낭독 모두를 위해
@@ -107,16 +108,11 @@ export class Battle {
     const actor = this.currentActor
     if (!actor.isPlayer || actor.hp <= 0) return null
     if (action.kind === 'attack') {
-      const target = this.enemies.find((e) => e.id === action.targetId)
-      if (!target || target.hp <= 0) return null
+      const target = this.findAlive(this.opponentsOf(actor), action.targetId)
+      if (!target) return null
       this.attack(actor, target)
-    } else if (action.kind === 'skill' && actor.skill) {
-      if (actor.cooldownLeft > 0) return null
-      // 도적 급습: 배수 공격
-      const target = this.enemies.find((e) => e.id === action.targetId)
-      if (!target || target.hp <= 0) return null
-      this.attack(actor, target, actor.skill.multiplier ?? 1)
-      actor.cooldownLeft = actor.skill.cooldown
+    } else if (action.kind === 'skill') {
+      if (!this.useSkill(actor, action.targetId)) return null
     } else if (action.kind === 'defend') {
       actor.defending = true
       this.bus.emit({ type: 'defended', actor })
@@ -126,35 +122,70 @@ export class Battle {
     return this.afterAction()
   }
 
-  private npcAct(actor: Combatant): void {
+  /**
+   * 스킬 실행 — 동작은 skill.kind가 결정하므로 새 스킬은 데이터로만 추가한다.
+   * 규칙상 불가(쿨다운, 대상 없음)면 false를 반환하고 아무 일도 일어나지 않는다.
+   */
+  private useSkill(actor: Combatant, targetId?: string): boolean {
     const skill = actor.skill
-    if (skill?.id === 'heal') {
-      const hurt = this.aliveAllies()
-        .filter((a) => a.hp / a.maxHp < 0.5)
-        .sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)
-      if (hurt.length > 0 && actor.cooldownLeft === 0) {
-        const target = hurt[0]
+    if (!skill || actor.cooldownLeft > 0) return false
+
+    switch (skill.kind) {
+      case 'damage': {
+        const target = this.findAlive(this.opponentsOf(actor), targetId)
+        if (!target) return false
+        this.attack(actor, target, skill.multiplier ?? 1)
+        break
+      }
+      case 'heal': {
+        // 대상 미지정이면 체력 비율이 가장 낮은 아군
+        const pool = this.sideOf(actor).filter((c) => c.hp > 0)
+        const target = targetId
+          ? this.findAlive(pool, targetId)
+          : [...pool].sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
+        if (!target) return false
         const amount = Math.min(
           Math.floor(target.maxHp * (skill.healRatio ?? 0)),
           target.maxHp - target.hp,
         )
         target.hp += amount
-        actor.cooldownLeft = skill.cooldown
         this.bus.emit({ type: 'healed', actor, target, amount })
-        return
+        break
       }
-    }
-    if (skill?.id === 'taunt') {
-      const inDanger = this.aliveAllies().some(
-        (a) => a !== actor && a.hp / a.maxHp < 0.4,
-      )
-      if (inDanger && actor.cooldownLeft === 0) {
+      case 'taunt': {
         this.tauntRounds = skill.duration ?? 2
         this.tauntTarget = actor
-        actor.cooldownLeft = skill.cooldown
         this.bus.emit({ type: 'taunted', actor, duration: this.tauntRounds })
-        return
+        break
       }
+    }
+    actor.cooldownLeft = skill.cooldown
+    return true
+  }
+
+  private sideOf(c: Combatant): Combatant[] {
+    return c.side === 'ally' ? this.allies : this.enemies
+  }
+
+  private opponentsOf(c: Combatant): Combatant[] {
+    return c.side === 'ally' ? this.enemies : this.allies
+  }
+
+  private findAlive(pool: Combatant[], id?: string): Combatant | undefined {
+    const c = pool.find((x) => x.id === id)
+    return c && c.hp > 0 ? c : undefined
+  }
+
+  /** 동료 NPC 규칙: 치유·도발은 필요할 때만, 그 외에는 공격 */
+  private npcAct(actor: Combatant): void {
+    const skill = actor.skill
+    if (skill && actor.cooldownLeft === 0) {
+      const allies = this.sideOf(actor).filter((c) => c.hp > 0)
+      const shouldUse =
+        (skill.kind === 'heal' && allies.some((a) => a.hp / a.maxHp < 0.5)) ||
+        (skill.kind === 'taunt' &&
+          allies.some((a) => a !== actor && a.hp / a.maxHp < 0.4))
+      if (shouldUse && this.useSkill(actor)) return
     }
     const target = this.aliveEnemies()[0]
     if (target) this.attack(actor, target)

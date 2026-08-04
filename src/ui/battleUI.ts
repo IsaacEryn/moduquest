@@ -108,8 +108,17 @@ export class BattleUI {
     const skill = player.skill!
     const onCooldown = player.cooldownLeft > 0
     mk(
-      onCooldown ? `${skill.name} (${player.cooldownLeft}턴 남음)` : skill.name,
-      () => this.pickTarget('skill'),
+      onCooldown ? `${skill.name} (${player.cooldownLeft}라운드 남음)` : skill.name,
+      () => {
+        // 자기 대상 스킬(도발 등)은 대상 선택 없이 바로 실행
+        if (skill.targeting === 'self') {
+          this.myTurn = false
+          this.game.playerAction({ kind: 'skill' })
+          this.renderMenu()
+        } else {
+          this.pickTarget('skill')
+        }
+      },
       onCooldown,
     )
     mk('방어', () => {
@@ -121,14 +130,17 @@ export class BattleUI {
     if (this.myTurn) attackBtn.focus()
   }
 
-  /** 대상 선택: 생존한 적 목록으로 메뉴를 교체, ESC로 복귀 */
+  /** 대상 선택: 스킬의 targeting에 맞는 목록으로 메뉴를 교체, ESC로 복귀 */
   private pickTarget(kind: 'attack' | 'skill'): void {
     const battle = this.game.battle
     if (!battle) return
     this.menu.replaceChildren()
 
     const back = () => this.renderMenu()
-    const targets = battle.enemies.filter((e) => e.hp > 0)
+    const targetAllies =
+      kind === 'skill' && this.game.player.skill?.targeting === 'ally'
+    const pool = targetAllies ? this.game.party : battle.enemies
+    const targets = pool.filter((e) => e.hp > 0)
     targets.forEach((t, i) => {
       const b = document.createElement('button')
       b.type = 'button'

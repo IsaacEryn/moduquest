@@ -34,7 +34,7 @@ export class Game {
   private dialogueIndex = 0
   private afterDialogue: (() => void) | null = null
   private currentEncounter: EncounterData | null = null
-  private firstBattleSeen = false
+  private seenDialogues = new Set<string>()
   private turnTimer: ReturnType<typeof setTimeout> | null = null
 
   constructor(
@@ -49,14 +49,14 @@ export class Game {
     this.options = this.loadOptions()
   }
 
-  /** 파티 구성: 플레이어=도적, 동료=전사·힐러. 배치 순서가 몹의 공격 순서 기준이 된다. */
+  /** 파티는 party.json이 정한다. 배치 순서가 몹의 공격 순서 기준이 된다. */
   private buildParty(): Combatant[] {
-    const make = (jobId: string, isPlayer: boolean): Combatant => {
-      const j = this.data.jobs[jobId]
+    return this.data.party.map(({ job, isPlayer }) => {
+      const j = this.data.jobs[job]
       return {
-        id: jobId,
+        id: job,
         name: j.name,
-        side: 'ally',
+        side: 'ally' as const,
         isPlayer,
         hp: j.hp,
         maxHp: j.hp,
@@ -67,12 +67,13 @@ export class Game {
         cooldownLeft: 0,
         defending: false,
       }
-    }
-    return [make('rogue', true), make('warrior', false), make('healer', false)]
+    })
   }
 
   get player(): Combatant {
-    return this.party[0]
+    const p = this.party.find((c) => c.isPlayer)
+    if (!p) throw new Error('파티에 플레이어가 없다 — party.json을 확인할 것')
+    return p
   }
 
   get stage() {
@@ -82,7 +83,7 @@ export class Game {
   // --- 흐름 ---
 
   start(): void {
-    this.showDialogue(this.data.stage.script.intro, () => {
+    this.showDialogue(this.data.stage.script['intro'] ?? [], () => {
       this.setMode('field')
       this.bus.emit({
         type: 'fieldSummary',
@@ -140,8 +141,15 @@ export class Game {
     }
     // 쉼터에 처음 도착하면 보스 전 대사
     if (!wasAtCheckpoint && this.field.checkpointReached) {
-      this.showDialogue(this.data.stage.script.beforeBoss, () => this.setMode('field'))
+      this.showDialogue(this.data.stage.script['beforeBoss'] ?? [], () =>
+        this.setMode('field'),
+      )
     }
+  }
+
+  /** 조우에 보스 몹이 포함되는지 — 렌더러의 표시용 */
+  isBossEncounter(encounter: EncounterData): boolean {
+    return encounter.monsters.some((id) => this.data.monsters[id]?.isBoss)
   }
 
   fieldSummary(): void {
@@ -163,9 +171,10 @@ export class Game {
       this.setMode('battle')
       this.stepBattle()
     }
-    if (!this.firstBattleSeen && encounter.id === 'e1') {
-      this.firstBattleSeen = true
-      this.showDialogue(this.data.stage.script.firstBattle, begin)
+    const dialogueKey = encounter.dialogue
+    if (dialogueKey && !this.seenDialogues.has(dialogueKey)) {
+      this.seenDialogues.add(dialogueKey)
+      this.showDialogue(this.data.stage.script[dialogueKey] ?? [], begin)
     } else {
       begin()
     }
@@ -222,7 +231,7 @@ export class Game {
     if (this.currentEncounter) this.field.removeEncounter(this.currentEncounter.id)
     this.endBattle()
     if (wasBoss) {
-      this.showDialogue(this.data.stage.script.clear, () => {
+      this.showDialogue(this.data.stage.script['clear'] ?? [], () => {
         this.setMode('clear')
         this.bus.emit({ type: 'stageClear' })
       })

@@ -116,9 +116,10 @@ export class Screens {
     s.className = 'panel title-screen'
     s.innerHTML = `
       <h2>스테이지 클리어!</h2>
-      <p>숲의 길이 다시 열렸다. 함께라서 가능했다.</p>
+      <p></p>
       <div class="actions"></div>
     `
+    s.querySelector('p')!.textContent = this.game.stage.clearMessage
     const again = document.createElement('button')
     again.type = 'button'
     again.textContent = '처음부터 다시'

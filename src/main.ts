@@ -1,6 +1,7 @@
 import './style.css'
 import jobs from './data/jobs.json'
 import monsters from './data/monsters.json'
+import party from './data/party.json'
 import stage from './data/stages/stage1.json'
 import { EventBus } from './core/events'
 import { Game } from './core/game'
@@ -12,8 +13,9 @@ import { OptionsPanel } from './ui/options'
 import { Screens } from './ui/screens'
 
 const data: GameData = {
-  jobs,
+  jobs: jobs as GameData['jobs'],
   monsters,
+  party,
   stage: stage as StageData,
 }
 
