@@ -53,13 +53,14 @@ body {
 
 #game {
   width: 100%;
-  max-width: 48rem;
+  max-width: 30rem;
+  aspect-ratio: 6 / 5; /* 12×10 타일 맵과 같은 비율 */
 }
 
 #game canvas {
   display: block;
-  width: 100%;
-  height: auto;
+  width: 100% !important; /* Phaser가 넣는 인라인 크기보다 우선 — 리플로우(WCAG 1.4.10) 보장 */
+  height: auto !important;
   image-rendering: pixelated;
   border: 2px solid var(--panel-border);
   border-radius: 4px;
