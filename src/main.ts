@@ -31,6 +31,7 @@ import { StageSelect } from './ui/stageSelect'
 import { StatusPanel } from './ui/statusPanel'
 import { attachSwipe } from './ui/swipe'
 import { TextLog } from './ui/textLog'
+import { Toasts } from './ui/toasts'
 import { TownPanel } from './ui/townPanel'
 import { TraitPanel } from './ui/traitPanel'
 import { TraitStore } from './ui/traitStore'
@@ -118,6 +119,8 @@ const statusPanel = new StatusPanel(game, pauseHooks)
 const townPanel = new TownPanel(game, pauseHooks)
 // 필드 상단 상시 현황 — 창을 열지 않아도 체력과 지갑이 보인다
 const fieldHud = new FieldHud(game, bus)
+// 획득·레벨업 토스트 — 시각 전용, 낭독은 Announcer가 이미 한다
+new Toasts(bus)
 const screens = new Screens(
   game,
   bus,
@@ -131,6 +134,7 @@ const screens = new Screens(
   () => statusPanel.open(),
   () => townPanel.open(),
   fieldHud,
+  () => store.options.lowStim,
 )
 
 /**

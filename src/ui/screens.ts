@@ -1,5 +1,6 @@
 import type { EventBus, GameMode } from '../core/events'
 import type { Game } from '../core/game'
+import { SPRITES, drawSprite } from '../render/sprites'
 import { josa } from './announcer'
 import type { BattleUI } from './battleUI'
 
@@ -7,6 +8,7 @@ import type { BattleUI } from './battleUI'
 export class Screens {
   private ui = document.querySelector<HTMLDivElement>('#ui')!
   private dialogueLine: HTMLParagraphElement | null = null
+  private dialoguePortrait: HTMLDivElement | null = null
 
   /** 타이틀에 "이어서 하기"를 보일지 — 저장된 기록이 있을 때만 */
   hasSaves = false
@@ -28,8 +30,11 @@ export class Screens {
     private openStatus: () => void,
     private openTown: () => void,
     private hud: { el: HTMLElement; refresh: () => void },
+    private getLowStim: () => boolean,
   ) {
     bus.on((e) => {
+      // 저자극을 켜고 끄면 타이틀 스프라이트의 색이 함께 바뀌어야 한다
+      if (e.type === 'optionsChanged' && this.game.mode === 'title') this.render('title')
       if (e.type === 'areaChanged') this.onAreaChanged?.()
       // 쉼터에 서야 마을에 들를 수 있다 — 걸을 때마다 버튼이 규칙을 그대로 보인다
       if (e.type === 'moved' || e.type === 'checkpoint' || e.type === 'areaChanged') {
@@ -42,6 +47,7 @@ export class Screens {
         speaker.className = 'speaker'
         speaker.textContent = e.line.speaker
         this.dialogueLine.append(speaker, e.line.text)
+        this.updatePortrait(e.line.speaker)
       }
     })
   }
@@ -54,6 +60,7 @@ export class Screens {
     this.battleUI.unmount()
     this.onAreaChanged = null
     this.dialogueLine = null
+    this.dialoguePortrait = null
     this.ui.replaceChildren()
   }
 
@@ -83,10 +90,18 @@ export class Screens {
     const s = document.createElement('section')
     s.className = 'panel title-screen'
     s.innerHTML = `
+      <div class="title-art" aria-hidden="true"></div>
       <h2>모두의 원정대</h2>
       <p>서로 다른 방식으로 감각하는 동료들이 한 파티로 떠나는 모험</p>
       <div class="actions"></div>
     `
+    // 키비주얼 — 게임 안 스프라이트가 곧 얼굴이다. 다섯 직업이 나란히 선다
+    const art = s.querySelector('.title-art')!
+    const lowStim = this.getLowStim()
+    for (const key of ['warrior', 'rogue', 'archer', 'mage', 'healer']) {
+      const def = SPRITES[key]
+      if (def) art.append(drawSprite(def, 4, lowStim))
+    }
     const actions = s.querySelector('.actions')!
     const start = document.createElement('button')
     start.type = 'button'
@@ -123,16 +138,42 @@ export class Screens {
     h.className = 'visually-hidden'
     h.textContent = '대화'
     s.append(h)
+    // 말하는 사람의 얼굴 — 이름은 글이 이미 말하므로 그림은 장식이다
+    const wrap = document.createElement('div')
+    wrap.className = 'line-wrap'
+    const portrait = document.createElement('div')
+    portrait.className = 'portrait'
+    portrait.setAttribute('aria-hidden', 'true')
     const line = document.createElement('p')
     line.className = 'line'
+    wrap.append(portrait, line)
     const next = document.createElement('button')
     next.type = 'button'
     next.textContent = '다음'
     next.addEventListener('click', () => this.game.advanceDialogue())
-    s.append(line, next)
+    s.append(wrap, next)
     this.ui.append(s)
     this.dialogueLine = line
+    this.dialoguePortrait = portrait
     next.focus()
+  }
+
+  /** 화자 이름 → 스프라이트. 파티원은 이름이 곧 직업명이고, 그 밖은 여기 적는다 */
+  private spriteOfSpeaker(speaker: string): string | null {
+    const member = this.game.party.find((c) => c.name === speaker)
+    if (member) return member.sprite ?? member.id
+    return { 종지기: 'keeper' }[speaker] ?? null
+  }
+
+  private updatePortrait(speaker: string): void {
+    const box = this.dialoguePortrait
+    if (!box) return
+    const key = this.spriteOfSpeaker(speaker)
+    if (box.dataset.speaker === key) return
+    box.replaceChildren()
+    box.dataset.speaker = key ?? ''
+    const def = key ? SPRITES[key] : undefined
+    if (def) box.append(drawSprite(def, 4, this.getLowStim()))
   }
 
   private renderField(): void {
@@ -268,6 +309,11 @@ export class Screens {
       const outro = document.createElement('p')
       outro.textContent = '서로 다르게 감각해도, 같은 세계를 함께 끝까지 갈 수 있다.'
       lines.push(outro)
+      // 한 문장씩 떠오른다 — 저자극 모드에서는 킬스위치가 꺼서 전부 즉시 보인다
+      lines.forEach((p, i) => {
+        p.classList.add('reveal')
+        p.style.setProperty('--i', String(i))
+      })
       s.querySelector('.clear-message')!.after(...lines)
     }
 
