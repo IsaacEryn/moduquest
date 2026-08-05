@@ -115,13 +115,20 @@ export class Screens {
   }
 
   private renderField(): void {
+    // 패널 자체가 조작 영역이다 — 빈 상자에 포커스 링이 그려지지 않도록,
+    // 목표 문구와 방향 버튼이 있는 이 섹션이 포커스를 받는다
     const s = document.createElement('section')
     s.className = 'panel'
+    s.id = 'field-region'
+    s.tabIndex = 0
+    s.setAttribute('role', 'application')
+    s.setAttribute(
+      'aria-label',
+      '게임 필드. 화살표 키로 이동, R 키로 주변 확인, ESC 키로 옵션. 아래 방향 버튼으로도 같은 조작을 할 수 있다.',
+    )
     s.innerHTML = `
       <h2 class="visually-hidden">필드</h2>
       <p class="objective"></p>
-      <div id="field-region" role="application" tabindex="0"
-        aria-label="게임 필드. 화살표 키로 이동, R 키로 주변 확인, ESC 키로 옵션. 아래 방향 버튼으로도 같은 조작을 할 수 있다."></div>
       <div class="pad" role="group" aria-label="이동 조작"></div>
       <div class="secondary"></div>
     `
@@ -161,7 +168,7 @@ export class Screens {
     optBtn.addEventListener('click', () => this.openOptions())
     s.querySelector('.secondary')!.append(stageBtn, traitBtn, optBtn)
     this.ui.append(s)
-    s.querySelector<HTMLElement>('#field-region')!.focus()
+    s.focus()
   }
 
   private renderClear(): void {

@@ -58,9 +58,10 @@ export class SlotPanel {
     this.closed = false
     this.hooks.onOpen?.()
     this.prevFocus = document.activeElement
+    this.confirmStage.clear()
     this.dialog.querySelector<HTMLElement>('.intro')!.textContent =
       mode === 'new'
-        ? '새 모험을 시작할 자리를 고르자. 기록이 있는 자리를 고르면 지워도 되는지 먼저 묻는다.'
+        ? '새 모험을 시작할 자리를 고르자. 기록이 있는 자리는 먼저 지워야 쓸 수 있다.'
         : '이어서 할 기록을 고르자.'
     await this.render()
     this.dialog.showModal()
@@ -86,6 +87,9 @@ export class SlotPanel {
     return parts.filter(Boolean).join(' ')
   }
 
+  /** 칸별 지우기 확인 단계 (0=평상시, 1=첫 확인, 2=마지막 확인) */
+  private confirmStage = new Map<number, number>()
+
   private row(s: SlotSummary): HTMLLIElement {
     const li = document.createElement('li')
     li.className = 'slot-row'
@@ -97,35 +101,89 @@ export class SlotPanel {
 
     const actions = document.createElement('div')
     actions.className = 'slot-actions'
-
-    if (this.mode === 'continue') {
-      const go = document.createElement('button')
-      go.type = 'button'
-      go.textContent = '이어서 하기'
-      go.disabled = s.empty
-      go.setAttribute('aria-describedby', desc.id)
-      go.addEventListener('click', () => this.continueSlot(s.slot))
-      actions.append(go)
-    } else {
-      const go = document.createElement('button')
-      go.type = 'button'
-      go.textContent = s.empty ? '여기서 새로 시작' : '여기에 새로 시작'
-      go.setAttribute('aria-describedby', desc.id)
-      go.addEventListener('click', () => this.startSlot(s))
-      actions.append(go)
+    const mk = (label: string, onClick: () => void, disabled = false) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = label
+      b.disabled = disabled
+      b.setAttribute('aria-describedby', desc.id)
+      b.addEventListener('click', onClick)
+      actions.append(b)
+      return b
     }
 
-    if (!s.empty) {
-      const del = document.createElement('button')
-      del.type = 'button'
-      del.textContent = '지우기'
-      del.setAttribute('aria-describedby', desc.id)
-      del.addEventListener('click', () => this.removeSlot(s))
-      actions.append(del)
+    const stage = this.confirmStage.get(s.slot) ?? 0
+    if (stage > 0 && !s.empty) {
+      // 지우기 확인 중 — 이 칸의 버튼이 확인 단계로 바뀐다
+      const question =
+        stage === 1
+          ? '이 기록을 지울까?'
+          : '정말 지울까? 지우면 되돌릴 수 없다.'
+      const q = document.createElement('p')
+      q.className = 'slot-confirm'
+      q.textContent = question
+      li.append(q)
+      mk(stage === 1 ? '지운다' : '정말 지운다', () => this.advanceRemove(s))
+      mk('그만두기', () => {
+        this.confirmStage.delete(s.slot)
+        this.hooks.announce('지우지 않았다. 기록은 그대로다.')
+        void this.rerender(s.slot)
+      })
+      li.append(actions)
+      return li
+    }
+
+    if (s.empty) {
+      if (this.mode === 'new') {
+        mk('여기서 새로 시작', () => {
+          this.close()
+          this.hooks.onStart(s.slot)
+        })
+      } else {
+        mk('이어서 하기', () => {}, true)
+      }
+    } else {
+      if (this.mode === 'continue') {
+        mk('이어서 하기', () => this.continueSlot(s.slot))
+      }
+      // 기록이 있는 칸에서 새로 시작하려면 먼저 지워야 한다 —
+      // 실수 한 번으로 기록이 사라지는 길을 없앤다
+      mk('지우기', () => {
+        this.confirmStage.set(s.slot, 1)
+        this.hooks.announce(`${s.slot + 1}번 자리. 이 기록을 지울까?`)
+        void this.rerender(s.slot)
+      })
     }
 
     li.append(actions)
     return li
+  }
+
+  /** 확인 1단계 → 2단계 → 실제 삭제 */
+  private async advanceRemove(s: SlotSummary): Promise<void> {
+    const stage = this.confirmStage.get(s.slot) ?? 0
+    if (stage === 1) {
+      this.confirmStage.set(s.slot, 2)
+      this.hooks.announce('정말 지울까? 지우면 되돌릴 수 없다.')
+      await this.rerender(s.slot)
+      return
+    }
+    this.confirmStage.delete(s.slot)
+    await this.repo.remove(s.slot)
+    this.hooks.announce(
+      this.mode === 'new'
+        ? `${s.slot + 1}번 자리를 지웠다. 이제 여기서 새로 시작할 수 있다.`
+        : `${s.slot + 1}번 자리를 지웠다. 비어 있다.`,
+    )
+    await this.rerender(s.slot)
+  }
+
+  /** 다시 그리고 해당 칸의 첫 버튼에 포커스를 되돌린다 */
+  private async rerender(focusSlot: number): Promise<void> {
+    await this.render()
+    const rows = this.list.querySelectorAll('.slot-row')
+    const target = rows[focusSlot]?.querySelector<HTMLElement>('button:not([disabled])')
+    ;(target ?? this.dialog.querySelector<HTMLElement>('button:not([disabled])'))?.focus()
   }
 
   private async continueSlot(slot: number): Promise<void> {
@@ -137,28 +195,6 @@ export class SlotPanel {
     }
     this.close()
     this.hooks.onContinue(slot)
-  }
-
-  private async startSlot(s: SlotSummary): Promise<void> {
-    // 덮어쓰기는 한 번의 클릭으로 끝나지 않게 한다
-    if (!s.empty) {
-      const ok = window.confirm(
-        `${s.slot + 1}번 자리의 기록을 지우고 새로 시작할까?\n${this.describe(s)}`,
-      )
-      if (!ok) return
-      await this.repo.remove(s.slot)
-    }
-    this.close()
-    this.hooks.onStart(s.slot)
-  }
-
-  private async removeSlot(s: SlotSummary): Promise<void> {
-    const ok = window.confirm(`${s.slot + 1}번 자리의 기록을 지울까?\n${this.describe(s)}`)
-    if (!ok) return
-    await this.repo.remove(s.slot)
-    this.hooks.announce(`${s.slot + 1}번 자리를 지웠다. 비어 있다.`)
-    await this.render()
-    this.dialog.querySelector<HTMLElement>('button:not([disabled])')?.focus()
   }
 
   close(): void {

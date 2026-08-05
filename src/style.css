@@ -76,6 +76,7 @@ body {
   }
 
   #text-log {
+    min-height: 6rem;
     max-height: 6rem;
   }
 }
@@ -297,10 +298,12 @@ dialog.options .row {
   margin-bottom: 0.75rem;
 }
 
-/* 텍스트 기록 — 옛 통신망 텍스트 게임 느낌의 서사 창 */
+/* 텍스트 기록 — 옛 통신망 텍스트 게임 느낌의 서사 창.
+   높이를 고정해 줄이 쌓여도 화면이 밀리지 않는다 */
 #text-log {
   width: 100%;
   max-width: 48rem;
+  min-height: 10rem;
   max-height: 10rem;
   overflow-y: auto;
   background: #0a0e11;
@@ -322,6 +325,13 @@ dialog.options .row {
 
 #text-log p:last-child {
   color: var(--text);
+}
+
+/* 저장 자리 확인 문구 — 실수를 막는 질문이라 눈에 띄어야 한다 */
+.slot-confirm {
+  margin: 0.25rem 0;
+  color: var(--danger);
+  font-weight: 600;
 }
 
 /* 자막 */

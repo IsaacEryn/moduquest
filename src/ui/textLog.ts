@@ -7,8 +7,20 @@ const MAX_LINES = 150
  */
 export class TextLog {
   private el = document.querySelector<HTMLElement>('#text-log')!
+  private placeholder: HTMLElement | null = null
+
+  constructor() {
+    // 빈 창이 왜 있는지 첫 화면에서 알 수 있게. 낭독 채널에는 넣지 않는다
+    this.placeholder = document.createElement('p')
+    this.placeholder.textContent = '여기에 이야기가 기록된다.'
+    this.el.append(this.placeholder)
+  }
 
   add(text: string): void {
+    if (this.placeholder) {
+      this.placeholder.remove()
+      this.placeholder = null
+    }
     const p = document.createElement('p')
     p.textContent = text
     this.el.append(p)
