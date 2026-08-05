@@ -141,35 +141,42 @@ export class BattleUI {
       return b
     }
 
-    const attackBtn = mk('공격', () => this.pickTarget('attack'))
-    const skill = player.skill!
-    const onCooldown = player.cooldownLeft > 0
-    mk(
-      onCooldown ? `${skill.name} (${player.cooldownLeft}라운드 남음)` : skill.name,
-      () => {
-        // 자기 대상 스킬(도발 등)은 대상 선택 없이 바로 실행
-        if (skill.targeting === 'self') {
-          this.act(() => this.game.playerAction({ kind: 'skill' }))
-        } else {
-          this.pickTarget('skill')
-        }
-      },
-      onCooldown,
-    )
+    const attackBtn = mk('공격', () => this.pickTarget({ kind: 'attack' }))
+
+    // 언락된 스킬을 전부 나열한다 — 순서는 데이터가 정한다
+    player.skills.forEach((skill, i) => {
+      const cd = player.cooldowns[i] ?? 0
+      const onCooldown = cd > 0
+      mk(
+        onCooldown ? `${skill.name} (${cd}라운드 남음)` : skill.name,
+        () => {
+          // 자기 대상·전체 대상 스킬은 고를 것이 없으니 바로 실행
+          if (skill.targeting === 'self' || skill.targeting.endsWith('-all')) {
+            this.act(() => this.game.playerAction({ kind: 'skill', skillIndex: i }))
+          } else {
+            this.pickTarget({ kind: 'skill', skillIndex: i })
+          }
+        },
+        onCooldown,
+      )
+    })
+
     mk('방어', () => this.act(() => this.game.playerAction({ kind: 'defend' })))
 
     if (focus && this.myTurn) attackBtn.focus()
   }
 
   /** 대상 선택: 스킬의 targeting에 맞는 목록으로 메뉴를 교체, ESC로 복귀 */
-  private pickTarget(kind: 'attack' | 'skill'): void {
+  private pickTarget(action: { kind: 'attack' } | { kind: 'skill'; skillIndex: number }): void {
     const battle = this.game.battle
     if (!battle) return
     this.menu.setAttribute('aria-label', '대상 선택')
     this.menu.replaceChildren()
 
+    const player = this.game.player
     const targetAllies =
-      kind === 'skill' && this.game.player.skill?.targeting === 'ally'
+      action.kind === 'skill' &&
+      player.skills[action.skillIndex]?.targeting === 'ally'
     const pool = targetAllies ? this.game.party : battle.enemies
     const targets = pool.filter((e) => e.hp > 0)
 
@@ -178,7 +185,7 @@ export class BattleUI {
       b.type = 'button'
       b.textContent = `${t.name} (체력 ${t.hp})`
       b.addEventListener('click', () => {
-        this.act(() => this.game.playerAction({ kind, targetId: t.id }))
+        this.act(() => this.game.playerAction({ ...action, targetId: t.id }))
       })
       this.menu.append(b)
       if (i === 0) b.focus()

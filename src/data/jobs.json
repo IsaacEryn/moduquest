@@ -2,55 +2,158 @@
   "warrior": {
     "name": "전사",
     "role": "탱커",
+    "playstyle": "앞에 서서 동료를 지키는 든든한 플레이",
     "hp": 120,
     "atk": 14,
     "def": 10,
     "spd": 6,
-    "skill": {
-      "id": "taunt",
-      "name": "도발",
-      "kind": "taunt",
-      "targeting": "self",
-      "cooldown": 3,
-      "duration": 2,
-      "description": "2라운드 동안 적의 공격을 나에게 모은다."
-    },
+    "skills": [
+      {
+        "id": "taunt",
+        "name": "도발",
+        "kind": "taunt",
+        "targeting": "self",
+        "cooldown": 3,
+        "duration": 2,
+        "description": "2라운드 동안 적의 공격을 나에게 모은다."
+      },
+      {
+        "id": "smash",
+        "name": "강타",
+        "kind": "damage",
+        "targeting": "enemy",
+        "cooldown": 3,
+        "multiplier": 1.8,
+        "unlockLevel": 3,
+        "description": "무겁게 한 번 내리친다."
+      }
+    ],
     "advantages": {}
   },
   "rogue": {
     "name": "도적",
     "role": "딜러",
+    "playstyle": "빠르게 치고 빠지는 시원한 플레이",
     "hp": 90,
     "atk": 18,
     "def": 6,
     "spd": 12,
-    "skill": {
-      "id": "ambush",
-      "name": "급습",
-      "kind": "damage",
-      "targeting": "enemy",
-      "cooldown": 2,
-      "multiplier": 2,
-      "description": "두 배의 힘으로 공격한다."
-    },
+    "skills": [
+      {
+        "id": "ambush",
+        "name": "급습",
+        "kind": "damage",
+        "targeting": "enemy",
+        "cooldown": 2,
+        "multiplier": 2,
+        "description": "두 배의 힘으로 공격한다."
+      },
+      {
+        "id": "vital-strike",
+        "name": "급소 찌르기",
+        "kind": "damage",
+        "targeting": "enemy",
+        "cooldown": 3,
+        "multiplier": 1.5,
+        "pierce": 99,
+        "unlockLevel": 3,
+        "description": "상대의 방어를 전부 무시하고 찌른다."
+      }
+    ],
+    "advantages": {}
+  },
+  "archer": {
+    "name": "궁수",
+    "role": "원거리",
+    "playstyle": "거리를 두고 정확히 맞히는 차분한 플레이",
+    "hp": 85,
+    "atk": 15,
+    "def": 5,
+    "spd": 11,
+    "skills": [
+      {
+        "id": "aimed-shot",
+        "name": "조준 사격",
+        "kind": "damage",
+        "targeting": "enemy",
+        "cooldown": 2,
+        "multiplier": 1.5,
+        "pierce": 4,
+        "description": "상대 방어를 4 무시하고 쏜다."
+      },
+      {
+        "id": "volley",
+        "name": "일제 사격",
+        "kind": "damage",
+        "targeting": "enemy-all",
+        "cooldown": 3,
+        "multiplier": 1,
+        "unlockLevel": 3,
+        "description": "적 모두에게 화살을 쏜다."
+      }
+    ],
+    "advantages": {}
+  },
+  "mage": {
+    "name": "마법사",
+    "role": "광역",
+    "playstyle": "판 전체를 한 번에 바꾸는 플레이",
+    "hp": 75,
+    "atk": 16,
+    "def": 4,
+    "spd": 7,
+    "skills": [
+      {
+        "id": "flame-wave",
+        "name": "불꽃 파도",
+        "kind": "damage",
+        "targeting": "enemy-all",
+        "cooldown": 3,
+        "multiplier": 0.9,
+        "description": "적 모두를 불꽃으로 덮는다."
+      },
+      {
+        "id": "arcane-bolt",
+        "name": "마력 화살",
+        "kind": "damage",
+        "targeting": "enemy",
+        "cooldown": 3,
+        "multiplier": 2.2,
+        "unlockLevel": 3,
+        "description": "모은 마력을 한 곳에 쏟는다."
+      }
+    ],
     "advantages": {}
   },
   "healer": {
     "name": "힐러",
     "role": "지원",
+    "playstyle": "메뉴에서 고르는 차분한 지원 플레이",
     "hp": 80,
     "atk": 8,
     "def": 7,
     "spd": 9,
-    "skill": {
-      "id": "heal",
-      "name": "치유",
-      "kind": "heal",
-      "targeting": "ally",
-      "cooldown": 2,
-      "healRatio": 0.4,
-      "description": "동료의 상처를 치료한다."
-    },
+    "skills": [
+      {
+        "id": "heal",
+        "name": "치유",
+        "kind": "heal",
+        "targeting": "ally",
+        "cooldown": 2,
+        "healRatio": 0.4,
+        "description": "동료의 상처를 치료한다."
+      },
+      {
+        "id": "heal-all",
+        "name": "모두 치유",
+        "kind": "heal",
+        "targeting": "ally-all",
+        "cooldown": 3,
+        "healRatio": 0.25,
+        "unlockLevel": 3,
+        "description": "파티 모두를 조금씩 치료한다."
+      }
+    ],
     "advantages": {}
   }
 }

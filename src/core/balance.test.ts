@@ -34,8 +34,8 @@ function buildParty(traitId: string): Combatant[] {
       atk: s.atk,
       def: s.def,
       spd: s.spd,
-      skill: j.skill,
-      cooldownLeft: 0,
+      skills: j.skills.filter((sk) => (sk.unlockLevel ?? 1) <= 1),
+      cooldowns: [],
       defending: false,
     }
     if (isPlayer) applyCombat(c, trait)
@@ -59,9 +59,15 @@ function simulate(traitId: string, enemyIds: string[]) {
       rounds += 1
       const target = battle.enemies.find((e) => e.hp > 0)
       if (!target) break
+      // NPC와 같은 규칙: 준비된 첫 공격 스킬, 없으면 평타
+      const idx = player.skills.findIndex(
+        (sk, i) =>
+          (player.cooldowns[i] ?? 0) === 0 &&
+          (sk.targeting === 'enemy' || sk.targeting === 'enemy-all'),
+      )
       const action =
-        player.skill && player.cooldownLeft === 0 && player.skill.targeting === 'enemy'
-          ? ({ kind: 'skill', targetId: target.id } as const)
+        idx >= 0
+          ? ({ kind: 'skill', skillIndex: idx, targetId: target.id } as const)
           : ({ kind: 'attack', targetId: target.id } as const)
       const r = battle.playerAction(action)
       if (r === 'victory') return { outcome: 'victory' as const, rounds }

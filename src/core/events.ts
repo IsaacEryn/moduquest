@@ -10,7 +10,7 @@ export type GameEvent =
   | { type: 'battleStart'; enemies: Combatant[]; order: Combatant[] }
   | { type: 'turnStart'; actor: Combatant }
   | { type: 'playerTurn' }
-  | { type: 'attacked'; actor: Combatant; target: Combatant; damage: number }
+  | { type: 'attacked'; actor: Combatant; target: Combatant; damage: number; skillName?: string }
   | { type: 'healed'; actor: Combatant; target: Combatant; amount: number }
   | { type: 'taunted'; actor: Combatant; duration: number }
   | { type: 'defended'; actor: Combatant }

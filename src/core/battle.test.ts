@@ -18,7 +18,8 @@ function ally(partial: Partial<Combatant> & { id: string }): Combatant {
     atk: 10,
     def: 5,
     spd: 5,
-    cooldownLeft: 0,
+    skills: [],
+    cooldowns: [],
     defending: false,
     ...partial,
   }
@@ -34,7 +35,7 @@ function rogue(): Combatant {
     atk: 18,
     def: 6,
     spd: 12,
-    skill: {
+    skills: [{
       id: 'ambush',
       name: '급습',
       kind: 'damage',
@@ -42,7 +43,8 @@ function rogue(): Combatant {
       cooldown: 2,
       multiplier: 2,
       description: '',
-    },
+    }],
+    cooldowns: [0],
   })
 }
 
@@ -55,7 +57,7 @@ function warrior(): Combatant {
     atk: 14,
     def: 10,
     spd: 6,
-    skill: {
+    skills: [{
       id: 'taunt',
       name: '도발',
       kind: 'taunt',
@@ -63,7 +65,8 @@ function warrior(): Combatant {
       cooldown: 3,
       duration: 2,
       description: '',
-    },
+    }],
+    cooldowns: [0],
   })
 }
 
@@ -76,7 +79,7 @@ function healer(): Combatant {
     atk: 8,
     def: 7,
     spd: 9,
-    skill: {
+    skills: [{
       id: 'heal',
       name: '치유',
       kind: 'heal',
@@ -84,7 +87,8 @@ function healer(): Combatant {
       cooldown: 2,
       healRatio: 0.4,
       description: '',
-    },
+    }],
+    cooldowns: [0],
   })
 }
 
@@ -148,11 +152,11 @@ describe('플레이어 행동 검증', () => {
     const r = rogue()
     const { battle } = setup([r], ['golem'])
     advanceToPlayer(battle)
-    battle.playerAction({ kind: 'skill', targetId: battle.enemies[0].id })
-    expect(r.cooldownLeft).toBe(2)
+    battle.playerAction({ kind: 'skill', skillIndex: 0, targetId: battle.enemies[0].id })
+    expect(r.cooldowns[0]).toBe(2)
     advanceToPlayer(battle)
     const before = battle.enemies[0].hp
-    expect(battle.playerAction({ kind: 'skill', targetId: battle.enemies[0].id })).toBeNull()
+    expect(battle.playerAction({ kind: 'skill', skillIndex: 0, targetId: battle.enemies[0].id })).toBeNull()
     expect(battle.enemies[0].hp).toBe(before)
   })
 
@@ -165,7 +169,7 @@ describe('플레이어 행동 검증', () => {
     w.hp = 50
     const { battle } = setup([h, w], ['slime'])
     advanceToPlayer(battle)
-    battle.playerAction({ kind: 'skill', targetId: 'warrior' })
+    battle.playerAction({ kind: 'skill', skillIndex: 0, targetId: 'warrior' })
     expect(w.hp).toBe(50 + Math.floor(120 * 0.4))
   })
 
@@ -178,15 +182,15 @@ describe('플레이어 행동 검증', () => {
     r.hp = 30 // 도발 없이는 몹이 첫 아군(전사)을 치므로 무관 — 도발 자체의 발동 확인
     const { battle, events } = setup([w, r], ['slime'])
     advanceToPlayer(battle)
-    battle.playerAction({ kind: 'skill' })
+    battle.playerAction({ kind: 'skill', skillIndex: 0 })
     expect(events.some((e) => e.type === 'taunted')).toBe(true)
-    expect(w.cooldownLeft).toBe(3)
+    expect(w.cooldowns[0]).toBe(3)
   })
 
   it('급습은 공격력 2배로 계산된다', () => {
     const { battle } = setup([rogue()], ['golem'])
     advanceToPlayer(battle)
-    battle.playerAction({ kind: 'skill', targetId: battle.enemies[0].id })
+    battle.playerAction({ kind: 'skill', skillIndex: 0, targetId: battle.enemies[0].id })
     expect(battle.enemies[0].hp).toBe(160 - (18 * 2 - 9))
   })
 

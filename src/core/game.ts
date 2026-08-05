@@ -15,8 +15,10 @@ import type {
   Dir,
   EncounterData,
   GameData,
+  JobData,
   PlayerAction,
   SaveSnapshot,
+  SkillData,
   StageData,
   TraitData,
   TraitsFile,
@@ -87,8 +89,8 @@ export class Game {
         atk: s.atk,
         def: s.def,
         spd: s.spd,
-        skill: j.skill,
-        cooldownLeft: 0,
+        skills: this.unlockedSkills(j),
+        cooldowns: [],
         defending: false,
         sprite: j.sprite ?? job,
       }
@@ -170,6 +172,16 @@ export class Game {
     const p = this.party.find((c) => c.isPlayer)
     if (!p) throw new Error('파티에 플레이어가 없다 — party.json을 확인할 것')
     return p
+  }
+
+  /** 지금 레벨에서 쓸 수 있는 스킬만. 경험치 시스템이 붙기 전까지 레벨은 1이다 */
+  private unlockedSkills(j: JobData): SkillData[] {
+    const level = this.partyLevel
+    return j.skills.filter((s) => (s.unlockLevel ?? 1) <= level)
+  }
+
+  get partyLevel(): number {
+    return 1
   }
 
   // --- 스테이지 ---
@@ -514,7 +526,7 @@ export class Game {
     // 관대한 재시작: 체크포인트에서 전원 완전 회복, 페널티 없음
     for (const a of this.party) {
       a.hp = a.maxHp
-      a.cooldownLeft = 0
+      a.cooldowns = a.skills.map(() => 0)
       a.defending = false
     }
     this.field.respawn()

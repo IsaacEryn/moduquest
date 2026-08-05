@@ -132,8 +132,9 @@ export class Announcer {
       case 'attacked': {
         const target = e.target.isPlayer ? '나' : e.target.name
         const left = e.target.hp > 0 ? ` 남은 체력 ${e.target.hp}.` : ''
-        this.polite(`${who(e.actor)}의 공격. ${target}에게 ${e.damage} 피해.${left}`)
-        this.caption('[타격]')
+        const verb = e.skillName ?? '공격'
+        this.polite(`${who(e.actor)}의 ${verb}. ${target}에게 ${e.damage} 피해.${left}`)
+        this.caption(e.skillName ? `[${e.skillName}]` : '[타격]')
         break
       }
       case 'healed': {
