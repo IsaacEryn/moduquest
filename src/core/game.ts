@@ -184,6 +184,7 @@ export class Game {
         cooldowns: [],
         defending: false,
         sprite: j.sprite ?? job,
+        frontOrder: j.frontOrder,
       }
       if (isPlayer) applyCombat(c, trait)
       return c

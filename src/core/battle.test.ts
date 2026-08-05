@@ -39,6 +39,7 @@ function rogue(): Combatant {
     id: 'rogue',
     name: '도적',
     isPlayer: true,
+    frontOrder: 2,
     hp: 90,
     maxHp: 90,
     atk: 18,
@@ -61,6 +62,7 @@ function warrior(): Combatant {
   return ally({
     id: 'warrior',
     name: '전사',
+    frontOrder: 1,
     hp: 120,
     maxHp: 120,
     atk: 14,
@@ -83,6 +85,7 @@ function healer(): Combatant {
   return ally({
     id: 'healer',
     name: '힐러',
+    frontOrder: 5,
     hp: 80,
     maxHp: 80,
     atk: 8,
@@ -222,16 +225,16 @@ describe('플레이어 행동 검증', () => {
 })
 
 describe('NPC·몹 규칙', () => {
-  it('몹은 도발이 없으면 배치 순서상 첫 아군을 공격한다', () => {
+  it('몹은 도발이 없어도 앞줄에 선 아군을 공격한다', () => {
     const r = rogue()
     const w = warrior()
     const { battle } = setup([r, w], ['slime'])
     advanceToPlayer(battle)
     battle.playerAction({ kind: 'defend' })
     advanceToPlayer(battle)
-    // 슬라임은 도적(첫 아군)을 공격: 방어로 (10-6)/2=2
-    expect(r.hp).toBe(88)
-    expect(w.hp).toBe(120)
+    // 파티에 먼저 적힌 것은 도적이지만 앞에 선 것은 전사다: 10 − 방어 10 → 최소 1
+    expect(w.hp).toBe(119)
+    expect(r.hp).toBe(90)
   })
 
   it('도발이 걸리면 몹의 공격이 전사에게 간다', () => {
@@ -295,6 +298,30 @@ describe('NPC·몹 규칙', () => {
     const heals = s2.events.filter((e) => e.type === 'healed')
     expect(heals).toHaveLength(1)
     expect(heals[0]).toMatchObject({ target: { id: 'rogue' } })
+  })
+
+  it('하급 몹은 앞줄을 친다 — 도발 없이도 전사가 먼저 맞는다', () => {
+    const targets = (allies: Combatant[]) => {
+      const s = setup(allies, ['slime'])
+      advanceToPlayer(s.battle)
+      s.battle.playerAction({ kind: 'defend' })
+      advanceToPlayer(s.battle)
+      return s.events
+        .filter((e) => e.type === 'attacked' && e.actor.side === 'enemy')
+        .map((e) => (e as { target: Combatant }).target.id)
+    }
+
+    // 파티 순서와 무관하게 앞줄(전사)이 맞는다 — 도적이 먼저 적혀 있어도 그렇다
+    expect(targets([rogue(), warrior()])).toEqual(['warrior'])
+    expect(targets([warrior(), rogue()])).toEqual(['warrior'])
+
+    // 앞줄이 쓰러지면 다음 사람이 앞에 선다
+    const down = warrior()
+    down.hp = 0
+    expect(targets([down, rogue(), healer()])).toEqual(['rogue'])
+
+    // 전사가 없으면 남은 사람 중 가장 앞줄인 사람 — 도적(2)이 힐러(5)보다 앞이다
+    expect(targets([healer(), rogue()])).toEqual(['rogue'])
   })
 
   it('중급 몹은 체력 비율이 낮은 아군을, 상급 몹은 방어가 얇은 아군을 노린다', () => {

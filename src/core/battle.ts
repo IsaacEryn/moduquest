@@ -299,6 +299,19 @@ export class Battle {
     if (focus) this.attack(actor, focus)
   }
 
+  /**
+   * 지금 앞줄에 선 사람. 직업마다 정해진 줄이 있어서, 탱커가 파티에 있으면
+   * 도발을 쓰지 않아도 하급 몹의 몫을 먼저 받는다. 앞줄이 쓰러지면 다음 사람이
+   * 앞에 선다. 줄이 같으면 파티 순서 — 어느 쪽이든 결정적이어야 한다.
+   */
+  static frontOf(pool: Combatant[]): Combatant | undefined {
+    let best: Combatant | undefined
+    for (const c of pool) {
+      if (!best || (c.frontOrder ?? Infinity) < (best.frontOrder ?? Infinity)) best = c
+    }
+    return best
+  }
+
   /** 남은 체력이 가장 적은 쪽. 동률이면 앞선 순서 — 결정적이어야 한다 */
   private weakest(pool: Combatant[]): Combatant | undefined {
     let best: Combatant | undefined
@@ -326,7 +339,7 @@ export class Battle {
         target = this.pick(alive, (c) => c.def)
         break
       case 'front':
-        target = alive[0]
+        target = Battle.frontOf(alive)
         break
     }
     if (target) this.attack(actor, target)
@@ -429,6 +442,8 @@ export class Battle {
 
   /** R 키: 전황 요약. 아군·적 같은 규칙으로 — 쓰러진 개체도 누락하지 않는다 */
   summary(): string {
+    // 누가 앞에 서 있는지는 다음 한 대가 어디로 갈지를 뜻한다 — 화면을 보지 않아도 알아야 한다
+    const front = Battle.frontOf(this.aliveAllies())
     const side = (list: Combatant[]) =>
       list
         .map((c) => {
@@ -436,7 +451,8 @@ export class Battle {
           if (c.hp <= 0) return `${name} 쓰러짐`
           const deflect = Battle.willDeflect(c) ? ', 다음 피격 흘림' : ''
           const mana = c.maxMp > 0 ? `, 마력 ${c.mp}/${c.maxMp}` : ''
-          return `${name} 체력 ${c.hp}/${c.maxHp}${mana}${deflect}`
+          const line = c.id === front?.id ? ' (앞줄)' : ''
+          return `${name}${line} 체력 ${c.hp}/${c.maxHp}${mana}${deflect}`
         })
         .join(', ')
     return `아군: ${side(this.allies)}. 적: ${side(this.enemies)}.`

@@ -63,6 +63,7 @@ function buildPartyOf(jobIds: string[], traitId: string, level: number): Combata
       skills: j.skills.filter((sk) => (sk.unlockLevel ?? 1) <= level),
       cooldowns: [],
       defending: false,
+      frontOrder: j.frontOrder,
     }
     if (isPlayer) applyCombat(c, trait)
     return c

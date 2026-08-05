@@ -2,6 +2,7 @@
   "warrior": {
     "name": "전사",
     "role": "탱커",
+    "frontOrder": 1,
     "playstyle": "앞에 서서 동료를 지키는 든든한 플레이",
     "hp": 120,
     "mp": 24,
@@ -37,6 +38,7 @@
   "rogue": {
     "name": "도적",
     "role": "딜러",
+    "frontOrder": 2,
     "playstyle": "빠르게 치고 빠지는 시원한 플레이",
     "hp": 90,
     "mp": 28,
@@ -73,6 +75,7 @@
   "archer": {
     "name": "궁수",
     "role": "원거리",
+    "frontOrder": 3,
     "playstyle": "거리를 두고 정확히 맞히는 차분한 플레이",
     "hp": 85,
     "mp": 30,
@@ -109,6 +112,7 @@
   "mage": {
     "name": "마법사",
     "role": "광역",
+    "frontOrder": 4,
     "playstyle": "판 전체를 한 번에 바꾸는 플레이",
     "hp": 75,
     "mp": 40,
@@ -144,6 +148,7 @@
   "healer": {
     "name": "힐러",
     "role": "지원",
+    "frontOrder": 5,
     "playstyle": "메뉴에서 고르는 차분한 지원 플레이",
     "hp": 80,
     "mp": 36,
