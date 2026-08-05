@@ -21,6 +21,7 @@ import { HelpPanel } from './ui/helpPanel'
 import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
 import { PartyPanel } from './ui/partyPanel'
+import { AUTOSAVE_ON } from './save/autosaveEvents'
 import { LocalSaveRepository } from './save/saveRepository'
 import { Screens } from './ui/screens'
 import { SlotPanel } from './ui/slotPanel'
@@ -123,7 +124,6 @@ const screens = new Screens(
  * 필드에서 상황이 바뀔 때마다 지금 자리에 저장한다 — 저장 버튼을 따로 두지 않는다.
  * 걸어간 위치까지 남겨야 "이어서 하기"가 실제로 이어진다.
  */
-const AUTOSAVE_ON = new Set(['moved', 'checkpoint', 'mode', 'traitChanged', 'itemUsed'])
 bus.on((e) => {
   if (!AUTOSAVE_ON.has(e.type)) return
   if (activeSlot === null || !game.canSave) return
