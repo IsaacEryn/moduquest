@@ -28,15 +28,18 @@
     "description": "종지기가 갖고 있던 파란 돌. 가만히 들으면 작은 종소리가 난다.",
     "kind": "keepsake"
   },
-
   "wood_sword": {
     "name": "나무 검",
     "description": "가볍고 손에 익는다.",
     "kind": "equipment",
     "slot": "weapon",
     "tier": 1,
-    "stats": { "atk": 2 },
-    "recolor": { "primary": "#b08d57" }
+    "stats": {
+      "atk": 2
+    },
+    "recolor": {
+      "primary": "#b08d57"
+    }
   },
   "leather_armor": {
     "name": "가죽 갑옷",
@@ -44,8 +47,14 @@
     "kind": "equipment",
     "slot": "armor",
     "tier": 1,
-    "stats": { "hp": 10, "def": 1 },
-    "recolor": { "primary": "#8a6a48", "secondary": "#6d5238" }
+    "stats": {
+      "hp": 10,
+      "def": 1
+    },
+    "recolor": {
+      "primary": "#8a6a48",
+      "secondary": "#6d5238"
+    }
   },
   "leather_shoes": {
     "name": "가죽 신",
@@ -53,8 +62,12 @@
     "kind": "equipment",
     "slot": "shoes",
     "tier": 1,
-    "stats": { "spd": 1 },
-    "recolor": { "primary": "#8a6a48" }
+    "stats": {
+      "spd": 1
+    },
+    "recolor": {
+      "primary": "#8a6a48"
+    }
   },
   "cloth_gloves": {
     "name": "천 장갑",
@@ -62,18 +75,23 @@
     "kind": "equipment",
     "slot": "gloves",
     "tier": 1,
-    "stats": { "def": 1 }
+    "stats": {
+      "def": 1
+    }
   },
-
   "steel_sword": {
     "name": "강철 검",
     "description": "돌 골렘의 몸에서 갈라져 나온 쇳조각을 벼렸다.",
     "kind": "equipment",
     "slot": "weapon",
     "tier": 2,
-    "minLevel": 3,
-    "stats": { "atk": 4 },
-    "recolor": { "primary": "#c8d4e0" }
+    "minLevel": 4,
+    "stats": {
+      "atk": 4
+    },
+    "recolor": {
+      "primary": "#c8d4e0"
+    }
   },
   "chain_armor": {
     "name": "사슬 갑옷",
@@ -81,9 +99,15 @@
     "kind": "equipment",
     "slot": "armor",
     "tier": 2,
-    "minLevel": 3,
-    "stats": { "hp": 18, "def": 2 },
-    "recolor": { "primary": "#9aa8b6", "secondary": "#7a8896" }
+    "minLevel": 4,
+    "stats": {
+      "hp": 18,
+      "def": 2
+    },
+    "recolor": {
+      "primary": "#9aa8b6",
+      "secondary": "#7a8896"
+    }
   },
   "wind_shoes": {
     "name": "바람 신발",
@@ -91,9 +115,13 @@
     "kind": "equipment",
     "slot": "shoes",
     "tier": 2,
-    "minLevel": 3,
-    "stats": { "spd": 2 },
-    "recolor": { "primary": "#7fb8a8" }
+    "minLevel": 4,
+    "stats": {
+      "spd": 2
+    },
+    "recolor": {
+      "primary": "#7fb8a8"
+    }
   },
   "steel_gloves": {
     "name": "강철 장갑",
@@ -101,20 +129,25 @@
     "kind": "equipment",
     "slot": "gloves",
     "tier": 2,
-    "minLevel": 3,
-    "stats": { "def": 2 }
+    "minLevel": 4,
+    "stats": {
+      "def": 2
+    }
   },
-
   "echo_sword": {
     "name": "울림 검",
     "description": "휘두르면 낮은 종소리가 따라온다.",
     "kind": "equipment",
     "slot": "weapon",
     "tier": 3,
-    "minLevel": 4,
+    "minLevel": 6,
     "set": "echo",
-    "stats": { "atk": 6 },
-    "recolor": { "primary": "#7fa8e0" }
+    "stats": {
+      "atk": 6
+    },
+    "recolor": {
+      "primary": "#7fa8e0"
+    }
   },
   "echo_armor": {
     "name": "울림 갑옷",
@@ -122,10 +155,16 @@
     "kind": "equipment",
     "slot": "armor",
     "tier": 3,
-    "minLevel": 4,
+    "minLevel": 6,
     "set": "echo",
-    "stats": { "hp": 25, "def": 3 },
-    "recolor": { "primary": "#6f95c8", "secondary": "#5578a8" }
+    "stats": {
+      "hp": 25,
+      "def": 3
+    },
+    "recolor": {
+      "primary": "#6f95c8",
+      "secondary": "#5578a8"
+    }
   },
   "echo_shoes": {
     "name": "울림 신발",
@@ -133,10 +172,14 @@
     "kind": "equipment",
     "slot": "shoes",
     "tier": 3,
-    "minLevel": 4,
+    "minLevel": 6,
     "set": "echo",
-    "stats": { "spd": 3 },
-    "recolor": { "primary": "#6f95c8" }
+    "stats": {
+      "spd": 3
+    },
+    "recolor": {
+      "primary": "#6f95c8"
+    }
   },
   "echo_gloves": {
     "name": "울림 장갑",
@@ -144,21 +187,28 @@
     "kind": "equipment",
     "slot": "gloves",
     "tier": 3,
-    "minLevel": 4,
+    "minLevel": 6,
     "set": "echo",
-    "stats": { "def": 3 }
+    "stats": {
+      "def": 3
+    }
   },
-
   "story_banner": {
     "name": "이야기 깃발",
     "description": "함께 걸어온 길이 수놓여 있다. 든 사람보다 곁의 사람을 북돋운다.",
     "kind": "equipment",
     "slot": "weapon",
     "tier": 2,
-    "minLevel": 3,
-    "stats": { "atk": 1 },
-    "allyStats": { "atk": 1 },
-    "recolor": { "primary": "#d4a15a" }
+    "minLevel": 4,
+    "stats": {
+      "atk": 1
+    },
+    "allyStats": {
+      "atk": 1
+    },
+    "recolor": {
+      "primary": "#d4a15a"
+    }
   },
   "guide_lantern": {
     "name": "길잡이 등불",
@@ -166,8 +216,12 @@
     "kind": "equipment",
     "slot": "gloves",
     "tier": 2,
-    "minLevel": 3,
-    "stats": { "def": 1 },
-    "allyStats": { "def": 1 }
+    "minLevel": 4,
+    "stats": {
+      "def": 1
+    },
+    "allyStats": {
+      "def": 1
+    }
   }
 }

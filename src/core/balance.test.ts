@@ -176,7 +176,7 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
         "stage2": {
           "balanced": 7,
           "firm-stance": 8,
-          "measured-pace": 6,
+          "measured-pace": 7,
           "narrow-focus": 7,
           "quick-turn": 6,
           "steady-hand": 7,
@@ -185,10 +185,10 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
         "stage3": {
           "balanced": 6,
           "firm-stance": 6,
-          "measured-pace": 5,
-          "narrow-focus": 5,
-          "quick-turn": 5,
-          "steady-hand": 5,
+          "measured-pace": 6,
+          "narrow-focus": 6,
+          "quick-turn": 6,
+          "steady-hand": 6,
           "swift-step": 6,
         },
       }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { GameData } from './types'
+import progression from '../data/progression.json'
 import items from '../data/items.json'
 import monstersData from '../data/monsters.json'
 import sets from '../data/sets.json'
@@ -10,6 +11,7 @@ import stage3 from '../data/stages/stage3.json'
 const ITEMS = items as GameData['items']
 const SETS = sets as GameData['sets']
 const MONSTERS = monstersData as GameData['monsters']
+const MAX_LEVEL = progression.xpTable.length
 const STAGES = [stage1, stage2, stage3]
 
 /**
@@ -52,8 +54,8 @@ describe('아이템 데이터 무결성', () => {
       expect(slots, `${id}의 슬롯`).toContain(item.slot)
       expect(item.stats, `${id}에 능력치가 없다`).toBeDefined()
       if (item.set) expect(SETS[item.set], `${id}의 세트 ${item.set}`).toBeDefined()
-      // 최대 레벨(5)보다 높은 조건은 영원히 입을 수 없는 장비다
-      expect(item.minLevel ?? 1, `${id}의 레벨 조건`).toBeLessThanOrEqual(5)
+      // 최고 레벨보다 높은 조건은 영원히 입을 수 없는 장비다
+      expect(item.minLevel ?? 1, `${id}의 레벨 조건`).toBeLessThanOrEqual(MAX_LEVEL)
     }
   })
 
