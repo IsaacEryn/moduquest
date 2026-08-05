@@ -1,49 +1,52 @@
 {
   "xpTable": [
     0,
-    30,
+    18,
+    40,
     70,
-    120,
-    180
+    110,
+    160,
+    225,
+    300
   ],
   "stageEntryXp": [
     0,
     52,
-    110
+    183
   ],
   "growth": {
     "warrior": {
-      "hp": 12,
-      "mp": 2,
-      "atk": 2,
+      "hp": 7,
+      "mp": 1,
+      "atk": 1,
       "def": 1,
       "spd": 0
     },
     "rogue": {
-      "hp": 8,
-      "mp": 2,
-      "atk": 3,
+      "hp": 5,
+      "mp": 1,
+      "atk": 2,
       "def": 1,
       "spd": 1
     },
     "archer": {
-      "hp": 8,
-      "mp": 2,
-      "atk": 3,
+      "hp": 5,
+      "mp": 1,
+      "atk": 2,
       "def": 1,
       "spd": 1
     },
     "mage": {
-      "hp": 7,
-      "mp": 4,
-      "atk": 3,
+      "hp": 4,
+      "mp": 2,
+      "atk": 2,
       "def": 1,
       "spd": 0
     },
     "healer": {
-      "hp": 8,
-      "mp": 3,
-      "atk": 2,
+      "hp": 5,
+      "mp": 2,
+      "atk": 1,
       "def": 1,
       "spd": 1
     }

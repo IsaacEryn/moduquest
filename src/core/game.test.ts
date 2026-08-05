@@ -255,19 +255,19 @@ describe('경험치와 레벨', () => {
     const base = game.snapshot()
     expect(game.player.skills.length).toBe(1)
 
-    game.restore({ ...base, xp: 70 }) // xpTable[2]=70 → 3레벨
+    game.restore({ ...base, xp: 40 }) // xpTable[2]=40 → 3레벨
     expect(game.partyLevel).toBe(3)
     expect(game.player.skills.length).toBe(2)
     expect(game.player.skills[1].name).toBe('급소 찌르기')
-    // 성장이 능력치에 반영된다: 도적 공격 18 + 3×2레벨
-    expect(game.player.atk).toBe(18 + 3 * 2)
+    // 성장이 능력치에 반영된다: 도적 공격 18 + 2×2레벨
+    expect(game.player.atk).toBe(18 + 2 * 2)
   })
 
   it('스테이지에 진입하면 그에 걸맞은 경험치가 보장된다', () => {
     const { game } = makeGame()
     game.startStage(2)
-    expect(game.currentXp).toBeGreaterThanOrEqual(110)
-    expect(game.partyLevel).toBeGreaterThanOrEqual(3)
+    expect(game.currentXp).toBeGreaterThanOrEqual(183)
+    expect(game.partyLevel).toBeGreaterThanOrEqual(6)
   })
 })
 
@@ -458,7 +458,7 @@ describe('장비', () => {
     const base = game.snapshot()
     game.restore({
       ...base,
-      xp: 70, // 3레벨 — 강철 검 조건
+      xp: 70, // 4레벨 — 강철 검 조건
       inventory: [
         { item: 'wood_sword', count: 1 },
         { item: 'steel_sword', count: 1 },
@@ -476,7 +476,7 @@ describe('장비', () => {
     game.restore({ ...base, inventory: [{ item: 'steel_sword', count: 1 }] })
     const check = game.canEquip('rogue', 'steel_sword')
     expect(check.ok).toBe(false)
-    expect(check.reason).toContain('3레벨')
+    expect(check.reason).toContain('4레벨')
     expect(game.equip('rogue', 'steel_sword')).toBe(false)
     expect(game.inventoryList.find((i) => i.id === 'steel_sword')?.count).toBe(1)
   })
@@ -486,7 +486,7 @@ describe('장비', () => {
     const base = game.snapshot()
     game.restore({
       ...base,
-      xp: 120, // 4레벨 — 울림 장비 조건
+      xp: 160, // 6레벨 — 울림 장비 조건
       inventory: [
         { item: 'echo_sword', count: 1 },
         { item: 'echo_armor', count: 1 },
@@ -503,7 +503,7 @@ describe('장비', () => {
   it('오라 장비는 착용자가 아니라 동료를 강화한다', () => {
     const { game } = makeGame()
     const base = game.snapshot()
-    game.restore({ ...base, xp: 70, inventory: [{ item: 'story_banner', count: 1 }] })
+    game.restore({ ...base, xp: 70, inventory: [{ item: 'story_banner', count: 1 }] }) // 4레벨
     const warriorBefore = game.party[1].atk
     const rogueBefore = game.player.atk
     game.equip('warrior', 'story_banner')
@@ -526,9 +526,9 @@ describe('장비', () => {
     })
     game.equip('rogue', 'wood_sword')
     expect(game.setTrait('swift-step')).toBe(true) // 속도 +3, 공격 -2
-    // 공격 = 기본 18 + 성장 3×2 + 나무 검 2 − 특성 2
+    // 공격 = 기본 18 + 성장 2×3 + 나무 검 2 − 특성 2
     expect(game.player.atk).toBe(18 + 6 + 2 - 2)
-    expect(game.player.spd).toBe(12 + 2 + 3)
+    expect(game.player.spd).toBe(12 + 3 + 3)
   })
 
   it('형상 변형 문자열은 장비 조합이 같으면 항상 같다', () => {
@@ -536,7 +536,7 @@ describe('장비', () => {
     const base = game.snapshot()
     game.restore({
       ...base,
-      xp: 70,
+      xp: 70, // 4레벨
       inventory: [
         { item: 'wood_sword', count: 1 },
         { item: 'chain_armor', count: 1 },
