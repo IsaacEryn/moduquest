@@ -110,6 +110,13 @@ export class Sfx {
         // 막힌 방향에서 둔탁하게 — 어느 쪽이 벽인지 소리로도 알 수 있다
         this.tone({ from: 90, to: 60, duration: 0.14, type: 'square', gain: 0.16 }, e.dir)
         break
+      case 'equipChanged':
+        // 짧은 금속성 딸깍 — 입고 벗는 손맛
+        this.chord([
+          { from: 520, to: 420, duration: 0.08, type: 'square', gain: 0.1 },
+          { from: 1040, duration: 0.1, gain: 0.07 },
+        ])
+        break
       case 'chestOpened':
         // 삐걱 열리고 반짝 — 낮은 음에서 높은 두 음으로
         this.chord([

@@ -24,7 +24,8 @@
     "xp": 9,
     "drops": [
       null,
-      "potion_small"
+      "cloth_gloves",
+      "wood_sword"
     ]
   },
   "boss_golem": {
@@ -37,8 +38,13 @@
     "spd": 4,
     "xp": 25,
     "isBoss": true,
+    "firstDrops": [
+      "steel_sword"
+    ],
     "drops": [
-      "potion_big"
+      "steel_gloves",
+      "potion_big",
+      "chain_armor"
     ]
   },
   "cave_bat": {
@@ -52,8 +58,8 @@
     "xp": 8,
     "drops": [
       null,
-      null,
-      "potion_small"
+      "potion_small",
+      "leather_shoes"
     ]
   },
   "echo_shard": {
@@ -67,7 +73,8 @@
     "xp": 10,
     "drops": [
       null,
-      "potion_small"
+      "mana_potion",
+      "stamina_potion"
     ]
   },
   "echo_golem": {
@@ -80,8 +87,13 @@
     "spd": 5,
     "xp": 30,
     "isBoss": true,
+    "firstDrops": [
+      "chain_armor"
+    ],
     "drops": [
-      "potion_big"
+      "wind_shoes",
+      "potion_big",
+      "story_banner"
     ]
   },
   "bell_keeper": {
@@ -94,8 +106,15 @@
     "spd": 10,
     "xp": 35,
     "isBoss": true,
+    "firstDrops": [
+      "bell_shard",
+      "echo_sword"
+    ],
     "drops": [
-      "bell_shard"
+      "echo_armor",
+      "mana_potion",
+      "echo_gloves",
+      "guide_lantern"
     ]
   }
 }

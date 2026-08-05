@@ -172,7 +172,7 @@ export class BattleUI {
     })
 
     // 쓸 수 있는 아이템이 있을 때만 — 빈 가방 버튼은 소음이다
-    if (this.game.inventoryList.some((i) => i.usable)) {
+    if (this.game.inventoryList.some((i) => i.usableInBattle)) {
       mk('도구', () => this.pickItem())
     }
 
@@ -186,7 +186,7 @@ export class BattleUI {
     this.menu.setAttribute('aria-label', '도구 선택')
     this.menu.replaceChildren()
 
-    const usable = this.game.inventoryList.filter((i) => i.usable)
+    const usable = this.game.inventoryList.filter((i) => i.usableInBattle)
     usable.forEach((item, i) => {
       const b = document.createElement('button')
       b.type = 'button'

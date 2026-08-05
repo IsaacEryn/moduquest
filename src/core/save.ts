@@ -1,8 +1,11 @@
-import type { GameData, SaveSnapshot } from './types'
+import { levelForXp } from './stats'
 import { resolveTraitId } from './traits'
+import type { EquipSlot, GameData, SaveSnapshot } from './types'
 
-export const SAVE_VERSION = 2
+export const SAVE_VERSION = 3
 export const SLOT_COUNT = 3
+
+const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'shoes', 'gloves']
 
 /**
  * 저장·복원 규칙. 무엇이 진행도인가는 게임 규칙이므로 코어에 두고,
@@ -42,9 +45,21 @@ function migrateV1(r: Record<string, unknown>, data: GameData): Record<string, u
   const oldParty = Array.isArray(r.party) ? (r.party as Record<string, unknown>[]) : []
   return {
     ...r,
-    schemaVersion: SAVE_VERSION,
+    // 다음 단계(v2 마이그레이션)가 이어받도록 반드시 2를 적는다.
+    // 현재 버전을 적으면 "v3라고 주장하는 v2 모양"이 되어 체인이 끊긴다
+    schemaVersion: 2,
     party: oldParty.map((p) => ({ job: p?.id, hp: p?.hp })),
     xp: data.progression.stageEntryXp[stageIndex] ?? 0,
+  }
+}
+
+/** v2에는 장비가 없었다 — 빈 손으로 이어받는다 */
+function migrateV2(r: Record<string, unknown>): Record<string, unknown> {
+  const party = Array.isArray(r.party) ? (r.party as Record<string, unknown>[]) : []
+  return {
+    ...r,
+    schemaVersion: 3,
+    party: party.map((p) => ({ ...p, equipment: {} })),
   }
 }
 
@@ -53,6 +68,7 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
   let r = raw as Record<string, unknown>
 
   if (r.schemaVersion === 1) r = migrateV1(r, data)
+  if (r.schemaVersion === 2) r = migrateV2(r)
   // 모르는 상위 버전은 되살리려 하지 않는다 — 조용히 새 게임을 시작하면 사라진 걸 모른다
   if (r.schemaVersion !== SAVE_VERSION) return null
 
@@ -72,6 +88,12 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
   const defeated = Array.isArray(rawField.defeated)
     ? [...new Set(rawField.defeated.filter((id): id is string => encounterIds.has(id as string)))]
     : []
+
+  // 장비 검증에는 레벨이 필요하다 — xp를 먼저 확정하고 레벨을 유도한다
+  const xp = clampInt(r.xp, 0, 999999, 0)
+  const level = levelForXp(data.progression.xpTable, xp)
+  /** 무효 자리에서 밀려난 장비 — 지우지 않고 가방으로 돌려준다 */
+  const returned: string[] = []
 
   const chestIds = new Set((stage.chests ?? []).map((c) => c.id))
   const openedChests = Array.isArray(rawField.openedChests)
@@ -102,27 +124,57 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     })
     .map((e) => ({ monster: e.monster, count: clampInt(e.count, 1, 99999, 1) }))
 
+  /** 장비 슬롯 검증: 실재 · 장비 종류 · 슬롯 일치 · 레벨 조건. 어긋나면 가방으로 강등 */
+  const sanitizeEquipment = (rawEq: unknown): Partial<Record<EquipSlot, string>> => {
+    const out: Partial<Record<EquipSlot, string>> = {}
+    if (!rawEq || typeof rawEq !== 'object') return out
+    for (const slot of EQUIP_SLOTS) {
+      const id = (rawEq as Record<string, unknown>)[slot]
+      if (typeof id !== 'string') continue
+      const item = data.items[id]
+      if (!item || item.kind !== 'equipment') continue // 실재하지 않으면 되살릴 것도 없다
+      if (item.slot !== slot || (item.minLevel ?? 1) > level) {
+        returned.push(id)
+        continue
+      }
+      out[slot] = id
+    }
+    return out
+  }
+
   // 파티 구성: 실재하는 직업 · 정원수 · 중복 없음이 아니면 기본 구성으로 되돌린다
   const jobIds = new Set(Object.keys(data.jobs))
-  let party = Array.isArray(r.party)
-    ? r.party
-        .filter(
-          (p): p is { job: string; hp: number } =>
-            !!p && typeof p === 'object' && jobIds.has((p as { job?: string }).job ?? ''),
-        )
-        .map((p) => ({ job: p.job, hp: clampInt(p.hp, 0, 9999, 1) }))
-    : []
+  const rawParty = Array.isArray(r.party) ? (r.party as Record<string, unknown>[]) : []
+  let party = rawParty
+    .filter(
+      (p): p is Record<string, unknown> =>
+        !!p && typeof p === 'object' && jobIds.has((p as { job?: string }).job as string),
+    )
+    .map((p) => ({
+      job: p.job as string,
+      hp: clampInt(p.hp, 0, 9999, 1),
+      equipment: sanitizeEquipment(p.equipment),
+    }))
   if (
     party.length !== data.party.length ||
     new Set(party.map((p) => p.job)).size !== party.length
   ) {
-    party = data.party.map((p) => ({ job: p.job, hp: 9999 }))
+    // 구성이 무너져도 장비는 살린다 — 유효한 장비 id를 가방으로 옮기고 빈 손으로 시작
+    for (const p of party) for (const id of Object.values(p.equipment)) if (id) returned.push(id)
+    party = data.party.map((p) => ({ job: p.job, hp: 9999, equipment: {} }))
   }
 
   const scriptKeys = new Set(Object.keys(stage.script))
   const seenDialogues = Array.isArray(r.seenDialogues)
     ? [...new Set(r.seenDialogues.filter((k): k is string => scriptKeys.has(k as string)))]
     : []
+
+  // 무효 자리에서 밀려난 장비를 가방에 합류시킨다 — 파티 검증이 끝난 뒤에야 목록이 완성된다
+  for (const id of returned) {
+    const row = inventory.find((e) => e.item === id)
+    if (row) row.count = Math.min(99, row.count + 1)
+    else inventory.push({ item: id, count: 1 })
+  }
 
   const stageIds = new Set(data.stages.map((s) => s.id))
   const clearedStages = Array.isArray(r.clearedStages)
@@ -137,7 +189,7 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     inventory,
     kills,
     party,
-    xp: clampInt(r.xp, 0, 999999, 0),
+    xp,
     seenDialogues,
     clearedStages,
     updatedAt: clampInt(r.updatedAt, 0, Number.MAX_SAFE_INTEGER, 0),

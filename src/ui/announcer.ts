@@ -165,6 +165,20 @@ export class Announcer {
       case 'traitChanged':
         this.polite(`특성을 ${josa(e.name, '으로', '로')} 바꿨다. ${e.description}`)
         break
+      case 'equipChanged': {
+        const who = e.isPlayer ? '나는' : josa(e.memberName, '은', '는')
+        if (e.itemName && e.removedName) {
+          this.polite(
+            `${who} ${josa(e.removedName, '을', '를')} 벗고 ${josa(e.itemName, '을', '를')} 입었다.`,
+          )
+        } else if (e.itemName) {
+          this.polite(`${who} ${josa(e.itemName, '을', '를')} 입었다.`)
+        } else if (e.removedName) {
+          this.polite(`${who} ${josa(e.removedName, '을', '를')} 벗었다.`)
+        }
+        this.caption('[장비]')
+        break
+      }
       case 'manaSpent': {
         // 내 마력만 말한다 — 동료 것까지 매번 읽으면 전투가 숫자로 뒤덮인다.
         // 동료 마력은 둘러보기(전황 요약)에 들어 있다
@@ -188,9 +202,14 @@ export class Announcer {
       }
       case 'itemUsed': {
         const target = e.target.isPlayer ? '내가' : josa(e.target.name, '이', '가')
-        this.polite(
-          `${josa(e.name, '을', '를')} 썼다. ${target} ${e.amount} 회복. 체력 ${e.target.hp}.`,
-        )
+        const parts: string[] = [`${josa(e.name, '을', '를')} 썼다.`]
+        if (e.healed > 0) parts.push(`${target} ${e.healed} 회복. 체력 ${e.target.hp}.`)
+        if (e.mana > 0) parts.push(`${target} 마력 ${e.mana} 회복. 마력 ${e.target.mp}.`)
+        if (e.cooldownCut > 0) {
+          const who = e.target.isPlayer ? '내' : `${e.target.name}의`
+          parts.push(`${who} 기술 대기가 ${e.cooldownCut} 줄었다.`)
+        }
+        this.polite(parts.join(' '))
         this.caption('[아이템 사용]')
         break
       }

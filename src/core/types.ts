@@ -65,18 +65,59 @@ export interface MonsterData {
   xp?: number
   /**
    * 드랍 순환 목록. N번째 처치는 drops[(N-1) % 길이]를 준다(null = 없음).
-   * 확률처럼 보이지만 셀 수 있는 규칙이다. 보스는 목록의 전부를 준다.
+   * 확률처럼 보이지만 셀 수 있는 규칙이다.
+   * 보스는 다르다: 첫 처치는 firstDrops 전부(고정 보상), 재처치부터 이 순환을 탄다 —
+   * "고급이 더 자주"는 순환에서 고급 칸을 더 많이 배치하는 것으로 번역된다.
    */
   drops?: (string | null)[]
+  /** 보스 전용 — 처음 잡았을 때 반드시 주는 것들 */
+  firstDrops?: string[]
   isBoss?: boolean
+}
+
+export type ItemKind = 'consumable' | 'equipment' | 'keepsake'
+export type EquipSlot = 'weapon' | 'armor' | 'shoes' | 'gloves'
+/** 능력치 묶음 — 장비·세트·오라가 같은 모양을 쓴다 */
+export interface StatBlock {
+  hp?: number
+  mp?: number
+  atk?: number
+  def?: number
+  spd?: number
+}
+
+/** 세트 — 같은 세트를 pieces개 이상 착용하면 보너스가 붙는다 */
+export interface SetData {
+  name: string
+  pieces: number
+  bonus: StatBlock
 }
 
 export interface ItemData {
   name: string
+  /** 맛과 이야기만 담는다 — 수치는 필드에서 조립해 두 곳이 어긋나지 않게 */
   description: string
-  /** 사용 시 회복량. 없으면 쓸 수 없는 기념품 */
+  kind: ItemKind
+  // 소모품 효과 — 조합 가능. 체력은 어디서나, 마력·대기 감소는 전투에서만 의미가 있다
   heal?: number
-  keepsake?: boolean
+  mana?: number
+  /** 대상의 모든 기술 남은 대기를 즉시 이만큼 줄인다 (바닥은 0) */
+  cooldownCut?: number
+  // 장비
+  slot?: EquipSlot
+  /** 1 일반 · 2 정련 · 3 울림 */
+  tier?: 1 | 2 | 3
+  stats?: StatBlock
+  /** 오라 — 착용자를 제외한 파티 전원에게 적용. "함께"의 수치화다 */
+  allyStats?: StatBlock
+  /** 이 레벨부터 착용할 수 있다 */
+  minLevel?: number
+  set?: string
+  /**
+   * 착용 시 형상 변화 — 아이템은 색만 주고, 어느 픽셀이 그 슬롯인지는
+   * 스프라이트 쪽(slotKeys)이 선언한다. 직업마다 팔레트 글자가 달라서다.
+   */
+  recolor?: { primary: string; secondary?: string }
 }
 
 export interface ProgressionData {
@@ -174,10 +215,10 @@ export interface SaveSnapshot {
   /** 몹 종별 처치 수 — 드랍 순환의 카운터 */
   kills: { monster: string; count: number }[]
   /**
-   * 파티 구성과 남은 체력. 0번이 플레이어.
-   * 최대 체력·능력치는 직업·레벨·특성에서 다시 계산한다 — 밸런스 수정이 저장값에 박히지 않게
+   * 파티 구성과 남은 체력, 착용 장비. 0번이 플레이어.
+   * 최대 체력·능력치는 직업·레벨·특성·장비에서 다시 계산한다 — 밸런스 수정이 저장값에 박히지 않게
    */
-  party: { job: string; hp: number }[]
+  party: { job: string; hp: number; equipment: Partial<Record<EquipSlot, string>> }[]
   /** 레벨은 저장하지 않는다 — 경험치에서 유도한다(단일 진실 원천) */
   xp: number
   seenDialogues: string[]
@@ -204,6 +245,7 @@ export interface GameData {
   traits: TraitsFile
   progression: ProgressionData
   items: Record<string, ItemData>
+  sets: Record<string, SetData>
 }
 
 export type Dir = 'north' | 'south' | 'east' | 'west'

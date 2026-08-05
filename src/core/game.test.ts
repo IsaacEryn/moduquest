@@ -3,6 +3,7 @@ import { EventBus, type GameEvent } from './events'
 import { Game, type TurnScheduler } from './game'
 import type { GameData, StageData, TraitsFile } from './types'
 import items from '../data/items.json'
+import sets from '../data/sets.json'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
@@ -47,7 +48,8 @@ function makeGame() {
     monsters: monsters as GameData['monsters'],
     party,
   progression,
-  items,
+  items: items as GameData['items'],
+  sets: sets as GameData['sets'],
     stages: [stage1, stage2, stage3] as StageData[],
     traits: traitsFile as TraitsFile,
   }
@@ -274,8 +276,33 @@ describe('아이템과 보물상자', () => {
     const gained = events.find((e) => e.type === 'itemGained')
     expect(gained).toMatchObject({ names: ['작은 물약'] })
     expect(game.inventoryList).toEqual([
-      expect.objectContaining({ id: 'potion_small', count: 1, usable: true }),
+      expect.objectContaining({ id: 'potion_small', count: 1, usableInField: true }),
     ])
+  })
+
+  it('보스는 첫 처치에 고정 보상을, 재처치엔 순환을 준다', () => {
+    const fightBoss = (game: Game, timer: { flush: () => void }) => {
+      game.field.pos = { x: 10, y: 2 }
+      game.moveField('north')
+      skipDialogue(game)
+      for (const e of game.battle!.enemies) e.hp = 1
+      fightOut(game, timer)
+      skipDialogue(game)
+    }
+
+    // 첫 처치 — firstDrops(강철 검)
+    const { game, events, timer } = makeGame()
+    game.startStage(0)
+    skipDialogue(game)
+    fightBoss(game, timer)
+    expect(events.find((e) => e.type === 'itemGained')).toMatchObject({ names: ['강철 검'] })
+
+    // 재처치 — 순환의 첫 칸(강철 장갑). 고급 장비가 칸을 더 많이 차지하는 순환이다
+    events.length = 0
+    game.restartStage()
+    skipDialogue(game)
+    fightBoss(game, timer)
+    expect(events.find((e) => e.type === 'itemGained')).toMatchObject({ names: ['강철 장갑'] })
   })
 
   it('보물상자는 밟으면 열리고 두 번 열리지 않는다', () => {
@@ -285,7 +312,7 @@ describe('아이템과 보물상자', () => {
     game.field.pos = { x: 3, y: 4 }
     game.moveField('west') // (2,4) 상자
     expect(events.find((e) => e.type === 'chestOpened')).toMatchObject({
-      itemNames: ['작은 물약'],
+      itemNames: ['작은 물약', '가죽 갑옷'],
     })
     expect(game.inventoryList[0]).toMatchObject({ id: 'potion_small', count: 1 })
 
@@ -308,10 +335,71 @@ describe('아이템과 보물상자', () => {
     game.playerAction({ kind: 'item', itemId: 'potion_small', targetId: player.id })
     expect(events.find((e) => e.type === 'itemUsed')).toMatchObject({
       name: '작은 물약',
-      amount: 30,
+      healed: 30,
     })
     expect(player.hp).toBe(player.maxHp - 20)
     expect(game.inventoryList.length).toBe(0) // 다 썼다
+  })
+
+  it('마력·스태미나 물약은 전투에서 각자의 효과를 낸다', () => {
+    const { game, events } = makeGame()
+    const base = game.snapshot()
+    game.restore({
+      ...base,
+      inventory: [
+        { item: 'mana_potion', count: 1 },
+        { item: 'stamina_potion', count: 1 },
+      ],
+    })
+    game.field.pos = { x: 4, y: 7 }
+    game.moveField('north')
+    skipDialogue(game)
+    const player = game.player
+
+    // 마력이 가득이면 마력 물약은 쓰이지 않는다 — 턴도 아이템도 그대로
+    game.playerAction({ kind: 'item', itemId: 'mana_potion', targetId: player.id })
+    expect(events.some((e) => e.type === 'itemUsed')).toBe(false)
+    expect(game.inventoryList.find((i) => i.id === 'mana_potion')?.count).toBe(1)
+    expect(game.battle!.currentActor.isPlayer).toBe(true)
+
+    // 마력을 쓴 뒤에는 돌아온다
+    player.mp -= 10
+    game.playerAction({ kind: 'item', itemId: 'mana_potion', targetId: player.id })
+    expect(events.find((e) => e.type === 'itemUsed')).toMatchObject({
+      name: '마력 물약',
+      mana: 10, // 최대치를 넘지 않는다
+    })
+    expect(player.mp).toBe(player.maxMp)
+  })
+
+  it('스태미나 물약은 기술 대기를 즉시 줄인다 — 바닥은 0', () => {
+    const { game, events, timer } = makeGame()
+    const base = game.snapshot()
+    game.restore({ ...base, inventory: [{ item: 'stamina_potion', count: 2 }] })
+    game.field.pos = { x: 4, y: 7 }
+    game.moveField('north')
+    skipDialogue(game)
+    const player = game.player
+
+    // 줄일 대기가 없으면 쓰이지 않는다
+    game.playerAction({ kind: 'item', itemId: 'stamina_potion', targetId: player.id })
+    expect(events.some((e) => e.type === 'itemUsed')).toBe(false)
+
+    // 스킬을 써서 대기를 만든 뒤 내 차례에 마신다
+    game.playerAction({ kind: 'skill', skillIndex: 0, targetId: game.battle!.enemies[0].id })
+    expect(player.cooldowns[0]).toBe(2)
+    let guard = 0
+    while (game.mode === 'battle' && guard++ < 20 && !game.battle!.currentActor.isPlayer) {
+      timer.flush()
+    }
+    // 라운드가 한 바퀴 돌아 대기 1 — 물약으로 0까지
+    game.playerAction({ kind: 'item', itemId: 'stamina_potion', targetId: player.id })
+    expect(events.find((e) => e.type === 'itemUsed')).toMatchObject({
+      name: '스태미나 물약',
+      cooldownCut: 2,
+    })
+    expect(player.cooldowns.every((c) => c >= 0)).toBe(true)
+    expect(player.cooldowns[0]).toBe(0)
   })
 
   it('필드에서도 물약을 쓴다 — 체력이 가득이면 쓰지 않는다', () => {
@@ -323,6 +411,140 @@ describe('아이템과 보물상자', () => {
     expect(game.useItemInField('potion_small', 'rogue')).toBe(true)
     expect(game.player.hp).toBe(game.player.maxHp)
     expect(game.inventoryList[0].count).toBe(1)
+  })
+})
+
+describe('장비', () => {
+  it('입으면 능력치가 오르고 벗으면 돌아온다 — 가방과 어긋나지 않는다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({ ...base, inventory: [{ item: 'wood_sword', count: 1 }] })
+    const before = game.player.atk
+
+    expect(game.equip('rogue', 'wood_sword')).toBe(true)
+    expect(game.player.atk).toBe(before + 2)
+    expect(game.inventoryList.find((i) => i.id === 'wood_sword')).toBeUndefined()
+
+    expect(game.unequip('rogue', 'weapon')).toBe(true)
+    expect(game.player.atk).toBe(before)
+    expect(game.inventoryList.find((i) => i.id === 'wood_sword')?.count).toBe(1)
+  })
+
+  it('같은 슬롯에 입으면 맞교환된다 — 중간 상태가 없다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({
+      ...base,
+      xp: 70, // 3레벨 — 강철 검 조건
+      inventory: [
+        { item: 'wood_sword', count: 1 },
+        { item: 'steel_sword', count: 1 },
+      ],
+    })
+    game.equip('rogue', 'wood_sword')
+    expect(game.equip('rogue', 'steel_sword')).toBe(true)
+    expect(game.equipmentOf('rogue').weapon).toBe('steel_sword')
+    expect(game.inventoryList.find((i) => i.id === 'wood_sword')?.count).toBe(1)
+  })
+
+  it('레벨이 모자라면 입을 수 없고 이유를 말해 준다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({ ...base, inventory: [{ item: 'steel_sword', count: 1 }] })
+    const check = game.canEquip('rogue', 'steel_sword')
+    expect(check.ok).toBe(false)
+    expect(check.reason).toContain('3레벨')
+    expect(game.equip('rogue', 'steel_sword')).toBe(false)
+    expect(game.inventoryList.find((i) => i.id === 'steel_sword')?.count).toBe(1)
+  })
+
+  it('울림 세트 2개부터 보너스가 붙는다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({
+      ...base,
+      xp: 120, // 4레벨 — 울림 장비 조건
+      inventory: [
+        { item: 'echo_sword', count: 1 },
+        { item: 'echo_armor', count: 1 },
+      ],
+    })
+    game.equip('rogue', 'echo_sword')
+    expect(game.statBreakdownOf('rogue')!.set.atk).toBe(0) // 1개는 세트가 아니다
+    game.equip('rogue', 'echo_armor')
+    const b = game.statBreakdownOf('rogue')!
+    expect(b.set).toMatchObject({ atk: 2, def: 2 })
+    expect(game.player.atk).toBe(b.total.atk)
+  })
+
+  it('오라 장비는 착용자가 아니라 동료를 강화한다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({ ...base, xp: 70, inventory: [{ item: 'story_banner', count: 1 }] })
+    const warriorBefore = game.party[1].atk
+    const rogueBefore = game.player.atk
+    game.equip('warrior', 'story_banner')
+    // 전사 자신은 깃발의 본체 수치(+1)만, 동료들은 오라(+1)를 받는다
+    expect(game.party[1].atk).toBe(warriorBefore + 1)
+    expect(game.statBreakdownOf('warrior')!.aura.atk).toBe(0)
+    expect(game.player.atk).toBe(rogueBefore + 1)
+    expect(game.statBreakdownOf('rogue')!.aura.atk).toBe(1)
+  })
+
+  it('특성을 바꿔도 성장과 장비가 유지된다 (회귀)', () => {
+    // 예전 setTrait은 직업 기본값에서 재계산해 성장·장비를 날렸다
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({
+      ...base,
+      xp: 70, // 3레벨
+      inventory: [{ item: 'wood_sword', count: 1 }],
+      field: { ...base.field, pos: { x: 9, y: 2 }, checkpointReached: true }, // 쉼터
+    })
+    game.equip('rogue', 'wood_sword')
+    expect(game.setTrait('swift-step')).toBe(true) // 속도 +3, 공격 -2
+    // 공격 = 기본 18 + 성장 3×2 + 나무 검 2 − 특성 2
+    expect(game.player.atk).toBe(18 + 6 + 2 - 2)
+    expect(game.player.spd).toBe(12 + 2 + 3)
+  })
+
+  it('형상 변형 문자열은 장비 조합이 같으면 항상 같다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({
+      ...base,
+      xp: 70,
+      inventory: [
+        { item: 'wood_sword', count: 1 },
+        { item: 'chain_armor', count: 1 },
+        { item: 'cloth_gloves', count: 1 },
+      ],
+    })
+    expect(game.equipVariantOf('rogue')).toBeNull() // 아무것도 안 입었다
+
+    // 갑옷 → 무기 순서로 입어도 variant는 슬롯 고정 순서를 따른다
+    game.equip('rogue', 'chain_armor')
+    game.equip('rogue', 'wood_sword')
+    const v = game.equipVariantOf('rogue')!
+    expect(v.variant).toBe('wood_sword+chain_armor')
+    expect(v.recolors.weapon?.primary).toBeDefined()
+
+    // 리컬러 없는 장비만으로는 변형이 없다
+    game.unequip('rogue', 'weapon')
+    game.unequip('rogue', 'armor')
+    game.equip('rogue', 'cloth_gloves')
+    expect(game.equipVariantOf('rogue')).toBeNull()
+  })
+
+  it('파티에서 빠지는 직업의 장비는 가방으로 돌아온다', () => {
+    const { game } = makeGame()
+    // 타이틀에서 장비를 채운 뒤 구성을 바꾼다
+    game.restore({ ...game.snapshot(), inventory: [{ item: 'wood_sword', count: 1 }] })
+    game.equip('warrior', 'wood_sword')
+    game.returnToTitle()
+    expect(game.setParty(['rogue', 'mage', 'healer'])).toBe(true) // 전사가 빠진다
+    expect(game.inventoryList.find((i) => i.id === 'wood_sword')?.count).toBe(1)
+    expect(game.equipmentOf('warrior')).toEqual({})
   })
 })
 

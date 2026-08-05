@@ -1,4 +1,4 @@
-import type { Combatant, DialogueLine, Dir, Pos } from './types'
+import type { Combatant, DialogueLine, Dir, EquipSlot, Pos } from './types'
 
 export type GameEvent =
   | { type: 'mode'; mode: GameMode }
@@ -22,9 +22,27 @@ export type GameEvent =
   | { type: 'battleEnd' }
   | { type: 'battleSummary'; text: string }
   | { type: 'manaSpent'; actor: Combatant; cost: number; left: number }
+  | {
+      type: 'equipChanged'
+      memberName: string
+      isPlayer: boolean
+      slot: EquipSlot
+      /** 새로 입은 것. null이면 벗기만 했다 */
+      itemName: string | null
+      /** 이 슬롯에서 빠져 가방으로 돌아간 것 */
+      removedName: string | null
+    }
   | { type: 'itemGained'; names: string[] }
   | { type: 'chestOpened'; itemNames: string[] }
-  | { type: 'itemUsed'; name: string; target: Combatant; amount: number }
+  | {
+      type: 'itemUsed'
+      name: string
+      target: Combatant
+      /** 실제 적용량 — 0이면 그 효과는 없었던 것 */
+      healed: number
+      mana: number
+      cooldownCut: number
+    }
   | { type: 'xpGained'; amount: number; total: number; toNext: number | null }
   | { type: 'levelUp'; level: number; unlocked: { jobName: string; skillName: string }[] }
   | { type: 'stageStart'; index: number; total: number; title: string; objective: string }

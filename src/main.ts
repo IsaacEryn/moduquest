@@ -1,5 +1,6 @@
 import './style.css'
 import itemsData from './data/items.json'
+import setsData from './data/sets.json'
 import jobs from './data/jobs.json'
 import monsters from './data/monsters.json'
 import party from './data/party.json'
@@ -24,6 +25,7 @@ import { LocalSaveRepository } from './save/saveRepository'
 import { Screens } from './ui/screens'
 import { SlotPanel } from './ui/slotPanel'
 import { StageSelect } from './ui/stageSelect'
+import { StatusPanel } from './ui/statusPanel'
 import { TextLog } from './ui/textLog'
 import { TraitPanel } from './ui/traitPanel'
 import { TraitStore } from './ui/traitStore'
@@ -36,7 +38,8 @@ const data: GameData = {
   // 배열 순서가 진행 순서다
   stages: [stage1, stage2, stage3] as StageData[],
   traits: traits as GameData['traits'],
-  items: itemsData,
+  items: itemsData as GameData['items'],
+  sets: setsData as GameData['sets'],
 }
 
 const bus = new EventBus()
@@ -102,6 +105,7 @@ const stageSelect = new StageSelect(game, {
 })
 const bagPanel = new BagPanel(game, pauseHooks)
 const helpPanel = new HelpPanel(pauseHooks)
+const statusPanel = new StatusPanel(game, pauseHooks)
 const screens = new Screens(
   game,
   bus,
@@ -112,6 +116,7 @@ const screens = new Screens(
   () => stageSelect.open(),
   () => bagPanel.open(),
   () => helpPanel.open(),
+  () => statusPanel.open(),
 )
 
 /**

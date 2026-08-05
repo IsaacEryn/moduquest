@@ -2,27 +2,34 @@ import { Battle, type StepResult } from './battle'
 import type { EventBus, GameMode } from './events'
 import { Field } from './field'
 import { SAVE_VERSION } from './save'
-import {
-  applyCombat,
-  applyStats,
-  perceptionRadius,
-  resolveTrait,
-  resolveTraitId,
-} from './traits'
+import { computeMemberStats, levelForXp, type StatBreakdown } from './stats'
+import { applyCombat, perceptionRadius, resolveTrait, resolveTraitId } from './traits'
 import type {
   Combatant,
   DialogueLine,
   Dir,
   EncounterData,
+  EquipSlot,
   GameData,
+  ItemData,
   JobData,
   PlayerAction,
   SaveSnapshot,
   SkillData,
   StageData,
+  StatBlock,
   TraitData,
   TraitsFile,
 } from './types'
+
+/** 슬롯 고정 순서 — 상태창 표시와 텍스처 키 조립이 이 순서를 공유한다 */
+export const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'shoes', 'gloves']
+export const SLOT_KO: Record<EquipSlot, string> = {
+  weapon: '무기',
+  armor: '갑옷',
+  shoes: '신발',
+  gloves: '장갑',
+}
 
 /** NPC·몹 턴 사이 간격(ms). 낭독이 따라올 시간을 준다. */
 const TURN_DELAY = 900
@@ -73,25 +80,15 @@ export class Game {
   }
 
   /**
-   * 파티는 party.json이 정한다. 배치 순서가 몹의 공격 순서 기준이 된다.
-   * 특성은 플레이어 자신에게만 적용된다 — 내가 고른 플레이 스타일이기 때문이다.
+   * 파티는 구성(partyJobs)이 정한다. 배치 순서가 몹의 공격 순서 기준이 된다.
+   * 능력치 계산은 computeMemberStats 한 곳 — 상태창도 같은 함수를 읽는다.
    */
   private buildParty(): Combatant[] {
     const trait = this.trait
     return this.partyJobs.map((job, index) => {
       const isPlayer = index === 0
       const j = this.data.jobs[job]
-      const grow = this.data.progression.growth[job]
-      const lv = this.partyLevel - 1
-      const base = {
-        hp: j.hp + (grow?.hp ?? 0) * lv,
-        atk: j.atk + (grow?.atk ?? 0) * lv,
-        def: j.def + (grow?.def ?? 0) * lv,
-        spd: j.spd + (grow?.spd ?? 0) * lv,
-      }
-      // 마력은 특성이 건드리지 않는다 — 특성은 몸의 이야기고 마력은 직업의 그릇이다
-      const maxMp = j.mp + (grow?.mp ?? 0) * lv
-      const s = isPlayer ? applyStats(base, trait, this.data.traits.limits) : base
+      const s = this.breakdownFor(job).total
       const c: Combatant = {
         id: job,
         name: j.name,
@@ -99,8 +96,8 @@ export class Game {
         isPlayer,
         hp: s.hp,
         maxHp: s.hp,
-        mp: maxMp,
-        maxMp,
+        mp: s.mp,
+        maxMp: s.mp,
         mpRegen: j.mpRegen,
         atk: s.atk,
         def: s.def,
@@ -113,6 +110,25 @@ export class Game {
       if (isPlayer) applyCombat(c, trait)
       return c
     })
+  }
+
+  /**
+   * 파티를 다시 계산하되 체력 비율을 보존한다 — 특성·레벨·장비가 바뀌는 모든 길이
+   * 여기를 지난다. 쓰러진 동료는 재계산으로 살아나지 않는다.
+   * 전투 중에는 부르지 않는다 — 전투가 이전 객체를 직접 참조하기 때문이다.
+   */
+  private refreshParty(): void {
+    const prev = this.party
+    this.party = this.buildParty()
+    for (const c of this.party) {
+      const old = prev.find((p) => p.id === c.id)
+      if (!old) continue
+      if (old.hp <= 0) {
+        c.hp = 0
+        continue
+      }
+      c.hp = Math.max(1, Math.min(c.maxHp, Math.round(c.maxHp * (old.hp / old.maxHp))))
+    }
   }
 
   // --- 특성 ---
@@ -160,26 +176,11 @@ export class Game {
     if (!this.canChangeTrait().ok) return false
     const next = resolveTraitId(this.data.traits, id)
     if (next === this.traitId) return false
-
-    const player = this.player
-    const ratio = player.hp / player.maxHp
     this.traitId = next
-
-    const trait = this.trait
-    const j = this.data.jobs[player.id]
-    const s = applyStats(
-      { hp: j.hp, atk: j.atk, def: j.def, spd: j.spd },
-      trait,
-      this.data.traits.limits,
-    )
-    player.maxHp = s.hp
-    player.hp = Math.max(1, Math.min(s.hp, Math.round(s.hp * ratio)))
-    player.atk = s.atk
-    player.def = s.def
-    player.spd = s.spd
-    applyCombat(player, trait)
-
+    // 전체 재계산 한 길로 — 예전엔 직업 기본값에서 다시 계산해 성장·장비가 날아갔다
+    this.refreshParty()
     this.field.setPerceptionRadius(this.perceptionRadius)
+    const trait = this.trait
     this.bus.emit({ type: 'traitChanged', name: trait.name, description: trait.summary })
     return true
   }
@@ -210,12 +211,7 @@ export class Game {
 
   /** 레벨은 경험치에서 유도한다 — 두 값이 어긋날 일이 없다 */
   get partyLevel(): number {
-    const table = this.data.progression.xpTable
-    let level = 1
-    for (let i = 1; i < table.length; i++) {
-      if (this.xp >= table[i]) level = i + 1
-    }
-    return level
+    return levelForXp(this.data.progression.xpTable, this.xp)
   }
 
   /** 다음 레벨까지 남은 경험치. 최고 레벨이면 null */
@@ -253,16 +249,162 @@ export class Game {
       }
     }
 
-    const ratios = this.party.map((c) => c.hp / c.maxHp)
-    this.party = this.buildParty()
-    this.party.forEach((c, i) => {
-      c.hp = Math.max(1, Math.min(c.maxHp, Math.round(c.maxHp * ratios[i])))
-    })
+    this.refreshParty()
     this.bus.emit({ type: 'levelUp', level: after, unlocked })
   }
 
   get currentPartyJobs(): string[] {
     return [...this.partyJobs]
+  }
+
+  // --- 장비 ---
+
+  /** 파티원(직업 id)별 착용 장비. 직업은 파티에 하나뿐이라 키로 안전하다 */
+  private equipment = new Map<string, Partial<Record<EquipSlot, string>>>()
+
+  /** 착용 중인 장비를 데이터로 해석한다 */
+  private equippedItems(job: string): ItemData[] {
+    const eq = this.equipment.get(job)
+    if (!eq) return []
+    return Object.values(eq)
+      .filter((id): id is string => !!id)
+      .map((id) => this.data.items[id])
+      .filter(Boolean)
+  }
+
+  /** 다른 파티원 장비의 오라 합 — 함께 걷는 사람이 나를 강하게 한다 */
+  private auraFor(job: string): StatBlock {
+    const out = { hp: 0, mp: 0, atk: 0, def: 0, spd: 0 }
+    for (const other of this.partyJobs) {
+      if (other === job) continue
+      for (const item of this.equippedItems(other)) {
+        const a = item.allyStats
+        if (!a) continue
+        out.hp += a.hp ?? 0
+        out.mp += a.mp ?? 0
+        out.atk += a.atk ?? 0
+        out.def += a.def ?? 0
+        out.spd += a.spd ?? 0
+      }
+    }
+    return out
+  }
+
+  /** 능력치 내역 — buildParty와 상태창이 같은 결과를 읽는다 */
+  private breakdownFor(job: string): StatBreakdown {
+    const isPlayer = this.partyJobs[0] === job
+    return computeMemberStats({
+      job: this.data.jobs[job],
+      growth: this.data.progression.growth[job],
+      level: this.partyLevel,
+      equipment: this.equippedItems(job),
+      auraFromOthers: this.auraFor(job),
+      sets: this.data.sets,
+      trait: isPlayer ? this.trait : null,
+      limits: this.data.traits.limits,
+    })
+  }
+
+  /** 상태창 표시용 — 계산과 표시가 어긋날 수 없도록 같은 함수를 쓴다 */
+  statBreakdownOf(memberId: string): StatBreakdown | null {
+    if (!this.partyJobs.includes(memberId)) return null
+    return this.breakdownFor(memberId)
+  }
+
+  equipmentOf(memberId: string): Partial<Record<EquipSlot, string>> {
+    return { ...(this.equipment.get(memberId) ?? {}) }
+  }
+
+  itemData(id: string): ItemData | undefined {
+    return this.data.items[id]
+  }
+
+  /**
+   * 파티원의 형상 변형 상태 — 렌더러가 텍스처 키를 만들 결정적 문자열과
+   * 슬롯별 색을 준다. 리컬러가 없으면 null(기본 텍스처를 그대로 쓴다).
+   */
+  equipVariantOf(memberId: string): {
+    variant: string
+    recolors: Partial<Record<EquipSlot, { primary: string; secondary?: string }>>
+  } | null {
+    const eq = this.equipment.get(memberId)
+    if (!eq) return null
+    const recolors: Partial<Record<EquipSlot, { primary: string; secondary?: string }>> = {}
+    const parts: string[] = []
+    for (const slot of EQUIP_SLOTS) {
+      const id = eq[slot]
+      const item = id ? this.data.items[id] : undefined
+      if (!item?.recolor) continue
+      recolors[slot] = item.recolor
+      parts.push(id as string)
+    }
+    if (parts.length === 0) return null
+    return { variant: parts.join('+'), recolors }
+  }
+
+  setData(id: string) {
+    return this.data.sets[id]
+  }
+
+  /** 입을 수 있는지 — 거절 이유를 돌려줘 UI가 그대로 낭독한다 */
+  canEquip(memberId: string, itemId: string): { ok: boolean; reason?: string } {
+    if (this.mode !== 'field' && this.mode !== 'title') {
+      return { ok: false, reason: '지금은 장비를 바꿀 수 없다.' }
+    }
+    if (!this.partyJobs.includes(memberId)) return { ok: false }
+    const item = this.data.items[itemId]
+    if (!item || item.kind !== 'equipment' || !item.slot) {
+      return { ok: false, reason: '입을 수 있는 것이 아니다.' }
+    }
+    if ((this.inventory.get(itemId) ?? 0) <= 0) return { ok: false, reason: '가방에 없다.' }
+    if ((item.minLevel ?? 1) > this.partyLevel) {
+      return { ok: false, reason: `${item.minLevel}레벨부터 입을 수 있다.` }
+    }
+    return { ok: true }
+  }
+
+  /** 착용. 슬롯이 차 있으면 맞교환 — 중간 상태 없이 한 동작이다 */
+  equip(memberId: string, itemId: string): boolean {
+    if (!this.canEquip(memberId, itemId).ok) return false
+    const item = this.data.items[itemId]
+    const slot = item.slot as EquipSlot
+    this.consumeItem(itemId)
+    const eq = this.equipment.get(memberId) ?? {}
+    const prev = eq[slot]
+    if (prev) this.addItem(prev)
+    eq[slot] = itemId
+    this.equipment.set(memberId, eq)
+    this.refreshParty()
+    const member = this.party.find((c) => c.id === memberId)
+    this.bus.emit({
+      type: 'equipChanged',
+      memberName: member?.name ?? '',
+      isPlayer: member?.isPlayer ?? false,
+      slot,
+      itemName: item.name,
+      removedName: prev ? (this.data.items[prev]?.name ?? null) : null,
+    })
+    return true
+  }
+
+  unequip(memberId: string, slot: EquipSlot): boolean {
+    if (this.mode !== 'field' && this.mode !== 'title') return false
+    const eq = this.equipment.get(memberId)
+    const id = eq?.[slot]
+    if (!eq || !id) return false
+    delete eq[slot]
+    this.addItem(id)
+    this.refreshParty()
+    const member = this.party.find((c) => c.id === memberId)
+    this.bus.emit({
+      type: 'equipChanged',
+      memberName: member?.name ?? '',
+      isPlayer: member?.isPlayer ?? false,
+      slot,
+      itemName: null,
+      removedName: this.data.items[id]?.name ?? null,
+    })
+    return true
   }
 
   // --- 아이템·인벤토리 ---
@@ -278,18 +420,26 @@ export class Game {
     name: string
     description: string
     count: number
-    usable: boolean
+    kind: ItemData['kind']
+    /** 마력·기술 대기는 전투 밖에 존재하지 않는다 — 쓸 수 있는 곳이 곧 규칙이다 */
+    usableInField: boolean
+    usableInBattle: boolean
   }[] {
     return [...this.inventory.entries()]
       .filter(([, count]) => count > 0)
       .map(([id, count]) => {
         const item = this.data.items[id]
+        const consumable = item.kind === 'consumable'
         return {
           id,
           name: item.name,
           description: item.description,
           count,
-          usable: (item.heal ?? 0) > 0,
+          kind: item.kind,
+          usableInField: consumable && (item.heal ?? 0) > 0,
+          usableInBattle:
+            consumable &&
+            ((item.heal ?? 0) > 0 || (item.mana ?? 0) > 0 || (item.cooldownCut ?? 0) > 0),
         }
       })
   }
@@ -308,7 +458,7 @@ export class Game {
   /**
    * 처치를 세고 이번 승리의 드랍을 모은다.
    * N번째 처치는 drops[(N-1) % 길이] — 확률이 아니라 세는 규칙이다.
-   * 보스는 목록 전부를 준다.
+   * 보스는 첫 처치에 firstDrops를 반드시 주고, 재처치부터 순환을 탄다.
    */
   private collectDrops(monsterIds: string[]): string[] {
     const dropped: string[] = []
@@ -316,12 +466,16 @@ export class Game {
       const m = this.data.monsters[id]
       const count = (this.kills.get(id) ?? 0) + 1
       this.kills.set(id, count)
-      const drops = m?.drops ?? []
-      if (drops.length === 0) continue
+      if (!m) continue
       if (m.isBoss) {
-        for (const d of drops) if (d) dropped.push(d)
-      } else {
-        const d = drops[(count - 1) % drops.length]
+        if (count === 1) {
+          dropped.push(...(m.firstDrops ?? []))
+        } else if ((m.drops?.length ?? 0) > 0) {
+          const d = m.drops![(count - 2) % m.drops!.length]
+          if (d) dropped.push(d)
+        }
+      } else if ((m.drops?.length ?? 0) > 0) {
+        const d = m.drops![(count - 1) % m.drops!.length]
         if (d) dropped.push(d)
       }
     }
@@ -335,14 +489,15 @@ export class Game {
   useItemInField(itemId: string, targetId: string): boolean {
     if (this.mode !== 'field') return false
     const item = this.data.items[itemId]
-    if (!item?.heal || (this.inventory.get(itemId) ?? 0) <= 0) return false
+    if (item?.kind !== 'consumable' || !item.heal) return false
+    if ((this.inventory.get(itemId) ?? 0) <= 0) return false
     const target = this.party.find((c) => c.id === targetId)
     if (!target || target.hp <= 0) return false
-    const amount = Math.min(item.heal, target.maxHp - target.hp)
-    if (amount <= 0) return false
-    target.hp += amount
+    const healed = Math.min(item.heal, target.maxHp - target.hp)
+    if (healed <= 0) return false
+    target.hp += healed
     this.consumeItem(itemId)
-    this.bus.emit({ type: 'itemUsed', name: item.name, target, amount })
+    this.bus.emit({ type: 'itemUsed', name: item.name, target, healed, mana: 0, cooldownCut: 0 })
     return true
   }
 
@@ -355,6 +510,14 @@ export class Game {
     if (jobs.length !== this.data.party.length) return false
     if (new Set(jobs).size !== jobs.length) return false
     if (!jobs.every((j) => this.data.jobs[j])) return false
+    // 파티를 떠나는 직업의 장비는 가방으로 — 함께 담은 것을 잃지 않는다
+    for (const job of this.partyJobs) {
+      if (jobs.includes(job)) continue
+      const eq = this.equipment.get(job)
+      if (!eq) continue
+      for (const id of Object.values(eq)) if (id) this.addItem(id)
+      this.equipment.delete(job)
+    }
     this.partyJobs = [...jobs]
     this.party = this.buildParty()
     return true
@@ -464,7 +627,11 @@ export class Game {
       },
       inventory: [...this.inventory.entries()].map(([item, count]) => ({ item, count })),
       kills: [...this.kills.entries()].map(([monster, count]) => ({ monster, count })),
-      party: this.party.map((c) => ({ job: c.id, hp: c.hp })),
+      party: this.party.map((c) => ({
+        job: c.id,
+        hp: c.hp,
+        equipment: { ...(this.equipment.get(c.id) ?? {}) },
+      })),
       xp: this.xp,
       seenDialogues: [...this.seenDialogues],
       clearedStages: [...this.clearedStages],
@@ -492,6 +659,7 @@ export class Game {
     this.seenDialogues = new Set(s.seenDialogues)
     this.inventory = new Map(s.inventory.map((i) => [i.item, i.count]))
     this.kills = new Map(s.kills.map((k) => [k.monster, k.count]))
+    this.equipment = new Map(s.party.map((p) => [p.job, { ...p.equipment }]))
     this.party = this.buildParty()
     for (const saved of s.party) {
       const c = this.party.find((p) => p.id === saved.job)
@@ -646,8 +814,14 @@ export class Game {
     // 아이템은 인벤토리를 아는 여기서 검증하고, 턴 규칙은 전투가 판정한다
     if (action.kind === 'item') {
       const item = this.data.items[action.itemId]
-      if (!item?.heal || (this.inventory.get(action.itemId) ?? 0) <= 0) return
-      const result = this.battle.playerUseItem(action.targetId, item.heal, item.name)
+      if (item?.kind !== 'consumable') return
+      if ((this.inventory.get(action.itemId) ?? 0) <= 0) return
+      const result = this.battle.playerUseItem(
+        action.targetId,
+        { heal: item.heal, mana: item.mana, cooldownCut: item.cooldownCut },
+        item.name,
+      )
+      // null이면 효과가 없어 쓰지 않은 것 — 아이템도 턴도 소모되지 않는다
       if (result === null) return
       this.consumeItem(action.itemId)
       this.handleStep(result)

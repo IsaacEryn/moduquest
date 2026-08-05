@@ -8,6 +8,14 @@
 export interface SpriteDef {
   pixels: string[]
   palette: Record<string, string>
+  /**
+   * 장비 슬롯별로 어느 팔레트 글자가 그 부위인지. 아이템은 색만 주고
+   * 부위는 스프라이트가 안다 — 직업마다 글자가 달라서 이렇게 나눴다.
+   * 선언이 없는 슬롯은 조용히 무시된다(그 직업에 그 부위 픽셀이 없다).
+   */
+  slotKeys?: Partial<
+    Record<'weapon' | 'armor' | 'shoes' | 'gloves', { primary: string[]; secondary?: string[] }>
+  >
 }
 
 const SKIN = '#e8c39e'
@@ -59,6 +67,8 @@ export const SPRITES: Record<string, SpriteDef> = {
   // 숲 바닥이 초록이라 후드는 대비되는 남색 계열로 둔다(색만이 아니라 형태로도 구분되게)
   rogue: {
     palette: { h: '#5a6ea8', H: '#3c4a76', s: SKIN, d: '#c9ced4', b: '#2a3038' },
+    // 신발(b)은 눈과 글자를 공유해 리컬러에서 뺀다
+    slotKeys: { weapon: { primary: ['d'] }, armor: { primary: ['h'], secondary: ['H'] } },
     pixels: [
       '                ',
       '     hhhhhh     ',
@@ -81,6 +91,7 @@ export const SPRITES: Record<string, SpriteDef> = {
   // 전사 — 투구와 방패, 두꺼운 어깨
   warrior: {
     palette: { a: '#8fa6b8', A: '#5c7182', s: SKIN, r: '#b5573f', b: '#2a3038' },
+    slotKeys: { weapon: { primary: ['r'] }, armor: { primary: ['a'], secondary: ['A'] } },
     pixels: [
       '                ',
       '     aaaaaa     ',
@@ -103,6 +114,7 @@ export const SPRITES: Record<string, SpriteDef> = {
   // 힐러 — 두건과 지팡이, 부드러운 윤곽
   healer: {
     palette: { c: '#d8e3ec', C: '#9fb3c4', s: SKIN, g: '#7fd08a', w: '#a97f4f' },
+    slotKeys: { weapon: { primary: ['w'] }, armor: { primary: ['c'], secondary: ['C'] } },
     pixels: [
       '                ',
       '     cccccc     ',
@@ -125,6 +137,7 @@ export const SPRITES: Record<string, SpriteDef> = {
   // 궁수 — 초록 두건에 옆으로 든 활. 활 곡선이 실루엣을 만든다
   archer: {
     palette: { g: '#5e8f52', G: '#3f6338', s: SKIN, w: '#a97f4f', t: '#d8d3c0' },
+    slotKeys: { weapon: { primary: ['w'] }, armor: { primary: ['g'], secondary: ['G'] } },
     pixels: [
       '                ',
       '     gggggg     ',
@@ -147,6 +160,7 @@ export const SPRITES: Record<string, SpriteDef> = {
   // 마법사 — 뾰족한 보라 모자와 지팡이 끝의 빛
   mage: {
     palette: { m: '#7d6bb0', M: '#554687', s: SKIN, w: '#6b4a2f', l: '#ffd166' },
+    slotKeys: { weapon: { primary: ['w'] }, armor: { primary: ['m'], secondary: ['M'] } },
     pixels: [
       '       m        ',
       '      mmm       ',

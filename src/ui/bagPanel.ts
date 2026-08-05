@@ -52,7 +52,7 @@ export class BagPanel {
       head.textContent = `${item.name} ×${item.count} — ${item.description}`
       li.append(head)
 
-      if (item.usable) {
+      if (item.usableInField) {
         const group = document.createElement('div')
         group.setAttribute('role', 'group')
         group.setAttribute('aria-label', `${item.name} 사용 대상`)
@@ -69,6 +69,17 @@ export class BagPanel {
           group.append(b)
         }
         li.append(group)
+      } else if (item.usableInBattle) {
+        // 마력·기술 대기는 전투 밖에 존재하지 않는다 — 이유를 밝히는 것이 규칙 설명이다
+        const note = document.createElement('p')
+        note.className = 'bag-note'
+        note.textContent = '전투에서만 쓸 수 있다.'
+        li.append(note)
+      } else if (item.kind === 'equipment') {
+        const note = document.createElement('p')
+        note.className = 'bag-note'
+        note.textContent = '장비는 상태창에서 입는다.'
+        li.append(note)
       }
       list.append(li)
     }

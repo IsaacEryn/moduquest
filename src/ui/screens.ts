@@ -21,6 +21,7 @@ export class Screens {
     private openStages: () => void,
     private openBag: () => void,
     private openHelp: () => void,
+    private openStatus: () => void,
   ) {
     bus.on((e) => {
       if (e.type === 'mode') this.render(e.mode)
@@ -161,6 +162,10 @@ export class Screens {
     padButton('→', '동쪽으로 이동', 'right', () => this.game.moveField('east'))
     padButton('↓', '남쪽으로 이동', 'down', () => this.game.moveField('south'))
 
+    const statusBtn = document.createElement('button')
+    statusBtn.type = 'button'
+    statusBtn.textContent = '상태'
+    statusBtn.addEventListener('click', () => this.openStatus())
     const bagBtn = document.createElement('button')
     bagBtn.type = 'button'
     bagBtn.textContent = '가방'
@@ -181,7 +186,7 @@ export class Screens {
     optBtn.type = 'button'
     optBtn.textContent = '옵션'
     optBtn.addEventListener('click', () => this.openOptions())
-    s.querySelector('.secondary')!.append(bagBtn, stageBtn, traitBtn, helpBtn, optBtn)
+    s.querySelector('.secondary')!.append(statusBtn, bagBtn, stageBtn, traitBtn, helpBtn, optBtn)
     this.ui.append(s)
     s.focus()
   }
@@ -205,7 +210,7 @@ export class Screens {
       const names = this.game.party.map((c) => (c.isPlayer ? `${c.name}(나)` : c.name))
       summary.textContent =
         `${names.join(', ')} — 세 곳을 함께 걸어 파티는 ${this.game.partyLevel}레벨이 되었다.`
-      const keepsakes = this.game.inventoryList.filter((i) => !i.usable)
+      const keepsakes = this.game.inventoryList.filter((i) => i.kind === 'keepsake')
       const lines = [summary]
       for (const k of keepsakes) {
         const p = document.createElement('p')

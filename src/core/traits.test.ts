@@ -4,6 +4,7 @@ import { Game } from './game'
 import { applyStats, perceptionRadius, resolveTrait, resolveTraitId } from './traits'
 import type { GameData, StageData, TraitsFile } from './types'
 import items from '../data/items.json'
+import sets from '../data/sets.json'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
@@ -19,7 +20,8 @@ function makeGame(traitId?: string) {
     monsters: monsters as GameData['monsters'],
     party,
   progression,
-  items,
+  items: items as GameData['items'],
+  sets: sets as GameData['sets'],
     stages: [stage as StageData],
     traits: TRAITS,
   }
