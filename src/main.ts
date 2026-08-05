@@ -139,6 +139,11 @@ bus.on((e) => {
   void saves.save(activeSlot, game.snapshot())
 })
 
+// 화면 모드를 body에 남긴다 — 타이틀·클리어에서 지도를 숨기는 CSS가 이 값을 본다
+bus.on((e) => {
+  if (e.type === 'mode') document.body.dataset.mode = e.mode
+})
+
 /** 타이틀로 돌아올 때마다 "이어서 하기"를 보일지 다시 판단한다 */
 bus.on((e) => {
   if (e.type !== 'mode' || e.mode !== 'title') return
@@ -234,6 +239,9 @@ document.addEventListener('keydown', (e) => {
     if (isSummaryKey(e)) game.battleSummary()
   }
 })
+
+// 첫 화면은 mode 이벤트 없이 그려지므로 초기값을 직접 남긴다
+document.body.dataset.mode = game.mode
 
 // 저장된 기록이 있는지 먼저 확인하고 타이틀을 그린다
 void slotPanel.hasAny().then((has) => {

@@ -1,3 +1,23 @@
+/* 글꼴 — CSP(default-src 'none')가 바깥을 막으므로 저장소 안에서 자가 호스팅한다.
+   swap: 픽셀 글꼴이 늦게 오면 빈 화면(FOIT)보다 시스템 글꼴이 먼저 보이는 쪽이 낫다 */
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/fonts/Pretendard-Regular.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Pretendard';
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/fonts/Pretendard-Bold.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Galmuri11';
+  font-display: swap;
+  src: url('./assets/fonts/Galmuri11.woff2') format('woff2');
+}
+
 :root {
   font-size: 16px;
   --bg: #101418;
@@ -8,6 +28,37 @@
   --accent: #7fd08a;
   --danger: #e8875f;
   --focus: #ffd166;
+  /* 오래 폴백으로만 살던 값들을 정식 토큰으로 */
+  --line: #3a4750;
+  --btn-bg: #2a3540;
+  --btn-hover: #35424f;
+  --btn-off-bg: #1d252d;
+  --btn-off-border: #2a333c;
+  --log-bg: #0a0e11;
+  /* 게이지 — 낮음은 색과 테두리와 길이 셋으로 함께 말한다 */
+  --hp: #7fd08a;
+  --hp-low: #e8875f;
+  --mp: #8fb8e8;
+  /* 간격 6단 — 버튼 사이는 --sp-2(0.375rem) 아래로 내려가지 않는다(오탭 방지) */
+  --sp-1: 0.25rem;
+  --sp-2: 0.375rem;
+  --sp-3: 0.5rem;
+  --sp-4: 0.75rem;
+  --sp-5: 1rem;
+  --sp-6: 1.5rem;
+  /* 반경 3단 */
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  /* 글자 크기 5단 */
+  --fs-xs: 0.8rem;
+  --fs-sm: 0.9rem;
+  --fs-md: 1rem;
+  --fs-lg: 1.2rem;
+  --fs-xl: 2rem;
+  /* 픽셀 글꼴은 제목과 숫자에만 — 본문 가독성은 양보하지 않는다 */
+  --font-body: 'Pretendard', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  --font-display: 'Galmuri11', 'Pretendard', system-ui, sans-serif;
 }
 
 html.text-large {
@@ -22,7 +73,7 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', system-ui, sans-serif;
+  font-family: var(--font-body);
   line-height: 1.5;
 }
 
@@ -42,13 +93,20 @@ body {
   position: relative;
   max-width: 60rem;
   margin: 0 auto;
-  min-height: 100vh;
+  min-height: 100dvh;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  padding: 1rem;
+  gap: var(--sp-5);
+  padding: var(--sp-5);
+  padding-bottom: calc(var(--sp-5) + env(safe-area-inset-bottom));
+}
+
+/* 타이틀·클리어 화면에서는 지도를 숨긴다 — 직전 화면 잔상이 첫인상을 흐린다 */
+body[data-mode='title'] #game,
+body[data-mode='clear'] #game {
+  display: none;
 }
 
 #game {
@@ -109,7 +167,7 @@ body {
 button {
   font: inherit;
   color: var(--text);
-  background: #2a3540;
+  background: var(--btn-bg);
   border: 1px solid var(--panel-border);
   border-radius: 6px;
   padding: 0.5rem 1rem;
@@ -121,14 +179,14 @@ button {
 }
 
 button:hover:not(:disabled) {
-  background: #35424f;
+  background: var(--btn-hover);
 }
 
 /* 비활성 버튼도 상태 정보("N라운드 남음")를 담으므로 읽을 수 있는 대비를 유지한다 */
 button:disabled {
   color: var(--text-dim);
-  background: #1d252d;
-  border-color: #2a333c;
+  background: var(--btn-off-bg);
+  border-color: var(--btn-off-border);
   cursor: default;
 }
 
@@ -144,7 +202,8 @@ button:disabled {
 }
 
 .title-screen h2 {
-  font-size: 2rem;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
   margin: 0 0 0.25rem;
 }
 
@@ -155,7 +214,9 @@ button:disabled {
 
 .title-screen .actions {
   display: flex;
-  gap: 0.75rem;
+  /* 저장이 있으면 버튼이 다섯 — 좁은 화면에서는 줄을 바꾼다 */
+  flex-wrap: wrap;
+  gap: var(--sp-4);
   justify-content: center;
 }
 
@@ -163,11 +224,6 @@ button:disabled {
 .objective {
   margin: 0 0 0.25rem;
   color: var(--text-dim);
-}
-
-.field-msg {
-  margin: 0;
-  min-height: 1.5rem;
 }
 
 .secondary {
@@ -252,8 +308,9 @@ button:disabled {
 }
 
 .battle h3 {
+  font-family: var(--font-display);
   margin: 0 0 0.5rem;
-  font-size: 1rem;
+  font-size: var(--fs-md);
   color: var(--text-dim);
 }
 
@@ -287,9 +344,12 @@ dialog.options {
   background: var(--panel);
   color: var(--text);
   border: 1px solid var(--panel-border);
-  border-radius: 8px;
+  border-radius: var(--r-lg);
   padding: 1.25rem;
   min-width: 18rem;
+  /* 어느 창이든 화면보다 길어지면 안에서 흐른다 — 도움말·파티 창이 잘리지 않게 */
+  max-height: 85dvh;
+  overflow-y: auto;
 }
 
 dialog.options::backdrop {
@@ -297,8 +357,9 @@ dialog.options::backdrop {
 }
 
 dialog.options h2 {
+  font-family: var(--font-display);
   margin: 0 0 1rem;
-  font-size: 1.2rem;
+  font-size: var(--fs-lg);
 }
 
 dialog.options .row {
@@ -317,7 +378,7 @@ dialog.options .row {
   min-height: 10rem;
   max-height: 10rem;
   overflow-y: auto;
-  background: #0a0e11;
+  background: var(--log-bg);
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   padding: 0.75rem 1rem;
@@ -371,7 +432,7 @@ dialog.options .row {
 .bag-item {
   margin: 0.5rem 0;
   padding-bottom: 0.5rem;
-  border-bottom: 1px solid var(--line, #3a4750);
+  border-bottom: 1px solid var(--line);
 }
 
 .bag-item p {
@@ -388,8 +449,6 @@ dialog.options .row {
    제목만 훑어도 구역을 건너뛸 수 있고, 창은 <dialog>가 이미 가두기 때문이다 */
 dialog.options.town {
   max-width: min(48rem, 94vw);
-  max-height: 84vh;
-  overflow-y: auto;
 }
 
 dialog.options.town h3 {
@@ -470,7 +529,7 @@ dialog.options.town section:first-of-type h3 {
 }
 
 .status-note {
-  color: var(--text-dim, #9aa8b4);
+  color: var(--text-dim);
   font-size: 0.92em;
 }
 
@@ -506,9 +565,13 @@ dialog.options.town section:first-of-type h3 {
   text-align: left;
 }
 
-/* 닫기 버튼이 마지막 파티원 칸에 붙지 않게 — 눌러야 할 것을 잘못 누르지 않도록 */
-.status .slot-actions {
-  margin-top: 0.75rem;
+/* 모든 창의 버튼 줄 — 닫기가 내용에 붙지 않고, 버튼끼리도 간격을 지킨다 */
+.slot-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  justify-content: flex-end;
+  margin-top: var(--sp-5);
 }
 
 /* 저장 자리 확인 문구 — 실수를 막는 질문이라 눈에 띄어야 한다 */
@@ -530,4 +593,280 @@ dialog.options.town section:first-of-type h3 {
 html.low-stim * {
   animation: none !important;
   transition: none !important;
+}
+
+/* --- 목록 창 공통 — 저장 자리·스테이지·특성 창이 같은 카드 골격을 쓴다 --- */
+
+.intro {
+  margin: 0 0 var(--sp-4);
+  color: var(--text-dim);
+}
+
+.slot-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.slot-row,
+.trait-row {
+  margin: var(--sp-3) 0;
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.slot-row p,
+.trait-row p {
+  margin: 0 0 var(--sp-2);
+}
+
+/* 보조 설명은 한 가지 목소리로 — 창마다 다른 회색이 생기지 않게 */
+.slot-desc,
+.trait-desc,
+.bag-note {
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+.status-level {
+  font-weight: 700;
+  color: var(--accent);
+  margin: 0 0 var(--sp-4);
+}
+
+.clear-message {
+  font-size: var(--fs-lg);
+  max-width: 30rem;
+  margin: 0 auto var(--sp-4);
+}
+
+/* 마을 섹션 사이 숨 고르기 */
+.town-shop,
+.town-part,
+.town-upgrade {
+  margin-bottom: var(--sp-4);
+}
+
+/* 접는 도움말·직업 설명 — summary도 손가락 표적 크기를 지킨다 */
+details > summary {
+  display: flex;
+  align-items: center;
+  min-height: 2.75rem;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+details > summary::marker {
+  color: var(--accent);
+}
+
+/* --- 게이지 — 시각 장식(aria-hidden). 수치는 항상 글로 병기된다 --- */
+
+.gauge {
+  display: block;
+  height: 0.5rem;
+  margin: var(--sp-1) 0 var(--sp-2);
+  background: var(--btn-off-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.gauge-fill {
+  display: block;
+  height: 100%;
+  background: var(--hp);
+  transition: width 0.3s ease; /* 저자극 모드 킬스위치가 자동으로 끈다 */
+}
+
+.gauge.mp .gauge-fill {
+  background: var(--mp);
+}
+
+/* 낮음은 색 하나로 말하지 않는다 — 바 길이·테두리·병기된 수치가 함께 말한다 */
+.gauge[data-low] {
+  border-color: var(--hp-low);
+}
+
+.gauge[data-low] .gauge-fill {
+  background: var(--hp-low);
+}
+
+/* --- 필드 HUD — 창을 열지 않아도 보이는 파티 현황 --- */
+
+.hud {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3) var(--sp-5);
+  margin-bottom: var(--sp-4);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.hud-party {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+}
+
+.hud-member {
+  min-width: 7rem;
+}
+
+.hud-member .who {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.hud-member .who b {
+  font-weight: 700;
+}
+
+.hud-member .gauge {
+  height: 0.375rem;
+  margin: var(--sp-1) 0 0;
+}
+
+.hud-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+.hud-chip {
+  font-family: var(--font-display);
+  font-size: var(--fs-xs);
+  color: var(--text-dim);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.15rem var(--sp-3);
+  white-space: nowrap;
+}
+
+@media (max-width: 480px) {
+  .hud-chips {
+    margin-left: 0;
+  }
+}
+
+/* --- 전투 — 지금 누구 차례인지 화면에도 남긴다 --- */
+
+.turn-status {
+  margin: 0;
+  min-height: 1.5rem;
+  color: var(--text-dim);
+}
+
+.battle .acting {
+  border-left: 3px solid var(--focus);
+  padding-left: var(--sp-2);
+  background: rgba(255, 209, 102, 0.08);
+}
+
+/* --- 등장 연출 — both 패턴만 쓴다. 기본 opacity를 0으로 두면
+   저자극 킬스위치가 animation을 끄는 순간 영원히 안 보이게 된다 --- */
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reveal {
+  animation: fade-up 0.5s both;
+  animation-delay: calc(var(--i, 0) * 0.6s);
+}
+
+/* --- 타이틀 키비주얼 — 다섯 직업이 나란히 선다 --- */
+
+.title-art {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+  flex-wrap: wrap;
+}
+
+.title-art canvas {
+  image-rendering: pixelated;
+  width: 3.5rem;
+  height: auto;
+  animation: idle-float 2.4s ease-in-out infinite;
+}
+
+.title-art canvas:nth-child(2n) {
+  animation-delay: 0.4s;
+}
+
+.title-art canvas:nth-child(3n) {
+  animation-delay: 0.8s;
+}
+
+@keyframes idle-float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-0.25rem);
+  }
+}
+
+/* --- 대화 초상화 --- */
+
+.dialogue .line-wrap {
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+}
+
+.dialogue .portrait {
+  flex: 0 0 3.5rem;
+  min-height: 3.5rem;
+}
+
+.dialogue .portrait canvas {
+  image-rendering: pixelated;
+  width: 3.5rem;
+  height: auto;
+}
+
+/* --- 토스트 — 시각 전용 알림(aria-hidden). 낭독은 announcer가 이미 한다 --- */
+
+.toasts {
+  position: absolute;
+  top: var(--sp-4);
+  right: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  z-index: 10;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-sm);
+  animation: fade-up 0.3s both;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+@media (max-width: 480px) {
+  .toasts {
+    left: var(--sp-3);
+    right: var(--sp-3);
+  }
 }

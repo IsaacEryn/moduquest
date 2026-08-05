@@ -52,17 +52,24 @@ export class PartyPanel {
     `
     document.body.append(this.dialog)
 
-    // 직업 설명은 한 번만 만들어 모든 그룹이 참조한다
+    // 직업 설명은 한 번만 만들어 모든 그룹이 참조한다.
+    // 눈으로 고르는 사람에게도 보여야 한다 — 숨기면 스크린리더 사용자만 스탯을 알게 된다.
+    // 접어 두는 것은 라디오 열다섯 개가 밀려나지 않게 하려는 것이고, 펼치면 전부 나온다
     const jobIds = Object.keys(this.game.jobs)
-    const descWrap = document.createElement('div')
-    descWrap.className = 'visually-hidden'
+    const descWrap = document.createElement('details')
+    descWrap.className = 'job-descs'
+    const summary = document.createElement('summary')
+    summary.textContent = '직업 자세히 보기'
+    descWrap.append(summary)
     for (const id of jobIds) {
       const p = document.createElement('p')
       p.id = `job-desc-${id}`
-      p.textContent = describeJob(this.game.jobs[id])
+      p.className = 'slot-desc'
+      p.textContent = `${this.game.jobs[id].name} — ${describeJob(this.game.jobs[id])}`
       descWrap.append(p)
     }
-    this.dialog.append(descWrap)
+    const actions = this.dialog.querySelector('.slot-actions')!
+    actions.before(descWrap)
 
     const groups = this.dialog.querySelector('.party-groups')!
     SLOT_LABELS.forEach((label, slot) => {

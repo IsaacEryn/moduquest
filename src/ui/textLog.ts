@@ -21,13 +21,16 @@ export class TextLog {
       this.placeholder.remove()
       this.placeholder = null
     }
+    // 바닥 근처를 보고 있을 때만 따라 내려간다 — 위로 올려 읽는 중에 끌어내리면
+    // 읽던 자리를 잃는다
+    const atBottom = this.el.scrollHeight - this.el.scrollTop - this.el.clientHeight < 24
     const p = document.createElement('p')
     p.textContent = text
     this.el.append(p)
     while (this.el.children.length > MAX_LINES) {
       this.el.firstChild?.remove()
     }
-    this.el.scrollTop = this.el.scrollHeight
+    if (atBottom) this.el.scrollTop = this.el.scrollHeight
   }
 
   setVisible(visible: boolean): void {

@@ -15,7 +15,8 @@ export class HelpPanel {
     this.dialog.innerHTML = `
       <h2 id="help-title">도움말</h2>
 
-      <h3>조작</h3>
+      <details open>
+        <summary>조작</summary>
       <ul>
         <li>이동: 화살표 키 또는 W·A·S·D, 화면의 방향 버튼,
           그리고 지도 위에서 가고 싶은 쪽으로 손가락 쓸기</li>
@@ -24,7 +25,9 @@ export class HelpPanel {
         <li>메뉴 이동: Tab 키와 Enter. 대상 선택은 ESC로 취소</li>
       </ul>
 
-      <h3>이 게임에는 무작위가 없다</h3>
+      </details>
+      <details>
+        <summary>이 게임에는 무작위가 없다</summary>
       <p>주사위 대신 셀 수 있는 규칙을 쓴다. 같은 상황에서는 언제나 같은 일이 일어난다.</p>
       <ul>
         <li>피해 = 공격력 × 기술 배율 − 상대 방어력. 아무리 낮아도 1은 들어간다.
@@ -54,7 +57,9 @@ export class HelpPanel {
           입을 수 있다. 다 싸우며 걸으면 마지막 싸움에서 최고 레벨에 닿는다</li>
       </ul>
 
-      <h3>길</h3>
+      </details>
+      <details>
+        <summary>길</summary>
       <ul>
         <li>스테이지는 여러 구역으로 나뉜다. 문을 밟으면 다음 구역으로 건너가고,
           어디로 왔는지 소리로 알려 준다</li>
@@ -69,7 +74,9 @@ export class HelpPanel {
           <strong>무작위가 아니라 순서다</strong> — 같은 기록을 불러오면 언제나 같은 지도다</li>
       </ul>
 
-      <h3>장비</h3>
+      </details>
+      <details>
+        <summary>장비</summary>
       <ul>
         <li>무기·갑옷·신발·장갑 네 자리에 입는다. 상태창에서 입고 벗고, 능력치의
           출처("기본 + 장비 + 동료")를 그대로 보여준다</li>
@@ -79,7 +86,9 @@ export class HelpPanel {
           강하게 한다 — 함께 걷는 것이 수치가 되는 장비다</li>
       </ul>
 
-      <h3>마을</h3>
+      </details>
+      <details>
+        <summary>마을</summary>
       <p>쉼터에 서 있을 때와 스테이지를 마친 뒤에 들를 수 있다. 값에도 확률이 없다 —
         아래 수가 곧 게임 안의 수다.</p>
       <ul>
@@ -96,13 +105,16 @@ export class HelpPanel {
           팔지도 분해하지도 못한다</li>
       </ul>
 
-      <h3>특성과 저장</h3>
+      </details>
+      <details>
+        <summary>특성과 저장</summary>
       <ul>
         <li>특성은 이득과 대가가 한 묶음이다. 준비하는 자리(타이틀·쉼터)에서만 바꿀 수 있다</li>
         <li>저장은 필드에서 자동으로 된다. 저장 버튼은 없다. 마을에서 사고팔거나 강화한
           것도 그 자리에서 기록된다</li>
       </ul>
 
+      </details>
       <div class="slot-actions">
         <button type="button" id="help-close">닫기</button>
       </div>
