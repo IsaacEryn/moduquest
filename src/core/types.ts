@@ -355,7 +355,14 @@ export interface Combatant {
   id: string
   name: string
   side: 'ally' | 'enemy'
+  /**
+   * 이 자리에 사람이 앉아 있는가(입력을 기다릴 대상인가).
+   * "화면 앞의 나"인지는 여기서 판정하지 않는다 — 함께 하기에서는 세 자리 모두
+   * 사람이지만 각자에게 "나"는 다르므로, 1인칭은 UI가 자기 좌석과 비교해 정한다.
+   */
   isPlayer: boolean
+  /** 파티에서의 자리 번호(0이 방장). 몹에게는 없다 */
+  seat?: number
   hp: number
   maxHp: number
   /** 마력. 전투 자원이라 전투 밖에서는 늘 가득이고 저장하지 않는다 */

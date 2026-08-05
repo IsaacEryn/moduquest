@@ -7,9 +7,7 @@ import { josa, toward } from '../core/korean'
 export { josa, toward }
 import type { Options } from './optionsStore'
 
-function who(c: Combatant): string {
-  return c.isPlayer ? '나' : c.name
-}
+
 
 const ZWSP = '\u200B'
 const CAPTION_HOLD_MS = 2000
@@ -33,8 +31,24 @@ export class Announcer {
     bus: EventBus,
     private options: Options,
     private onLine?: (text: string) => void,
+    /**
+     * 이 화면 앞에 앉은 사람의 파티원 id. "나"는 화면마다 다르다 —
+     * 함께 하기에서 좌석 2번 사람은 힐러의 행동을 "내가"로 들어야 한다.
+     * 솔로에서는 언제나 0번(기존과 동일).
+     */
+    private myId: () => string | null = () => null,
   ) {
     bus.on((e) => this.handle(e))
+  }
+
+  /** 이 사람이 화면 앞의 "나"인가 — 좌석 기준, 솔로는 isPlayer 하위 호환 */
+  private isMine(c: { id: string; isPlayer: boolean }): boolean {
+    const mine = this.myId()
+    return mine !== null ? c.id === mine : c.isPlayer
+  }
+
+  private who(c: Combatant): string {
+    return this.isMine(c) ? '나' : c.name
   }
 
   polite(text: string): void {
@@ -112,7 +126,7 @@ export class Announcer {
         const names = e.enemies.map((m) => m.name).join(', ')
         this.assertive(`전투 시작! 상대는 ${names}.`)
         this.caption('[전투 시작]')
-        const order = e.order.map((c) => who(c)).join(', ')
+        const order = e.order.map((c) => this.who(c)).join(', ')
         this.polite(`행동 순서: ${order}.`)
         break
       }
@@ -120,23 +134,23 @@ export class Announcer {
         this.assertive('내 차례다. 행동을 고르자.')
         break
       case 'attacked': {
-        const target = e.target.isPlayer ? '나' : e.target.name
+        const target = this.isMine(e.target) ? '나' : e.target.name
         const left = e.target.hp > 0 ? ` 남은 체력 ${e.target.hp}.` : ''
         const verb = e.skillName ?? '공격'
-        this.polite(`${who(e.actor)}의 ${verb}. ${target}에게 ${e.damage} 피해.${left}`)
+        this.polite(`${this.who(e.actor)}의 ${verb}. ${target}에게 ${e.damage} 피해.${left}`)
         this.caption(e.skillName ? `[${e.skillName}]` : '[타격]')
         break
       }
       case 'healed': {
-        const target = e.target.isPlayer ? '내가' : josa(e.target.name, '이', '가')
+        const target = this.isMine(e.target) ? '내가' : josa(e.target.name, '이', '가')
         this.polite(
-          `${who(e.actor)}의 치유. ${target} ${e.amount} 회복. 체력 ${e.target.hp}.`,
+          `${this.who(e.actor)}의 치유. ${target} ${e.amount} 회복. 체력 ${e.target.hp}.`,
         )
         this.caption('[치유]')
         break
       }
       case 'taunted': {
-        const actor = who(e.actor)
+        const actor = this.who(e.actor)
         this.polite(
           `${actor}의 도발. ${e.duration}라운드 동안 적이 ${josa(actor, '을', '를')} 노린다.`,
         )
@@ -144,11 +158,11 @@ export class Announcer {
         break
       }
       case 'defended':
-        this.polite(`${josa(who(e.actor), '은', '는')} 방어 자세를 잡았다.`)
+        this.polite(`${josa(this.who(e.actor), '은', '는')} 방어 자세를 잡았다.`)
         break
       case 'deflected': {
-        const target = e.target.isPlayer ? '나는' : josa(e.target.name, '은', '는')
-        this.polite(`${who(e.actor)}의 공격. ${target} 흘렸다. 피해 없음.`)
+        const target = this.isMine(e.target) ? '나는' : josa(e.target.name, '은', '는')
+        this.polite(`${this.who(e.actor)}의 공격. ${target} 흘렸다. 피해 없음.`)
         this.caption('[흘림]')
         break
       }
@@ -156,7 +170,9 @@ export class Announcer {
         this.polite(`특성을 ${toward(e.name)} 바꿨다. ${e.description}`)
         break
       case 'equipChanged': {
-        const who = e.isPlayer ? '나는' : josa(e.memberName, '은', '는')
+        const who = this.isMine({ id: e.memberId, isPlayer: e.isPlayer })
+          ? '나는'
+          : josa(e.memberName, '은', '는')
         if (e.itemName && e.removedName) {
           this.polite(
             `${who} ${josa(e.removedName, '을', '를')} 벗고 ${josa(e.itemName, '을', '를')} 입었다.`,
@@ -172,7 +188,7 @@ export class Announcer {
       case 'manaSpent': {
         // 내 마력만 말한다 — 동료 것까지 매번 읽으면 전투가 숫자로 뒤덮인다.
         // 동료 마력은 둘러보기(전황 요약)에 들어 있다
-        if (e.actor.isPlayer && e.cost > 0) {
+        if (this.isMine(e.actor) && e.cost > 0) {
           this.polite(`마력 ${e.cost}를 썼다. ${e.left} 남았다.`)
         }
         break
@@ -191,12 +207,12 @@ export class Announcer {
         break
       }
       case 'itemUsed': {
-        const target = e.target.isPlayer ? '내가' : josa(e.target.name, '이', '가')
+        const target = this.isMine(e.target) ? '내가' : josa(e.target.name, '이', '가')
         const parts: string[] = [`${josa(e.name, '을', '를')} 썼다.`]
         if (e.healed > 0) parts.push(`${target} ${e.healed} 회복. 체력 ${e.target.hp}.`)
         if (e.mana > 0) parts.push(`${target} 마력 ${e.mana} 회복. 마력 ${e.target.mp}.`)
         if (e.cooldownCut > 0) {
-          const who = e.target.isPlayer ? '내' : `${e.target.name}의`
+          const who = this.isMine(e.target) ? '내' : `${e.target.name}의`
           parts.push(`${who} 기술 대기가 ${e.cooldownCut} 줄었다.`)
         }
         this.polite(parts.join(' '))
@@ -264,7 +280,7 @@ export class Announcer {
       case 'downed': {
         if (e.target.side === 'enemy') {
           this.polite(`${josa(e.target.name, '을', '를')} 물리쳤다.`)
-        } else if (e.target.isPlayer) {
+        } else if (this.isMine(e.target)) {
           this.polite('내가 쓰러졌다.')
         } else {
           this.polite(`${josa(e.target.name, '이', '가')} 쓰러졌다.`)
@@ -274,7 +290,7 @@ export class Announcer {
       case 'victory': {
         this.assertive('이겼다! 파티가 조금 회복했다.')
         for (const c of e.revived) {
-          this.polite(`쓰러졌던 ${josa(who(c), '이', '가')} 일어났다.`)
+          this.polite(`쓰러졌던 ${josa(this.who(c), '이', '가')} 일어났다.`)
         }
         this.caption('[승리]')
         break

@@ -103,7 +103,7 @@ export class Battle {
     this.bus.emit({ type: 'turnStart', actor })
 
     if (actor.isPlayer) {
-      this.bus.emit({ type: 'playerTurn' })
+      this.bus.emit({ type: 'playerTurn', actor })
       return 'waiting-player'
     }
 
@@ -116,9 +116,12 @@ export class Battle {
    * 플레이어 행동. 규칙 검증은 UI가 아니라 여기가 최종 책임진다 —
    * 내 차례가 아니거나 쿨다운 중이면 null을 반환하고 아무 일도 일어나지 않는다.
    */
-  playerAction(action: PlayerAction): StepResult | null {
+  playerAction(action: PlayerAction, seat = 0): StepResult | null {
     const actor = this.currentActor
     if (!actor.isPlayer || actor.hp <= 0) return null
+    // 함께 하기 — 자기 자리의 차례에만 행동한다. 남의 자리 입력은 조용히 거절되므로
+    // 원격에서 온 부정·중복 액션도 모든 화면에서 같은 결론(무시)에 도달한다
+    if (actor.seat !== undefined && actor.seat !== seat) return null
     if (action.kind === 'attack') {
       const target = this.findAlive(this.opponentsOf(actor), action.targetId)
       if (!target) return null
@@ -144,9 +147,11 @@ export class Battle {
     targetId: string,
     effect: { heal?: number; mana?: number; cooldownCut?: number },
     itemName: string,
+    seat = 0,
   ): StepResult | null {
     const actor = this.currentActor
     if (!actor.isPlayer || actor.hp <= 0) return null
+    if (actor.seat !== undefined && actor.seat !== seat) return null
     const target = this.findAlive(this.allies, targetId)
     if (!target) return null
 
@@ -440,14 +445,18 @@ export class Battle {
     return 'continue'
   }
 
-  /** R 키: 전황 요약. 아군·적 같은 규칙으로 — 쓰러진 개체도 누락하지 않는다 */
-  summary(): string {
+  /**
+   * R 키: 전황 요약. 아군·적 같은 규칙으로 — 쓰러진 개체도 누락하지 않는다.
+   * "나"는 화면마다 다르므로 보는 사람의 파티원 id를 받는다. 안 주면 솔로 규칙(isPlayer).
+   */
+  summary(viewerId?: string): string {
     // 누가 앞에 서 있는지는 다음 한 대가 어디로 갈지를 뜻한다 — 화면을 보지 않아도 알아야 한다
     const front = Battle.frontOf(this.aliveAllies())
+    const mine = (c: Combatant) => (viewerId !== undefined ? c.id === viewerId : c.isPlayer)
     const side = (list: Combatant[]) =>
       list
         .map((c) => {
-          const name = c.isPlayer ? '나' : c.name
+          const name = mine(c) ? '나' : c.name
           if (c.hp <= 0) return `${name} 쓰러짐`
           const deflect = Battle.willDeflect(c) ? ', 다음 피격 흘림' : ''
           const mana = c.maxMp > 0 ? `, 마력 ${c.mp}/${c.maxMp}` : ''

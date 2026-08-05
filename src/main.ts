@@ -83,7 +83,13 @@ const battleUI = new BattleUI(game, bus, () => options.open())
 // 낭독과 같은 문장이 텍스트 기록 창에도 쌓인다 — 글만으로 게임을 따라가는 렌즈
 const textLog = new TextLog()
 textLog.setVisible(store.options.textLog)
-const announcer = new Announcer(bus, store.options, (text) => textLog.add(text))
+const announcer = new Announcer(
+  bus,
+  store.options,
+  (text) => textLog.add(text),
+  // "나"의 기준 — 함께 하기에서는 내 좌석의 파티원, 솔로에서는 0번
+  () => game.party[game.localSeat]?.id ?? null,
+)
 
 const saves = new LocalSaveRepository(data)
 const partyPanel = new PartyPanel(game, {

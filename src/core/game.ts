@@ -161,10 +161,55 @@ export class Game {
    * 파티는 구성(partyJobs)이 정한다. 배치 순서가 몹의 공격 순서 기준이 된다.
    * 능력치 계산은 computeMemberStats 한 곳 — 상태창도 같은 함수를 읽는다.
    */
+  /**
+   * 자리마다 누가 조작하는가. 솔로는 0번만 사람이고 동료는 스스로 싸운다.
+   * 함께 하기에서 좌석이 배정되면 'human'이 늘고, 접속이 끊기면 'npc'로 돌아간다.
+   */
+  private seatControllers: ('human' | 'npc')[] = ['human', 'npc', 'npc']
+  /** 이 화면 앞에 앉은 사람의 자리 — 1인칭 낭독("나")의 기준. 코어 로직에는 안 쓴다 */
+  localSeat = 0
+  /** 필드 이동과 대사 넘김을 쥔 자리(길잡이). 솔로는 늘 0 */
+  moveTokenSeat = 0
+
+  seatControllerOf(seat: number): 'human' | 'npc' | null {
+    return this.seatControllers[seat] ?? null
+  }
+
+  /**
+   * 자리의 조작자를 바꾼다 — 함께 하기에서 합류(human)와 이탈(npc)이 이 길을 지난다.
+   * 전투 중에는 파티를 다시 만들지 않고 살아 있는 객체만 고친다. 전투가 그 객체를
+   * 직접 참조하기 때문이다(refreshParty 금지 규칙과 같은 이유).
+   * 이탈한 자리가 마침 입력을 기다리던 중이면 그 자리의 동료 AI가 즉시 이어받는다.
+   */
+  setSeatController(seat: number, controller: 'human' | 'npc'): void {
+    if (seat < 0 || seat >= this.partyJobs.length) return
+    if (this.seatControllers[seat] === controller) return
+    this.seatControllers[seat] = controller
+    const member = this.party[seat]
+    if (member) member.isPlayer = controller === 'human'
+    this.bus.emit({
+      type: 'seatControlChanged',
+      seat,
+      controller,
+      memberName: member?.name ?? '',
+    })
+    // 입력을 기다리던 자리가 비면 대기가 영원해진다 — AI가 바로 이어받는다
+    if (
+      controller === 'npc' &&
+      this.mode === 'battle' &&
+      this.battle &&
+      this.battle.currentActor.seat === seat &&
+      this.turnTimer === null
+    ) {
+      this.stepBattle()
+    }
+  }
+
   private buildParty(): Combatant[] {
     const trait = this.trait
     return this.partyJobs.map((job, index) => {
-      const isPlayer = index === 0
+      // 사람이 앉은 자리인가 — 솔로는 0번뿐, 함께 하기에서는 좌석 배정이 정한다
+      const isPlayer = this.seatControllers[index] === 'human'
       const j = this.data.jobs[job]
       const s = this.breakdownFor(job).total
       const c: Combatant = {
@@ -172,6 +217,7 @@ export class Game {
         name: j.name,
         side: 'ally',
         isPlayer,
+        seat: index,
         hp: s.hp,
         maxHp: s.hp,
         mp: s.mp,
@@ -186,7 +232,8 @@ export class Game {
         sprite: j.sprite ?? job,
         frontOrder: j.frontOrder,
       }
-      if (isPlayer) applyCombat(c, trait)
+      // 특성은 0번 자리(방장)의 것 — 좌석별 특성은 이후 확장 지점
+      if (index === 0) applyCombat(c, trait)
       return c
     })
   }
@@ -460,6 +507,7 @@ export class Game {
     this.bus.emit({
       type: 'equipChanged',
       memberName: member?.name ?? '',
+      memberId,
       isPlayer: member?.isPlayer ?? false,
       slot,
       itemName: item.name,
@@ -480,6 +528,7 @@ export class Game {
     this.bus.emit({
       type: 'equipChanged',
       memberName: member?.name ?? '',
+      memberId,
       isPlayer: member?.isPlayer ?? false,
       slot,
       itemName: null,
@@ -1069,8 +1118,10 @@ export class Game {
     })
   }
 
-  advanceDialogue(): void {
+  advanceDialogue(seat = 0): void {
     if (this.mode !== 'dialogue') return
+    // 대사 넘김도 길잡이의 몫 — 셋이 동시에 누르면 줄이 세 번 넘어간다
+    if (seat !== this.moveTokenSeat) return
     this.dialogueIndex += 1
     if (this.dialogueIndex < this.dialogueQueue.length) {
       this.emitDialogueLine()
@@ -1083,8 +1134,10 @@ export class Game {
 
   // --- 필드 ---
 
-  moveField(dir: Dir): void {
+  moveField(dir: Dir, seat = 0): void {
     if (this.mode !== 'field') return
+    // 파티는 함께 한 칸을 걷는다 — 발걸음은 이동 토큰(길잡이)을 쥔 자리의 몫
+    if (seat !== this.moveTokenSeat) return
     const wasAtCheckpoint = this.field.checkpointReached
     const encounter = this.field.move(dir)
     // 상자는 밟는 순간 열린다 — 전투가 이어져도 이미 연 것이다
@@ -1155,7 +1208,7 @@ export class Game {
     this.handleStep(this.battle.step())
   }
 
-  playerAction(action: PlayerAction): void {
+  playerAction(action: PlayerAction, seat = 0): void {
     if (!this.battle || this.mode !== 'battle') return
     // 아이템은 인벤토리를 아는 여기서 검증하고, 턴 규칙은 전투가 판정한다
     if (action.kind === 'item') {
@@ -1166,6 +1219,7 @@ export class Game {
         action.targetId,
         { heal: item.heal, mana: item.mana, cooldownCut: item.cooldownCut },
         item.name,
+        seat,
       )
       // null이면 효과가 없어 쓰지 않은 것 — 아이템도 턴도 소모되지 않는다
       if (result === null) return
@@ -1173,9 +1227,24 @@ export class Game {
       this.handleStep(result)
       return
     }
-    const result = this.battle.playerAction(action)
+    const result = this.battle.playerAction(action, seat)
     // null이면 규칙상 무효한 입력(내 차례 아님, 쿨다운 등) — 아무 일도 없다
     if (result !== null) this.handleStep(result)
+  }
+
+  /** 길잡이(이동 토큰)를 다른 자리로 넘긴다 — 함께 하기의 협동 장치 */
+  passMoveToken(toSeat: number, fromSeat = this.moveTokenSeat): boolean {
+    if (toSeat < 0 || toSeat >= this.partyJobs.length) return false
+    // 토큰은 쥔 사람 또는 방장(0번)만 넘길 수 있다
+    if (fromSeat !== this.moveTokenSeat && fromSeat !== 0) return false
+    if (toSeat === this.moveTokenSeat) return false
+    this.moveTokenSeat = toSeat
+    this.bus.emit({
+      type: 'moveTokenChanged',
+      seat: toSeat,
+      memberName: this.party[toSeat]?.name ?? '',
+    })
+    return true
   }
 
   private handleStep(result: StepResult): void {
@@ -1232,7 +1301,9 @@ export class Game {
 
   battleSummary(): void {
     if (!this.battle || this.mode !== 'battle') return
-    this.bus.emit({ type: 'battleSummary', text: this.battle.summary() })
+    // 이 화면 앞에 앉은 사람의 시점으로 — 함께 하기에서 "나"는 좌석마다 다르다
+    const viewerId = this.party[this.localSeat]?.id
+    this.bus.emit({ type: 'battleSummary', text: this.battle.summary(viewerId) })
   }
 
   private onVictory(): void {

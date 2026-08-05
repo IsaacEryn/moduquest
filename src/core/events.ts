@@ -9,7 +9,11 @@ export type GameEvent =
   | { type: 'dialogue'; line: DialogueLine; last: boolean }
   | { type: 'battleStart'; enemies: Combatant[]; order: Combatant[] }
   | { type: 'turnStart'; actor: Combatant }
-  | { type: 'playerTurn' }
+  | { type: 'playerTurn'; actor: Combatant }
+  // 함께 하기 — 자리의 조작자가 바뀌었다(합류·이탈·대행)
+  | { type: 'seatControlChanged'; seat: number; controller: 'human' | 'npc'; memberName: string }
+  // 함께 하기 — 길잡이(이동 토큰)가 다른 자리로 넘어갔다
+  | { type: 'moveTokenChanged'; seat: number; memberName: string }
   | { type: 'attacked'; actor: Combatant; target: Combatant; damage: number; skillName?: string }
   | { type: 'healed'; actor: Combatant; target: Combatant; amount: number }
   | { type: 'taunted'; actor: Combatant; duration: number }
@@ -25,6 +29,7 @@ export type GameEvent =
   | {
       type: 'equipChanged'
       memberName: string
+      memberId: string
       isPlayer: boolean
       slot: EquipSlot
       /** 새로 입은 것. null이면 벗기만 했다 */
