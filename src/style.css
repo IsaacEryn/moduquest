@@ -991,3 +991,13 @@ details > summary::marker {
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
 }
+
+/* 길잡이 줄 — 함께 하기에서만 나타난다 */
+.token-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin: var(--sp-3) 0 0;
+  color: var(--text-dim);
+}

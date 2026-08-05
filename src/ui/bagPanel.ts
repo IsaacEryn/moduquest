@@ -33,6 +33,11 @@ export class BagPanel {
     return this.dialog.open
   }
 
+  /** 바깥에서 가방이 바뀌었다 — 함께 하기에서 동료가 꺼낸 물약이 내 화면에도 닿는 길 */
+  refresh(): void {
+    if (this.dialog.open) this.renderList()
+  }
+
   private renderList(): void {
     const list = this.dialog.querySelector<HTMLUListElement>('.bag-list')!
     list.replaceChildren()

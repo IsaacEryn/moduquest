@@ -89,6 +89,11 @@ export class StatusPanel {
     return this.dialog.open
   }
 
+  /** 바깥에서 상태가 바뀌었다 — 함께 하기에서 동료의 장비·강화가 내 화면에도 닿는 길 */
+  refresh(): void {
+    if (this.dialog.open) this.render()
+  }
+
   private render(): void {
     const g = this.game
     const level = this.dialog.querySelector('.status-level')!

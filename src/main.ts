@@ -123,6 +123,7 @@ const announcer = new Announcer(
   (text) => textLog.add(text),
   // "나"의 기준 — 함께 하기에서는 내 좌석의 파티원, 솔로에서는 0번
   () => game.party[game.localSeat]?.id ?? null,
+  () => game.localSeat,
 )
 
 const saves = new LocalSaveRepository(data)
@@ -253,6 +254,16 @@ async function openCoop(): Promise<void> {
             : `${s.slot + 1}번 자리 — 기록이 있다 (덮어쓰며 저장된다)`,
         )
       },
+      openGifts: (me) => {
+        void (async () => {
+          const { GiftPanel } = await import('./ui/giftPanel')
+          const panel = new GiftPanel(data, saves, {
+            announce: (t) => announcer.polite(t),
+            myFriendCode: () => me.friendCode,
+          })
+          await panel.open()
+        })()
+      },
     })
   }
   await coopPanel.open()
@@ -271,6 +282,26 @@ bus.on((e) => {
 // 화면 모드를 body에 남긴다 — 타이틀·클리어에서 지도를 숨기는 CSS가 이 값을 본다
 bus.on((e) => {
   if (e.type === 'mode') document.body.dataset.mode = e.mode
+})
+
+// 함께 하기 중에는 동료의 거래·장비·물약이 내 열린 창에도 닿아야 한다 —
+// 솔로에서는 내 손이 곧 갱신이라 이 길이 필요 없다
+bus.on((e) => {
+  if (!activeSession) return
+  if (
+    e.type === 'bought' ||
+    e.type === 'sold' ||
+    e.type === 'dismantled' ||
+    e.type === 'upgraded' ||
+    e.type === 'equipChanged' ||
+    e.type === 'itemUsed' ||
+    e.type === 'itemGained' ||
+    e.type === 'goldGained'
+  ) {
+    townPanel.refresh()
+    statusPanel.refresh()
+    bagPanel.refresh()
+  }
 })
 
 /** 타이틀로 돌아올 때마다 "이어서 하기"를 보일지 다시 판단한다 */

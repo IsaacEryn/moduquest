@@ -32,6 +32,8 @@ export class CoopPanel {
       /** 게스트의 저장 자리 — null이면 이번 모험을 저장하지 않는다 */
       setGuestSlot: (slot: number | null) => void
       describeSlots: () => Promise<string[]>
+      /** 선물함 열기 — 세션과 무관한 비동기 우편 */
+      openGifts: (me: Profile) => void
     },
   ) {
     this.dialog = document.createElement('dialog')
@@ -293,6 +295,11 @@ export class CoopPanel {
           joinBtn.disabled = false
         })
     })
+
+    const gifts = document.createElement('button')
+    gifts.type = 'button'
+    gifts.textContent = '선물함'
+    gifts.addEventListener('click', () => this.hooks.openGifts(me))
 
     const out = document.createElement('button')
     out.type = 'button'

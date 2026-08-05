@@ -16,6 +16,8 @@ export class Screens {
   private onAreaChanged: (() => void) | null = null
   /** 마을 버튼을 지금 자리에 맞게 여닫는 갱신자 */
   private onTownAvailability: (() => void) | null = null
+  /** 길잡이 줄 갱신자 — 자리·토큰이 바뀔 때만 산다 */
+  private onSeatsChanged: (() => void) | null = null
 
   constructor(
     private game: Game,
@@ -41,6 +43,9 @@ export class Screens {
       if (e.type === 'moved' || e.type === 'checkpoint' || e.type === 'areaChanged') {
         this.onTownAvailability?.()
       }
+      if (e.type === 'seatControlChanged' || e.type === 'moveTokenChanged') {
+        this.onSeatsChanged?.()
+      }
       if (e.type === 'mode') this.render(e.mode)
       if (e.type === 'dialogue' && this.dialogueLine) {
         this.dialogueLine.innerHTML = ''
@@ -60,6 +65,7 @@ export class Screens {
   private clear(): void {
     this.battleUI.unmount()
     this.onAreaChanged = null
+    this.onSeatsChanged = null
     this.dialogueLine = null
     this.dialoguePortrait = null
     this.ui.replaceChildren()
@@ -233,6 +239,45 @@ export class Screens {
     padButton('둘러보기', '주변 확인', 'look', () => this.game.fieldSummary())
     padButton('→', '동쪽으로 이동', 'right', () => this.game.moveField('east'))
     padButton('↓', '남쪽으로 이동', 'down', () => this.game.moveField('south'))
+
+    // 길잡이 — 함께 하기에서만 나타난다. 파티는 한 몸으로 움직이므로
+    // 이동과 대화 넘김은 길잡이 한 사람의 몫이고, 여기서 넘겨준다
+    const tokenBox = document.createElement('p')
+    tokenBox.className = 'token-line'
+    const refreshToken = () => {
+      const humanSeats = [0, 1, 2].filter((n) => this.game.seatControllerOf(n) === 'human')
+      if (humanSeats.length <= 1) {
+        tokenBox.hidden = true
+        tokenBox.replaceChildren()
+        return
+      }
+      tokenBox.hidden = false
+      tokenBox.replaceChildren()
+      const holder = this.game.party[this.game.moveTokenSeat]
+      const mineToken = this.game.moveTokenSeat === this.game.localSeat
+      const label = document.createElement('span')
+      label.textContent = mineToken
+        ? '길잡이: 나 — 넘겨주기: '
+        : `길잡이: ${holder?.name ?? ''} `
+      tokenBox.append(label)
+      // 넘길 수 있는 사람: 지금 쥔 사람과 방장(0번 자리)
+      const canPass = mineToken || this.game.localSeat === 0
+      if (!canPass) return
+      for (const n of humanSeats) {
+        if (n === this.game.moveTokenSeat) continue
+        const b = document.createElement('button')
+        b.type = 'button'
+        const name = this.game.party[n]?.name ?? `${n + 1}번`
+        b.textContent = n === this.game.localSeat ? `${name} (나)` : name
+        b.addEventListener('click', () => this.game.passMoveToken(n))
+        tokenBox.append(b)
+      }
+    }
+    refreshToken()
+    this.onSeatsChanged = () => {
+      if (tokenBox.isConnected) refreshToken()
+    }
+    s.append(tokenBox)
 
     const townBtn = document.createElement('button')
     townBtn.type = 'button'

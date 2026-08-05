@@ -37,6 +37,8 @@ export class Announcer {
      * 솔로에서는 언제나 0번(기존과 동일).
      */
     private myId: () => string | null = () => null,
+    /** 화면 앞의 사람이 앉은 자리 번호 — 길잡이·자리 이벤트의 1인칭 판정용 */
+    private mySeat: () => number = () => 0,
   ) {
     bus.on((e) => this.handle(e))
   }
@@ -131,7 +133,35 @@ export class Announcer {
         break
       }
       case 'playerTurn':
-        this.assertive('내 차례다. 행동을 고르자.')
+        // 함께 하기에서는 다른 자리의 차례도 이 이벤트로 온다 — 시점을 가른다
+        if (e.actor.seat === undefined || e.actor.seat === this.mySeat()) {
+          this.assertive('내 차례다. 행동을 고르자.')
+        } else {
+          this.polite(`${josa(e.actor.name, '이', '가')} 행동을 고르는 중.`)
+        }
+        break
+      case 'seatControlChanged':
+        // 솔로에서는 나지 않는 이벤트 — 함께 하기의 합류와 이탈만 말한다
+        if (e.controller === 'npc') {
+          this.polite(
+            e.seat === this.mySeat()
+              ? '내 자리가 잠시 비었다.'
+              : `${josa(e.memberName, '은', '는')} 이제 스스로 싸운다.`,
+          )
+        } else {
+          this.polite(
+            e.seat === this.mySeat()
+              ? '내 자리로 돌아왔다.'
+              : `${e.memberName}의 자리에 사람이 돌아왔다.`,
+          )
+        }
+        break
+      case 'moveTokenChanged':
+        this.polite(
+          e.seat === this.mySeat()
+            ? '이제 내가 길잡이다. 이동과 대화 넘김은 내 몫.'
+            : `길잡이가 ${e.memberName}에게 넘어갔다.`,
+        )
         break
       case 'attacked': {
         const target = this.isMine(e.target) ? '나' : e.target.name

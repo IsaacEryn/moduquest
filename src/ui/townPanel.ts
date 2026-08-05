@@ -102,6 +102,18 @@ export class TownPanel {
   }
 
   /**
+   * 바깥에서 상태가 바뀌었다 — 함께 하기에서 동료의 거래가 내 화면에도 닿는 길.
+   * 보고 있던 버튼 자리를 지키며 다시 그린다.
+   */
+  refresh(): void {
+    if (!this.dialog.open) return
+    const active = document.activeElement
+    const key = active instanceof HTMLElement ? active.dataset.key : undefined
+    if (key) this.rerender(key)
+    else this.render()
+  }
+
+  /**
    * 거래 한 번마다 값이 전부 달라지므로 통째로 다시 그린다.
    * 다시 그리면 눌렀던 버튼이 사라지므로 같은 자리로 포커스를 돌려준다 —
    * 연달아 사고파는 동안 포커스가 튀면 키보드만으로는 길을 잃는다.

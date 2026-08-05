@@ -28,10 +28,18 @@ export class BattleUI {
       if (!this.root) return
       switch (e.type) {
         case 'playerTurn': {
+          // 함께 하기에서는 다른 자리 사람의 차례도 이 이벤트로 온다 —
+          // 메뉴는 내 차례에만 열린다. 남의 차례에 눌러도 코어가 거절하지만,
+          // 눌리지 않는 것이 곧 상태 설명이다
+          const mine = e.actor.seat === undefined || e.actor.seat === this.game.localSeat
           const wasMyTurn = this.myTurn
-          this.myTurn = true
-          if (this.turnStatus) this.turnStatus.textContent = '내 차례 — 행동을 고르자.'
-          this.renderMenu(!wasMyTurn)
+          this.myTurn = mine
+          if (this.turnStatus) {
+            this.turnStatus.textContent = mine
+              ? '내 차례 — 행동을 고르자.'
+              : `${e.actor.name}의 사람이 행동을 고르는 중…`
+          }
+          this.renderMenu(mine && !wasMyTurn)
           break
         }
         case 'attacked':

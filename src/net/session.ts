@@ -211,12 +211,14 @@ export class PartySession {
     if (existing) {
       // 재접속 — 같은 자리로 돌아온다. 필드에 닿는 순간 스냅샷을 보낸다
       this.refreshNickname(existing)
+      existing.controller = 'human'
       if (this.started) {
+        this.sequencer.propose({ kind: 'seatControl', seat: existing.seat, controller: 'human' })
         this.pendingSync = true
         if (this.game.canSave) this.flushSync()
-        this.hooks.announce(`${existing.nickname}가 다시 이었다. 자리를 돌려준다.`)
       }
       this.shareSeats()
+      this.hooks.onRosterChanged()
       return
     }
     const taken = new Set(this.seats.map((s) => s.seat))
