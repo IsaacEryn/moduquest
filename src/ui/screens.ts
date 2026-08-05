@@ -21,6 +21,7 @@ export class Screens {
     private openStages: () => void,
     private openBag: () => void,
     private openHelp: () => void,
+    private openStatus: () => void,
   ) {
     bus.on((e) => {
       if (e.type === 'mode') this.render(e.mode)
@@ -161,6 +162,10 @@ export class Screens {
     padButton('→', '동쪽으로 이동', 'right', () => this.game.moveField('east'))
     padButton('↓', '남쪽으로 이동', 'down', () => this.game.moveField('south'))
 
+    const statusBtn = document.createElement('button')
+    statusBtn.type = 'button'
+    statusBtn.textContent = '상태'
+    statusBtn.addEventListener('click', () => this.openStatus())
     const bagBtn = document.createElement('button')
     bagBtn.type = 'button'
     bagBtn.textContent = '가방'
@@ -181,7 +186,7 @@ export class Screens {
     optBtn.type = 'button'
     optBtn.textContent = '옵션'
     optBtn.addEventListener('click', () => this.openOptions())
-    s.querySelector('.secondary')!.append(bagBtn, stageBtn, traitBtn, helpBtn, optBtn)
+    s.querySelector('.secondary')!.append(statusBtn, bagBtn, stageBtn, traitBtn, helpBtn, optBtn)
     this.ui.append(s)
     s.focus()
   }

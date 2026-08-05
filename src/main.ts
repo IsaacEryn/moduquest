@@ -25,6 +25,7 @@ import { LocalSaveRepository } from './save/saveRepository'
 import { Screens } from './ui/screens'
 import { SlotPanel } from './ui/slotPanel'
 import { StageSelect } from './ui/stageSelect'
+import { StatusPanel } from './ui/statusPanel'
 import { TextLog } from './ui/textLog'
 import { TraitPanel } from './ui/traitPanel'
 import { TraitStore } from './ui/traitStore'
@@ -104,6 +105,7 @@ const stageSelect = new StageSelect(game, {
 })
 const bagPanel = new BagPanel(game, pauseHooks)
 const helpPanel = new HelpPanel(pauseHooks)
+const statusPanel = new StatusPanel(game, pauseHooks)
 const screens = new Screens(
   game,
   bus,
@@ -114,6 +116,7 @@ const screens = new Screens(
   () => stageSelect.open(),
   () => bagPanel.open(),
   () => helpPanel.open(),
+  () => statusPanel.open(),
 )
 
 /**

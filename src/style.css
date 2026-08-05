@@ -376,6 +376,52 @@ dialog.options .row {
   gap: 0.35rem;
 }
 
+/* 상태창 — 멤버별 구역과 장비 슬롯 */
+.status-member {
+  margin: 0.6rem 0;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--line, #3a4750);
+}
+
+.status-member h3 {
+  margin: 0 0 0.25rem;
+}
+
+.status-member p {
+  margin: 0 0 0.3rem;
+}
+
+.status-note {
+  color: var(--text-dim, #9aa8b4);
+  font-size: 0.92em;
+}
+
+.status-slots {
+  list-style: none;
+  margin: 0.25rem 0 0;
+  padding: 0;
+}
+
+.status-slots li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+  margin: 0.25rem 0;
+}
+
+.status-picker {
+  flex-basis: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin: 0.2rem 0 0.4rem 0.75rem;
+}
+
+.status-picker button {
+  text-align: left;
+}
+
 /* 저장 자리 확인 문구 — 실수를 막는 질문이라 눈에 띄어야 한다 */
 .slot-confirm {
   margin: 0.25rem 0;

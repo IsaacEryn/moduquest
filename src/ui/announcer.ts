@@ -165,6 +165,20 @@ export class Announcer {
       case 'traitChanged':
         this.polite(`특성을 ${josa(e.name, '으로', '로')} 바꿨다. ${e.description}`)
         break
+      case 'equipChanged': {
+        const who = e.isPlayer ? '나는' : josa(e.memberName, '은', '는')
+        if (e.itemName && e.removedName) {
+          this.polite(
+            `${who} ${josa(e.removedName, '을', '를')} 벗고 ${josa(e.itemName, '을', '를')} 입었다.`,
+          )
+        } else if (e.itemName) {
+          this.polite(`${who} ${josa(e.itemName, '을', '를')} 입었다.`)
+        } else if (e.removedName) {
+          this.polite(`${who} ${josa(e.removedName, '을', '를')} 벗었다.`)
+        }
+        this.caption('[장비]')
+        break
+      }
       case 'manaSpent': {
         // 내 마력만 말한다 — 동료 것까지 매번 읽으면 전투가 숫자로 뒤덮인다.
         // 동료 마력은 둘러보기(전황 요약)에 들어 있다
