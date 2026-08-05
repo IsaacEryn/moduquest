@@ -493,8 +493,8 @@ dialog.options .row {
   gap: 0.35rem;
 }
 
-/* 마을 — 상점·처분·강화를 한 창에 세로로 둔다. 탭을 쓰지 않는 것은
-   제목만 훑어도 구역을 건너뛸 수 있고, 창은 <dialog>가 이미 가두기 때문이다 */
+/* 마을 — 세 가게(사기·팔기·강화)를 탭으로 나눈다. 처음엔 한 스크롤이었는데
+   강화 버튼 열둘까지 쌓이니 너무 길었다. 탭 스타일은 상태창 것을 함께 쓴다 */
 dialog.options.town {
   max-width: min(48rem, 94vw);
 }
@@ -519,15 +519,18 @@ dialog.options.town section:first-of-type h3 {
 }
 
 /* 좁은 화면에서는 파티원을 탭으로 고른다 — 셋을 세로로 쌓으면 스크롤만 길어진다.
-   34rem은 아래 첫 단 나눔과 같은 값이고, 그 경계는 statusPanel.ts도 함께 본다 */
-.status-tabs {
+   34rem은 아래 첫 단 나눔과 같은 값이고, 그 경계는 statusPanel.ts도 함께 본다.
+   마을의 가게 탭도 같은 골격을 쓴다 */
+.status-tabs,
+.town-tabs {
   display: flex;
   gap: 0.25rem;
   margin-bottom: 0.6rem;
   border-bottom: 1px solid var(--line, #3a4750);
 }
 
-.status-tabs [role='tab'] {
+.status-tabs [role='tab'],
+.town-tabs [role='tab'] {
   flex: 1 1 0;
   min-width: 0;
   border-radius: 0.4rem 0.4rem 0 0;
@@ -535,7 +538,8 @@ dialog.options.town section:first-of-type h3 {
   overflow-wrap: anywhere;
 }
 
-.status-tabs [role='tab'][aria-selected='true'] {
+.status-tabs [role='tab'][aria-selected='true'],
+.town-tabs [role='tab'][aria-selected='true'] {
   background: var(--accent);
   color: var(--panel);
   font-weight: 600;

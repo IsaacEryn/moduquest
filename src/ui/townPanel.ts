@@ -1,8 +1,18 @@
 import { UPGRADE_STAT_KO, type Game } from '../core/game'
 import type { UpgradeStat } from '../core/types'
 
+const TOWN_TABS = [
+  { id: 'shop', label: '사기' },
+  { id: 'part', label: '팔기·분해' },
+  { id: 'upgrade', label: '성장 강화' },
+] as const
+
+type TownTab = (typeof TOWN_TABS)[number]['id']
+
 /**
  * 마을 — 쉼터와 스테이지를 마친 자리에서 들르는 곳. 사고, 팔거나 분해하고, 강화한다.
+ * 세 가게는 탭으로 나뉜다 — 한 창에 다 쌓으면 강화 버튼 열둘까지 스크롤이 너무 길다.
+ * 탭 조작은 상태창과 같다: 묶음 전체가 Tab 한 번, 안에서는 화살표와 Home·End.
  *
  * 값에는 확률이 없다. 그래서 모든 버튼이 치를 값을 미리 적어 두고, 못 하는 버튼은
  * 왜 못 하는지를 라벨에 함께 적는다 — 눌러 보고 알아내야 하는 규칙은 규칙이 아니다.
@@ -12,6 +22,8 @@ export class TownPanel {
   private dialog: HTMLDialogElement
   private prevFocus: Element | null = null
   private closed = true
+  /** 보고 있는 가게. 닫았다 다시 열어도 하던 곳이 유지된다 */
+  private activeTab: TownTab = 'shop'
 
   constructor(
     private game: Game,
@@ -23,16 +35,14 @@ export class TownPanel {
     this.dialog.innerHTML = `
       <h2 id="town-title">마을</h2>
       <p class="town-wallet" aria-live="off"></p>
-      <section aria-labelledby="town-shop-title">
-        <h3 id="town-shop-title">상점 — 사기</h3>
+      <div class="town-tabs" role="tablist" aria-label="마을 가게"></div>
+      <section role="tabpanel" id="town-panel-shop" aria-labelledby="town-tab-shop">
         <ul class="bag-list town-shop"></ul>
       </section>
-      <section aria-labelledby="town-part-title">
-        <h3 id="town-part-title">팔기·분해</h3>
+      <section role="tabpanel" id="town-panel-part" aria-labelledby="town-tab-part">
         <ul class="bag-list town-part"></ul>
       </section>
-      <section aria-labelledby="town-upgrade-title">
-        <h3 id="town-upgrade-title">성장 강화</h3>
+      <section role="tabpanel" id="town-panel-upgrade" aria-labelledby="town-tab-upgrade">
         <p class="bag-note">동전과 강화 재료로 한 사람의 능력치를 영구히 올린다. 되돌릴 수 없다.</p>
         <ul class="bag-list town-upgrade"></ul>
       </section>
@@ -43,6 +53,48 @@ export class TownPanel {
     document.body.append(this.dialog)
     this.dialog.querySelector('#town-close')!.addEventListener('click', () => this.close())
     this.dialog.addEventListener('close', () => this.afterClose())
+  }
+
+  private renderTabs(): void {
+    const list = this.dialog.querySelector<HTMLElement>('.town-tabs')!
+    list.replaceChildren()
+    const ids = TOWN_TABS.map((t) => t.id)
+    for (const t of TOWN_TABS) {
+      const tab = document.createElement('button')
+      tab.type = 'button'
+      tab.id = `town-tab-${t.id}`
+      tab.setAttribute('role', 'tab')
+      tab.setAttribute('aria-controls', `town-panel-${t.id}`)
+      const selected = t.id === this.activeTab
+      tab.setAttribute('aria-selected', String(selected))
+      // 탭 묶음 전체가 Tab 키 한 번이다 — 안에서는 화살표로 옮긴다
+      tab.tabIndex = selected ? 0 : -1
+      tab.textContent = t.label
+      tab.addEventListener('click', () => this.selectTab(t.id))
+      tab.addEventListener('keydown', (e) => {
+        const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+        let next: TownTab | null = null
+        if (step !== 0) {
+          const at = ids.indexOf(t.id)
+          next = ids[(at + step + ids.length) % ids.length]
+        } else if (e.key === 'Home') next = ids[0]
+        else if (e.key === 'End') next = ids[ids.length - 1]
+        if (!next) return
+        e.preventDefault()
+        this.selectTab(next)
+      })
+      list.append(tab)
+    }
+    for (const t of TOWN_TABS) {
+      const panel = this.dialog.querySelector<HTMLElement>(`#town-panel-${t.id}`)!
+      panel.hidden = t.id !== this.activeTab
+    }
+  }
+
+  private selectTab(id: TownTab): void {
+    this.activeTab = id
+    this.render()
+    this.dialog.querySelector<HTMLElement>(`#town-tab-${id}`)?.focus()
   }
 
   get isOpen(): boolean {
@@ -91,6 +143,9 @@ export class TownPanel {
     const g = this.game
     this.dialog.querySelector('.town-wallet')!.textContent =
       `동전 ${g.currentGold}냥 · 강화 재료 ${g.currentMaterials}개`
+    this.renderTabs()
+    // 세 가게를 전부 그려 둔다 — 탭은 보이기만 가르고, 거래 후 포커스 복원은
+    // data-key 검색이라 숨은 판을 비워 두면 찾을 것이 사라진다
     this.renderShop()
     this.renderParting()
     this.renderUpgrades()
