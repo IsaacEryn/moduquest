@@ -13,6 +13,8 @@ function describeJob(j: JobData): string {
     .join(' ')
   return (
     `${j.role}. ${j.playstyle ?? ''} ` +
+    // 누가 앞에 서는지는 파티를 짤 때 알아야 하는 정보다
+    `앞줄 ${j.frontOrder}번째. ` +
     `체력 ${j.hp}, 마력 ${j.mp}(라운드마다 ${j.mpRegen} 회복), ` +
     `공격 ${j.atk}, 방어 ${j.def}, 속도 ${j.spd}. 기술: ${skills}`
   )

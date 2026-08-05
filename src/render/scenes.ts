@@ -1,4 +1,5 @@
 import Phaser from 'phaser'
+import { Battle } from '../core/battle'
 import type { EventBus } from '../core/events'
 import { EQUIP_SLOTS, type Game } from '../core/game'
 import { MAP_SIZE } from '../core/layout'
@@ -288,7 +289,9 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       const battle = game.battle
       if (!battle) return
 
-      game.party.forEach((c, i) => this.spawn(c, 96, 72 + i * 68))
+      // 앞줄에 선 사람은 실제로 한 발 앞에 세운다 — 규칙을 글로만 알리지 않는다
+      const front = Battle.frontOf(game.party.filter((c) => c.hp > 0))
+      game.party.forEach((c, i) => this.spawn(c, c.id === front?.id ? 120 : 96, 72 + i * 68))
       battle.enemies.forEach((c, i) => this.spawn(c, 288, 72 + i * 68))
     }
 

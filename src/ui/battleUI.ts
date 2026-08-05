@@ -99,6 +99,8 @@ export class BattleUI {
   private renderStatus(): void {
     const battle = this.game.battle
     if (!battle) return
+    // 앞줄에 선 사람은 하급 몹의 몫을 먼저 받는다 — 목록에서도 그렇게 보여야 한다
+    const front = Battle.frontOf(this.game.party.filter((c) => c.hp > 0))
     const item = (c: Combatant) => {
       const li = document.createElement('li')
       if (c.hp <= 0) {
@@ -108,7 +110,8 @@ export class BattleUI {
       }
       const deflect = Battle.willDeflect(c) ? ' · 다음 피격 흘림' : ''
       const mana = c.maxMp > 0 ? ` · 마력 ${c.mp}/${c.maxMp}` : ''
-      li.textContent = `${c.name} — 체력 ${c.hp}/${c.maxHp}${mana}${deflect}`
+      const line = c.id === front?.id ? ' (앞줄)' : ''
+      li.textContent = `${c.name}${line} — 체력 ${c.hp}/${c.maxHp}${mana}${deflect}`
       return li
     }
     this.allyList.replaceChildren(...this.game.party.map(item))

@@ -27,6 +27,11 @@ export interface SkillData {
 export interface JobData {
   name: string
   role: string
+  /**
+   * 전투에서 서는 줄. 작을수록 앞이고, 하급 몹은 앞에 선 사람을 친다.
+   * 도발이 없어도 탱커가 먼저 맞도록 하는 규칙이며, 앞줄이 쓰러지면 다음 사람이 앞에 선다.
+   */
+  frontOrder: number
   /** 어떤 렌즈로 즐기는가 — 직업 선택 화면의 안내 문구 */
   playstyle?: string
   /** 스프라이트 키 — 생략하면 직업 id를 쓴다 */
@@ -365,6 +370,8 @@ export interface Combatant {
   sprite?: string
   /** 몹의 표적 선택 규칙. 아군에게는 없다 */
   ai?: MonsterAi
+  /** 아군이 서는 줄. 작을수록 앞이다. 몹에게는 없다 */
+  frontOrder?: number
   isBoss?: boolean
   /** 상대 방어력 무시량 */
   pierce?: number
