@@ -81,7 +81,14 @@ export class Game {
     return this.partyJobs.map((job, index) => {
       const isPlayer = index === 0
       const j = this.data.jobs[job]
-      const base = { hp: j.hp, atk: j.atk, def: j.def, spd: j.spd }
+      const grow = this.data.progression.growth[job]
+      const lv = this.partyLevel - 1
+      const base = {
+        hp: j.hp + (grow?.hp ?? 0) * lv,
+        atk: j.atk + (grow?.atk ?? 0) * lv,
+        def: j.def + (grow?.def ?? 0) * lv,
+        spd: j.spd + (grow?.spd ?? 0) * lv,
+      }
       const s = isPlayer ? applyStats(base, trait, this.data.traits.limits) : base
       const c: Combatant = {
         id: job,
@@ -182,14 +189,71 @@ export class Game {
     return p
   }
 
-  /** 지금 레벨에서 쓸 수 있는 스킬만. 경험치 시스템이 붙기 전까지 레벨은 1이다 */
+  /** 지금 레벨에서 쓸 수 있는 스킬만 */
   private unlockedSkills(j: JobData): SkillData[] {
     const level = this.partyLevel
     return j.skills.filter((s) => (s.unlockLevel ?? 1) <= level)
   }
 
+  // --- 경험치·레벨 ---
+
+  private xp = 0
+
+  get currentXp(): number {
+    return this.xp
+  }
+
+  /** 레벨은 경험치에서 유도한다 — 두 값이 어긋날 일이 없다 */
   get partyLevel(): number {
-    return 1
+    const table = this.data.progression.xpTable
+    let level = 1
+    for (let i = 1; i < table.length; i++) {
+      if (this.xp >= table[i]) level = i + 1
+    }
+    return level
+  }
+
+  /** 다음 레벨까지 남은 경험치. 최고 레벨이면 null */
+  get xpToNext(): number | null {
+    const table = this.data.progression.xpTable
+    const next = table[this.partyLevel]
+    return next === undefined ? null : next - this.xp
+  }
+
+  /**
+   * 경험치를 더하고 레벨이 올랐으면 파티를 다시 계산한다.
+   * 체력은 비율을 유지한다 — 레벨업이 곧 회복이 되지 않게.
+   */
+  private gainXp(amount: number): void {
+    if (amount <= 0) return
+    const before = this.partyLevel
+    this.xp += amount
+    this.bus.emit({
+      type: 'xpGained',
+      amount,
+      total: this.xp,
+      toNext: this.xpToNext,
+    })
+    const after = this.partyLevel
+    if (after === before) return
+
+    // 이번 레벨업으로 새로 열린 스킬 목록
+    const unlocked: { jobName: string; skillName: string }[] = []
+    for (const job of this.partyJobs) {
+      for (const s of this.data.jobs[job].skills) {
+        const lv = s.unlockLevel ?? 1
+        if (lv > before && lv <= after) {
+          unlocked.push({ jobName: this.data.jobs[job].name, skillName: s.name })
+        }
+      }
+    }
+
+    const ratios = this.party.map((c) => c.hp / c.maxHp)
+    this.party = this.buildParty()
+    this.party.forEach((c, i) => {
+      c.hp = Math.max(1, Math.min(c.maxHp, Math.round(c.maxHp * ratios[i])))
+    })
+    this.bus.emit({ type: 'levelUp', level: after, unlocked })
   }
 
   get currentPartyJobs(): string[] {
@@ -252,6 +316,8 @@ export class Game {
     this.bus.emit({ type: 'battleEnd' })
 
     this.stageIndex = index
+    // 어느 길로 왔든 이 스테이지에 걸맞은 최소 성장은 보장한다
+    this.xp = Math.max(this.xp, this.data.progression.stageEntryXp[index] ?? 0)
     this.party = this.buildParty()
     this.field = new Field(this.stage, this.monsterNames, this.bus, this.perceptionRadius)
 
@@ -309,7 +375,8 @@ export class Game {
         checkpointReached: this.field.checkpointReached,
         defeated: this.field.defeatedIds,
       },
-      party: this.party.map((c) => ({ id: c.id, hp: c.hp })),
+      party: this.party.map((c) => ({ job: c.id, hp: c.hp })),
+      xp: this.xp,
       seenDialogues: [...this.seenDialogues],
       clearedStages: [...this.clearedStages],
       updatedAt: this.now(),
@@ -330,11 +397,13 @@ export class Game {
 
     this.stageIndex = s.stageIndex
     this.traitId = s.traitId
+    this.xp = s.xp
+    this.partyJobs = s.party.map((p) => p.job)
     this.clearedStages = new Set(s.clearedStages)
     this.seenDialogues = new Set(s.seenDialogues)
     this.party = this.buildParty()
     for (const saved of s.party) {
-      const c = this.party.find((p) => p.id === saved.id)
+      const c = this.party.find((p) => p.id === saved.job)
       if (c) c.hp = Math.min(c.maxHp, Math.max(0, saved.hp))
     }
     this.field = new Field(this.stage, this.monsterNames, this.bus, this.perceptionRadius)
@@ -538,8 +607,15 @@ export class Game {
 
   private onVictory(): void {
     const wasBoss = this.battle?.isBossBattle ?? false
+    // 처치한 몹들의 고정 경험치 — 무작위가 없다
+    const gained =
+      this.currentEncounter?.monsters.reduce(
+        (sum, id) => sum + (this.data.monsters[id]?.xp ?? 0),
+        0,
+      ) ?? 0
     if (this.currentEncounter) this.field.removeEncounter(this.currentEncounter.id)
     this.endBattle()
+    this.gainXp(gained)
     if (wasBoss) {
       this.clearedStages.add(this.stage.id)
       this.showDialogue(this.stage.script['clear'] ?? [], () => {

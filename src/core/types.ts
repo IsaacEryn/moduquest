@@ -45,7 +45,18 @@ export interface MonsterData {
   atk: number
   def: number
   spd: number
+  /** 처치 시 파티가 얻는 경험치 — 고정값이라 결정적이다 */
+  xp?: number
   isBoss?: boolean
+}
+
+export interface ProgressionData {
+  /** 레벨 n이 되는 데 필요한 누적 경험치. 길이가 곧 최대 레벨 */
+  xpTable: number[]
+  /** 스테이지 진입 시 최소 보장 경험치 — 마이그레이션과 밸런스 검증의 기준선 */
+  stageEntryXp: number[]
+  /** 직업별 레벨당 성장 */
+  growth: Record<string, { hp: number; atk: number; def: number; spd: number }>
 }
 
 export interface Pos {
@@ -128,8 +139,13 @@ export interface SaveSnapshot {
   stageIndex: number
   traitId: string
   field: { pos: Pos; checkpointReached: boolean; defeated: string[] }
-  /** 최대 체력·능력치는 직업과 특성에서 다시 계산한다 — 밸런스 수정이 저장값에 박히지 않게 */
-  party: { id: string; hp: number }[]
+  /**
+   * 파티 구성과 남은 체력. 0번이 플레이어.
+   * 최대 체력·능력치는 직업·레벨·특성에서 다시 계산한다 — 밸런스 수정이 저장값에 박히지 않게
+   */
+  party: { job: string; hp: number }[]
+  /** 레벨은 저장하지 않는다 — 경험치에서 유도한다(단일 진실 원천) */
+  xp: number
   seenDialogues: string[]
   clearedStages: string[]
   updatedAt: number
@@ -152,6 +168,7 @@ export interface GameData {
   /** 배열 순서가 진행 순서다 — 같은 사실을 두 곳에 두지 않으려고 nextStageId를 두지 않는다 */
   stages: StageData[]
   traits: TraitsFile
+  progression: ProgressionData
 }
 
 export type Dir = 'north' | 'south' | 'east' | 'west'

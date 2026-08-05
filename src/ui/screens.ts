@@ -134,8 +134,8 @@ export class Screens {
     `
     s.querySelector('.objective')!.textContent =
       `스테이지 ${this.game.currentStageIndex + 1} / ${this.game.stageCount}. ` +
-      `${this.game.stage.title}. 목표: ${this.game.stage.objective} ` +
-      `화살표 키나 아래 버튼으로 움직인다.`
+      `${this.game.stage.title}. 파티 ${this.game.partyLevel}레벨. ` +
+      `목표: ${this.game.stage.objective} 화살표 키나 아래 버튼으로 움직인다.`
 
     // 화면 방향 버튼 — 키보드가 없는 환경(터치·스위치·마우스 전용)을 위한 같은 조작
     const pad = s.querySelector<HTMLElement>('.pad')!

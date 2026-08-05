@@ -165,6 +165,19 @@ export class Announcer {
       case 'traitChanged':
         this.polite(`특성을 ${josa(e.name, '으로', '로')} 바꿨다. ${e.description}`)
         break
+      case 'xpGained': {
+        const next = e.toNext !== null ? ` 다음 레벨까지 ${e.toNext}.` : ''
+        this.polite(`경험치 ${e.amount}를 얻었다.${next}`)
+        break
+      }
+      case 'levelUp': {
+        this.polite(`파티가 ${e.level}레벨이 되었다. 모두 강해졌다.`)
+        for (const u of e.unlocked) {
+          this.polite(`${josa(u.jobName, '이', '가')} 새 기술, ${josa(u.skillName, '을', '를')} 배웠다.`)
+        }
+        this.caption('[레벨 업]')
+        break
+      }
       case 'stageStart':
         // 지금 어디쯤인지가 문장 안에 늘 있어야 한다
         this.polite(

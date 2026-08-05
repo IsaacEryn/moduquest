@@ -2,6 +2,7 @@ import './style.css'
 import jobs from './data/jobs.json'
 import monsters from './data/monsters.json'
 import party from './data/party.json'
+import progression from './data/progression.json'
 import stage1 from './data/stages/stage1.json'
 import stage2 from './data/stages/stage2.json'
 import stage3 from './data/stages/stage3.json'
@@ -28,6 +29,7 @@ const data: GameData = {
   jobs: jobs as GameData['jobs'],
   monsters,
   party,
+  progression,
   // 배열 순서가 진행 순서다
   stages: [stage1, stage2, stage3] as StageData[],
   traits: traits as GameData['traits'],

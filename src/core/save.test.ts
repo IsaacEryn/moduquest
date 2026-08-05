@@ -6,6 +6,7 @@ import type { GameData, SaveSnapshot, StageData, TraitsFile } from './types'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
+import progression from '../data/progression.json'
 import stage1 from '../data/stages/stage1.json'
 import stage2 from '../data/stages/stage2.json'
 import stage3 from '../data/stages/stage3.json'
@@ -15,6 +16,7 @@ const DATA: GameData = {
   jobs: jobs as GameData['jobs'],
   monsters,
   party,
+  progression,
   stages: [stage1, stage2, stage3] as StageData[],
   traits: traitsFile as TraitsFile,
 }
@@ -133,21 +135,56 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
     expect(onWall?.field.pos).toEqual(stage1.map.start)
   })
 
-  it('없는 조우·직업·대사 키는 버린다', () => {
+  it('없는 조우·대사 키는 버린다', () => {
     const s = sanitizeSnapshot(
       {
         ...valid(),
         field: { ...valid().field, defeated: ['e1', '없는조우', 'e1'] },
-        party: [{ id: 'rogue', hp: 10 }, { id: '없는직업', hp: 10 }],
         seenDialogues: ['intro', '없는대사'],
         clearedStages: ['stage1', '없는스테이지'],
       },
       DATA,
     )
     expect(s?.field.defeated).toEqual(['e1']) // 중복도 정리된다
-    expect(s?.party).toEqual([{ id: 'rogue', hp: 10 }])
     expect(s?.seenDialogues).toEqual(['intro'])
     expect(s?.clearedStages).toEqual(['stage1'])
+  })
+
+  it('파티 구성이 깨져 있으면 기본 구성으로 되돌린다', () => {
+    // 없는 직업이 섞이거나 정원이 모자라면 구성 전체를 기본값으로
+    const broken = sanitizeSnapshot(
+      { ...valid(), party: [{ job: 'rogue', hp: 10 }, { job: '없는직업', hp: 10 }] },
+      DATA,
+    )
+    expect(broken?.party.map((p) => p.job)).toEqual(['rogue', 'warrior', 'healer'])
+
+    const dup = sanitizeSnapshot(
+      {
+        ...valid(),
+        party: [
+          { job: 'healer', hp: 10 },
+          { job: 'healer', hp: 10 },
+          { job: 'rogue', hp: 10 },
+        ],
+      },
+      DATA,
+    )
+    expect(dup?.party.map((p) => p.job)).toEqual(['rogue', 'warrior', 'healer'])
+  })
+
+  it('바꾼 파티 구성은 그대로 저장되고 복원된다', () => {
+    const s = sanitizeSnapshot(
+      {
+        ...valid(),
+        party: [
+          { job: 'mage', hp: 40 },
+          { job: 'archer', hp: 50 },
+          { job: 'healer', hp: 60 },
+        ],
+      },
+      DATA,
+    )
+    expect(s?.party.map((p) => p.job)).toEqual(['mage', 'archer', 'healer'])
   })
 
   it('모르는 특성은 기본값으로 되돌린다', () => {
@@ -158,15 +195,47 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
 
   it('말이 안 되는 체력도 그대로 두지 않는다', () => {
     const s = sanitizeSnapshot(
-      { ...valid(), party: [{ id: 'rogue', hp: -50 }] },
+      {
+        ...valid(),
+        party: [
+          { job: 'rogue', hp: -50 },
+          { job: 'warrior', hp: 120 },
+          { job: 'healer', hp: 80 },
+        ],
+      },
       DATA,
     )
     expect(s?.party[0].hp).toBe(0)
   })
 
+  it('v1 기록은 버리지 않고 살려서 읽는다', () => {
+    // 옛 형식: party가 {id, hp}이고 xp가 없다
+    const v1 = {
+      schemaVersion: 1,
+      stageIndex: 1,
+      traitId: 'swift-step',
+      field: { pos: { x: 1, y: 8 }, checkpointReached: true, defeated: [] },
+      party: [
+        { id: 'rogue', hp: 44 },
+        { id: 'warrior', hp: 100 },
+        { id: 'healer', hp: 70 },
+      ],
+      seenDialogues: [],
+      clearedStages: ['stage1'],
+      updatedAt: 500,
+    }
+    const s = sanitizeSnapshot(v1, DATA)
+    expect(s).not.toBeNull()
+    expect(s?.schemaVersion).toBe(SAVE_VERSION)
+    expect(s?.party.map((p) => p.job)).toEqual(['rogue', 'warrior', 'healer'])
+    expect(s?.party[0].hp).toBe(44)
+    // 스테이지 2 진행이었으니 그에 걸맞은 경험치를 보장받는다
+    expect(s?.xp).toBe(DATA.progression.stageEntryXp[1])
+  })
+
   it('복원할 때 체력이 최대치를 넘지 않는다', () => {
     const g = makeGame()
-    g.restore({ ...valid(), party: [{ id: 'rogue', hp: 9999 }] })
+    g.restore({ ...valid(), party: [{ job: 'rogue', hp: 9999 }] })
     expect(g.player.hp).toBe(g.player.maxHp)
   })
 

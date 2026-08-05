@@ -5,6 +5,7 @@ import type { GameData, StageData, TraitsFile } from './types'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
+import progression from '../data/progression.json'
 import stage1 from '../data/stages/stage1.json'
 import stage2 from '../data/stages/stage2.json'
 import stage3 from '../data/stages/stage3.json'
@@ -44,6 +45,7 @@ function makeGame() {
     jobs: jobs as GameData['jobs'],
     monsters,
     party,
+  progression,
     stages: [stage1, stage2, stage3] as StageData[],
     traits: traitsFile as TraitsFile,
   }
@@ -192,6 +194,53 @@ describe('스테이지 클리어', () => {
 
     const clear = events.find((e) => e.type === 'stageClear')
     expect(clear).toMatchObject({ index: 0, total: 3, hasNext: true })
+  })
+})
+
+describe('경험치와 레벨', () => {
+  it('이기면 처치한 몹들의 고정 경험치를 얻는다', () => {
+    const { game, events, timer } = makeGame()
+    game.start()
+    skipDialogue(game)
+    game.moveField('east')
+    game.moveField('east')
+    game.moveField('east')
+    game.moveField('north') // e1: 슬라임 ×2 = 12
+    skipDialogue(game)
+    for (const e of game.battle!.enemies) e.hp = 1
+    let guard = 0
+    while (game.mode === 'battle' && guard++ < 60) {
+      if (game.battle!.currentActor.isPlayer) {
+        const target = game.battle!.enemies.find((e) => e.hp > 0)
+        if (!target) break
+        game.playerAction({ kind: 'attack', targetId: target.id })
+      }
+      timer.flush() // NPC·몹 턴 진행
+    }
+    const xpEvent = events.find((e) => e.type === 'xpGained')
+    expect(xpEvent).toMatchObject({ amount: 12, total: 12 })
+    expect(game.currentXp).toBe(12)
+    expect(game.partyLevel).toBe(1)
+  })
+
+  it('레벨은 경험치에서 유도되고, 3레벨에 두 번째 스킬이 열린다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    expect(game.player.skills.length).toBe(1)
+
+    game.restore({ ...base, xp: 70 }) // xpTable[2]=70 → 3레벨
+    expect(game.partyLevel).toBe(3)
+    expect(game.player.skills.length).toBe(2)
+    expect(game.player.skills[1].name).toBe('급소 찌르기')
+    // 성장이 능력치에 반영된다: 도적 공격 18 + 3×2레벨
+    expect(game.player.atk).toBe(18 + 3 * 2)
+  })
+
+  it('스테이지에 진입하면 그에 걸맞은 경험치가 보장된다', () => {
+    const { game } = makeGame()
+    game.startStage(2)
+    expect(game.currentXp).toBeGreaterThanOrEqual(110)
+    expect(game.partyLevel).toBeGreaterThanOrEqual(3)
   })
 })
 

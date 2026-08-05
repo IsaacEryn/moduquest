@@ -110,6 +110,14 @@ export class Sfx {
         // 막힌 방향에서 둔탁하게 — 어느 쪽이 벽인지 소리로도 알 수 있다
         this.tone({ from: 90, to: 60, duration: 0.14, type: 'square', gain: 0.16 }, e.dir)
         break
+      case 'levelUp':
+        // 위로 올라가는 세 음 — 성장의 소리
+        this.chord([
+          { from: 523, duration: 0.18, gain: 0.14 },
+          { from: 659, duration: 0.32, gain: 0.13 },
+          { from: 880, duration: 0.5, gain: 0.12 },
+        ])
+        break
       case 'checkpoint':
         this.chord([
           { from: 523, duration: 0.3, gain: 0.16 },

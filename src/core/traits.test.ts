@@ -6,6 +6,7 @@ import type { GameData, StageData, TraitsFile } from './types'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
+import progression from '../data/progression.json'
 import stage from '../data/stages/stage1.json'
 import traitsFile from '../data/traits.json'
 
@@ -16,6 +17,7 @@ function makeGame(traitId?: string) {
     jobs: jobs as GameData['jobs'],
     monsters,
     party,
+  progression,
     stages: [stage as StageData],
     traits: TRAITS,
   }

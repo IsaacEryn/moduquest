@@ -21,6 +21,8 @@ export type GameEvent =
   | { type: 'defeat' }
   | { type: 'battleEnd' }
   | { type: 'battleSummary'; text: string }
+  | { type: 'xpGained'; amount: number; total: number; toNext: number | null }
+  | { type: 'levelUp'; level: number; unlocked: { jobName: string; skillName: string }[] }
   | { type: 'stageStart'; index: number; total: number; title: string; objective: string }
   | { type: 'stageClear'; index: number; total: number; hasNext: boolean }
   | { type: 'optionsChanged' }
