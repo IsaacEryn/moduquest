@@ -4,6 +4,8 @@ export interface Options {
   captions: boolean
   lowStim: boolean
   volume: number
+  /** 배경음악 — 낭독을 덮지 않도록 늘 낮게 깔리지만, 끄고 싶은 사람도 있다 */
+  music: boolean
   textLarge: boolean
   textLog: boolean
   /** 지나온 길 표시 — 어디를 이미 지났는지 헷갈리는 부담을 덜어 준다 */
@@ -16,6 +18,7 @@ const DEFAULTS: Options = {
   captions: true,
   lowStim: false,
   volume: 0.8,
+  music: true,
   textLarge: false,
   textLog: true,
   trail: true,
@@ -28,6 +31,7 @@ function sanitize(raw: unknown): Options {
     const r = raw as Record<string, unknown>
     if (typeof r.captions === 'boolean') o.captions = r.captions
     if (typeof r.lowStim === 'boolean') o.lowStim = r.lowStim
+    if (typeof r.music === 'boolean') o.music = r.music
     if (typeof r.textLarge === 'boolean') o.textLarge = r.textLarge
     if (typeof r.textLog === 'boolean') o.textLog = r.textLog
     if (typeof r.trail === 'boolean') o.trail = r.trail

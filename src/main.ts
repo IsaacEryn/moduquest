@@ -10,6 +10,7 @@ import stage1 from './data/stages/stage1.json'
 import stage2 from './data/stages/stage2.json'
 import stage3 from './data/stages/stage3.json'
 import traits from './data/traits.json'
+import { Music } from './audio/music'
 import { Sfx } from './audio/sfx'
 import { EventBus } from './core/events'
 import { Game } from './core/game'
@@ -171,6 +172,8 @@ bus.on((e) => {
 createRenderer(game, bus, store.options)
 // 같은 사건을 소리로도 — 방향이 있는 소리는 공간 음향으로 배치한다
 new Sfx(bus, store.options)
+// 배경음악도 합성이다 — 스테이지마다 다른 곡이 같은 자리에서 언제나 같게 흐른다
+const music = new Music(bus, store.options)
 
 // 손가락으로 쓸어도 움직인다 — 지도 위에서 가고 싶은 쪽으로 밀면 된다.
 // 방향 버튼과 키보드는 그대로다. 조작 수단을 바꾸는 게 아니라 하나 더 놓는 것이다
@@ -259,4 +262,5 @@ void slotPanel.hasAny().then((has) => {
 
 if (import.meta.env.DEV) {
   ;(window as unknown as Record<string, unknown>).__game = game
+  ;(window as unknown as Record<string, unknown>).__music = music
 }
