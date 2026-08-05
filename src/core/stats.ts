@@ -25,6 +25,8 @@ export interface FullStats {
 /** 스탯의 출처별 내역 — 상태창이 "공격 21 (기본 18 + 장비 3)"을 이 값에서 조립한다 */
 export interface StatBreakdown {
   base: FullStats
+  /** 마을에서 올린 영구 강화 — 성장의 일부라 기본값 바로 뒤에 온다 */
+  upgrade: FullStats
   equip: FullStats
   set: FullStats
   aura: FullStats
@@ -74,6 +76,8 @@ export function computeMemberStats(input: {
   job: JobData
   growth: ProgressionData['growth'][string] | undefined
   level: number
+  /** 마을에서 올린 강화분 — 단계 × 단계당 증가는 Game이 계산해 넘긴다 */
+  upgrade: StatBlock
   /** 본인이 착용 중인 장비 (데이터로 해석된 것) */
   equipment: ItemData[]
   /** 다른 파티원 장비의 오라 합 — 착용자 자신은 제외하고 들어온다 */
@@ -84,6 +88,7 @@ export function computeMemberStats(input: {
   limits: TraitsFile['limits']
 }): StatBreakdown {
   const { job, growth, level, equipment, sets, trait, limits } = input
+  const upgrade = add(ZERO, input.upgrade)
   const lv = level - 1
   const base: FullStats = {
     hp: job.hp + (growth?.hp ?? 0) * lv,
@@ -97,7 +102,7 @@ export function computeMemberStats(input: {
   const set = setBonus(equipment, sets)
   const aura = add(ZERO, input.auraFromOthers)
 
-  const sum = add(add(add(base, equip), set), aura)
+  const sum = add(add(add(add(base, upgrade), equip), set), aura)
   let total = sum
   if (trait) {
     // 특성 보정과 하한(limits.minStat)은 마지막에 한 번만 — 마력은 특성이 건드리지 않는다
@@ -108,5 +113,5 @@ export function computeMemberStats(input: {
     )
     total = { hp: t.hp, mp: sum.mp, atk: t.atk, def: t.def, spd: t.spd }
   }
-  return { base, equip, set, aura, total }
+  return { base, upgrade, equip, set, aura, total }
 }

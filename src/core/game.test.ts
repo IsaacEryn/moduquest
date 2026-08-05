@@ -3,6 +3,7 @@ import { EventBus, type GameEvent } from './events'
 import { Game, type TurnScheduler } from './game'
 import { resolveArea } from './layout'
 import type { GameData, StageData, TraitsFile } from './types'
+import economy from '../data/economy.json'
 import items from '../data/items.json'
 import sets from '../data/sets.json'
 import jobs from '../data/jobs.json'
@@ -51,6 +52,7 @@ function makeGame() {
   progression,
   items: items as GameData['items'],
   sets: sets as GameData['sets'],
+  economy: economy as GameData['economy'],
     stages: [stage1, stage2, stage3] as StageData[],
     traits: traitsFile as TraitsFile,
   }

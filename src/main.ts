@@ -1,4 +1,5 @@
 import './style.css'
+import economy from './data/economy.json'
 import itemsData from './data/items.json'
 import setsData from './data/sets.json'
 import jobs from './data/jobs.json'
@@ -28,6 +29,7 @@ import { SlotPanel } from './ui/slotPanel'
 import { StageSelect } from './ui/stageSelect'
 import { StatusPanel } from './ui/statusPanel'
 import { TextLog } from './ui/textLog'
+import { TownPanel } from './ui/townPanel'
 import { TraitPanel } from './ui/traitPanel'
 import { TraitStore } from './ui/traitStore'
 
@@ -41,6 +43,7 @@ const data: GameData = {
   traits: traits as GameData['traits'],
   items: itemsData as GameData['items'],
   sets: setsData as GameData['sets'],
+  economy: economy as GameData['economy'],
 }
 
 /** 지금 쓰고 있는 자리. 새로 시작하거나 이어서 할 때 정해진다 */
@@ -110,6 +113,7 @@ const stageSelect = new StageSelect(game, {
 const bagPanel = new BagPanel(game, pauseHooks)
 const helpPanel = new HelpPanel(pauseHooks)
 const statusPanel = new StatusPanel(game, pauseHooks)
+const townPanel = new TownPanel(game, pauseHooks)
 const screens = new Screens(
   game,
   bus,
@@ -121,6 +125,7 @@ const screens = new Screens(
   () => bagPanel.open(),
   () => helpPanel.open(),
   () => statusPanel.open(),
+  () => townPanel.open(),
 )
 
 /**

@@ -145,6 +145,32 @@ export class Sfx {
           { from: 880, duration: 0.18, gain: 0.08 },
         ])
         break
+      // 마을 — 동전은 짤랑, 분해는 부서지는 소리, 강화는 올라가는 차임
+      case 'goldGained':
+      case 'sold':
+        this.chord([
+          { from: 988, duration: 0.09, type: 'triangle', gain: 0.1 },
+          { from: 1319, duration: 0.16, type: 'triangle', gain: 0.09 },
+        ])
+        break
+      case 'bought':
+        this.chord([
+          { from: 1319, duration: 0.09, type: 'triangle', gain: 0.1 },
+          { from: 988, duration: 0.16, type: 'triangle', gain: 0.09 },
+        ])
+        break
+      case 'dismantled':
+        this.chord([
+          { from: 320, to: 120, duration: 0.2, type: 'square', gain: 0.11 },
+          { from: 160, to: 90, duration: 0.26, type: 'sawtooth', gain: 0.07 },
+        ])
+        break
+      case 'upgraded':
+        this.chord([
+          { from: 587, duration: 0.14, gain: 0.13 },
+          { from: 784, to: 988, duration: 0.36, gain: 0.11 },
+        ])
+        break
       case 'levelUp':
         // 위로 올라가는 세 음 — 성장의 소리
         this.chord([

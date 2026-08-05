@@ -21,6 +21,7 @@ import type {
   StatBlock,
   TraitData,
   TraitsFile,
+  UpgradeStat,
 } from './types'
 
 /** 슬롯 고정 순서 — 상태창 표시와 텍스처 키 조립이 이 순서를 공유한다 */
@@ -31,6 +32,16 @@ export const SLOT_KO: Record<EquipSlot, string> = {
   shoes: '신발',
   gloves: '장갑',
 }
+
+export const UPGRADE_STAT_KO: Record<UpgradeStat, string> = {
+  hp: '체력',
+  atk: '공격',
+  def: '방어',
+  spd: '속도',
+}
+
+/** 한 칸에 담기는 개수 상한. 저장 검증도 같은 수를 쓴다 */
+export const ITEM_STACK_MAX = 99
 
 /** NPC·몹 턴 사이 간격(ms). 낭독이 따라올 시간을 준다. */
 const TURN_DELAY = 900
@@ -360,6 +371,7 @@ export class Game {
       job: this.data.jobs[job],
       growth: this.data.progression.growth[job],
       level: this.partyLevel,
+      upgrade: this.upgradeStatsFor(job),
       equipment: this.equippedItems(job),
       auraFromOthers: this.auraFor(job),
       sets: this.data.sets,
@@ -468,6 +480,229 @@ export class Game {
       removedName: this.data.items[id]?.name ?? null,
     })
     return true
+  }
+
+  // --- 마을 경제 ---
+
+  private gold = 0
+  private materials = 0
+  /** 파티원(직업 id)별·능력치별 강화 단계. 올린 것만 들어간다 */
+  private upgrades = new Map<string, Partial<Record<UpgradeStat, number>>>()
+
+  get currentGold(): number {
+    return this.gold
+  }
+
+  get currentMaterials(): number {
+    return this.materials
+  }
+
+  /** 강화 단계를 실제 능력치로 편다 — 단계는 저장하고, 곱한 값은 저장하지 않는다 */
+  private upgradeStatsFor(job: string): StatBlock {
+    const up = this.upgrades.get(job)
+    if (!up) return {}
+    const gain = this.data.economy.upgrade.gainPerLevel
+    const out: StatBlock = {}
+    for (const stat of this.data.economy.upgrade.stats) {
+      const level = up[stat] ?? 0
+      if (level > 0) out[stat] = level * (gain[stat] ?? 0)
+    }
+    return out
+  }
+
+  /**
+   * 마을에 들를 수 있는 곳인지. 특성과 같은 규칙이다 —
+   * 준비하는 자리(쉼터)와 스테이지를 마친 뒤에만 들른다.
+   */
+  canVisitTown(): { ok: boolean; reason?: string } {
+    if (this.mode === 'clear') return { ok: true }
+    if (this.mode === 'field' && this.field.atCheckpoint) return { ok: true }
+    return { ok: false, reason: '마을에는 쉼터에서만 들를 수 있다.' }
+  }
+
+  /** 상점 진열대. 파는 물건과 값은 데이터가 정하고, 없는 것은 팔지 않는다 */
+  get shopStock(): {
+    id: string
+    name: string
+    description: string
+    price: number
+    owned: number
+  }[] {
+    return Object.entries(this.data.economy.shop.stock)
+      .filter(([id]) => this.data.items[id])
+      .map(([id, price]) => ({
+        id,
+        name: this.data.items[id].name,
+        description: this.data.items[id].description,
+        price,
+        owned: this.inventory.get(id) ?? 0,
+      }))
+  }
+
+  canBuy(itemId: string): { ok: boolean; reason?: string } {
+    if (!this.canVisitTown().ok) return { ok: false, reason: '마을에서만 살 수 있다.' }
+    const price = this.data.economy.shop.stock[itemId]
+    if (price === undefined || !this.data.items[itemId]) {
+      return { ok: false, reason: '상점에 없는 물건이다.' }
+    }
+    if (this.gold < price) return { ok: false, reason: `동전이 ${price - this.gold}냥 모자라다.` }
+    if ((this.inventory.get(itemId) ?? 0) >= ITEM_STACK_MAX) {
+      return { ok: false, reason: `가방에 ${ITEM_STACK_MAX}개까지만 넣을 수 있다.` }
+    }
+    return { ok: true }
+  }
+
+  buy(itemId: string): boolean {
+    if (!this.canBuy(itemId).ok) return false
+    const price = this.data.economy.shop.stock[itemId]
+    this.gold -= price
+    this.addItem(itemId)
+    this.bus.emit({
+      type: 'bought',
+      name: this.data.items[itemId].name,
+      price,
+      gold: this.gold,
+    })
+    return true
+  }
+
+  /**
+   * 되파는 값. 팔 수 없는 것은 null이다.
+   * 목록을 따로 두지 않고 아이템 자체에서 읽는다 — 추억의 물건과
+   * 일행을 비추는 오라 장비는 다시 구할 길이 없어 손에서 놓지 못하게 한다.
+   */
+  sellValueOf(itemId: string): number | null {
+    const item = this.data.items[itemId]
+    if (!item) return null
+    if (item.kind === 'consumable') return this.data.economy.sell.consumable
+    if (item.kind !== 'equipment' || !item.tier) return null
+    if (item.allyStats) return null
+    return this.data.economy.sell.byTier[String(item.tier)] ?? null
+  }
+
+  /** 분해해 얻는 강화 재료 수. 장비만, 오라 장비는 제외 */
+  dismantleYieldOf(itemId: string): number | null {
+    const item = this.data.items[itemId]
+    if (!item || item.kind !== 'equipment' || !item.tier) return null
+    if (item.allyStats) return null
+    return this.data.economy.dismantle.byTier[String(item.tier)] ?? null
+  }
+
+  /** 팔거나 분해할 수 없는 이유 — 두 곳이 같은 말을 하도록 한 군데서 만든다 */
+  private partingReason(itemId: string): string {
+    const item = this.data.items[itemId]
+    if (!item) return '가방에 없다.'
+    if (item.kind === 'keepsake') return '추억의 물건은 손에서 놓을 수 없다.'
+    if (item.allyStats) return '일행을 비추는 물건은 손에서 놓을 수 없다.'
+    return '이 물건에는 해당하지 않는다.'
+  }
+
+  canSell(itemId: string): { ok: boolean; reason?: string } {
+    if (!this.canVisitTown().ok) return { ok: false, reason: '마을에서만 팔 수 있다.' }
+    if ((this.inventory.get(itemId) ?? 0) <= 0) return { ok: false, reason: '가방에 없다.' }
+    if (this.sellValueOf(itemId) === null) {
+      return { ok: false, reason: this.partingReason(itemId) }
+    }
+    return { ok: true }
+  }
+
+  sell(itemId: string): boolean {
+    if (!this.canSell(itemId).ok) return false
+    const price = this.sellValueOf(itemId) as number
+    this.consumeItem(itemId)
+    this.gold += price
+    this.bus.emit({ type: 'sold', name: this.data.items[itemId].name, price, gold: this.gold })
+    return true
+  }
+
+  canDismantle(itemId: string): { ok: boolean; reason?: string } {
+    if (!this.canVisitTown().ok) return { ok: false, reason: '마을에서만 분해할 수 있다.' }
+    if ((this.inventory.get(itemId) ?? 0) <= 0) return { ok: false, reason: '가방에 없다.' }
+    if (this.dismantleYieldOf(itemId) === null) {
+      const item = this.data.items[itemId]
+      if (item?.kind === 'consumable') return { ok: false, reason: '장비만 분해할 수 있다.' }
+      return { ok: false, reason: this.partingReason(itemId) }
+    }
+    return { ok: true }
+  }
+
+  dismantle(itemId: string): boolean {
+    if (!this.canDismantle(itemId).ok) return false
+    const gainedMaterials = this.dismantleYieldOf(itemId) as number
+    this.consumeItem(itemId)
+    this.materials += gainedMaterials
+    this.bus.emit({
+      type: 'dismantled',
+      name: this.data.items[itemId].name,
+      gained: gainedMaterials,
+      materials: this.materials,
+    })
+    return true
+  }
+
+  get upgradeStats(): UpgradeStat[] {
+    return [...this.data.economy.upgrade.stats]
+  }
+
+  get upgradeMaxLevel(): number {
+    return this.data.economy.upgrade.maxLevel
+  }
+
+  upgradeLevelOf(memberId: string, stat: UpgradeStat): number {
+    return this.upgrades.get(memberId)?.[stat] ?? 0
+  }
+
+  /** 다음 단계로 올리는 값. 상한이면 null */
+  upgradeCostOf(memberId: string, stat: UpgradeStat): { gold: number; materials: number } | null {
+    const level = this.upgradeLevelOf(memberId, stat)
+    return this.data.economy.upgrade.costs[level] ?? null
+  }
+
+  canUpgrade(memberId: string, stat: UpgradeStat): { ok: boolean; reason?: string } {
+    if (!this.canVisitTown().ok) return { ok: false, reason: '마을에서만 강화할 수 있다.' }
+    if (!this.partyJobs.includes(memberId)) return { ok: false }
+    if (!this.data.economy.upgrade.stats.includes(stat)) return { ok: false }
+    const cost = this.upgradeCostOf(memberId, stat)
+    if (!cost) {
+      return { ok: false, reason: `${this.data.economy.upgrade.maxLevel}단계까지 다 올렸다.` }
+    }
+    if (this.gold < cost.gold) {
+      return { ok: false, reason: `동전이 ${cost.gold - this.gold}냥 모자라다.` }
+    }
+    if (this.materials < cost.materials) {
+      return { ok: false, reason: `강화 재료가 ${cost.materials - this.materials}개 모자라다.` }
+    }
+    return { ok: true }
+  }
+
+  /** 강화는 되돌릴 수 없다. 체력은 비율을 유지한다 — 강화가 곧 회복이 되지 않게 */
+  upgrade(memberId: string, stat: UpgradeStat): boolean {
+    if (!this.canUpgrade(memberId, stat).ok) return false
+    const cost = this.upgradeCostOf(memberId, stat) as { gold: number; materials: number }
+    this.gold -= cost.gold
+    this.materials -= cost.materials
+    const up = this.upgrades.get(memberId) ?? {}
+    const level = (up[stat] ?? 0) + 1
+    up[stat] = level
+    this.upgrades.set(memberId, up)
+    this.refreshParty()
+    const member = this.party.find((c) => c.id === memberId)
+    this.bus.emit({
+      type: 'upgraded',
+      memberName: member?.name ?? '',
+      statName: UPGRADE_STAT_KO[stat],
+      level,
+      gain: this.data.economy.upgrade.gainPerLevel[stat] ?? 0,
+      gold: this.gold,
+      materials: this.materials,
+    })
+    return true
+  }
+
+  private gainGold(amount: number): void {
+    if (amount <= 0) return
+    this.gold += amount
+    this.bus.emit({ type: 'goldGained', amount, total: this.gold })
   }
 
   // --- 아이템·인벤토리 ---
@@ -679,9 +914,13 @@ export class Game {
 
   // --- 저장·복원 ---
 
-  /** 저장 가능한 상태인지. 전투·대사 중에는 복원이 어렵고 낭독 맥락도 끊긴다 */
+  /**
+   * 저장 가능한 상태인지. 전투·대사 중에는 복원이 어렵고 낭독 맥락도 끊긴다.
+   * 클리어 화면을 넣은 것은 거기서도 마을에 들를 수 있기 때문이다 —
+   * 산 물건이 창을 닫는 순간 사라지면 안 된다.
+   */
   get canSave(): boolean {
-    return this.mode === 'field'
+    return this.mode === 'field' || this.mode === 'clear'
   }
 
   snapshot(): SaveSnapshot {
@@ -707,6 +946,13 @@ export class Game {
         equipment: { ...(this.equipment.get(c.id) ?? {}) },
       })),
       xp: this.xp,
+      gold: this.gold,
+      materials: this.materials,
+      upgrades: [...this.upgrades.entries()].flatMap(([job, stats]) =>
+        Object.entries(stats)
+          .filter(([, level]) => (level ?? 0) > 0)
+          .map(([stat, level]) => ({ job, stat, level: level as number })),
+      ),
       seenDialogues: [...this.seenDialogues],
       clearedStages: [...this.clearedStages],
       updatedAt: this.now(),
@@ -728,6 +974,14 @@ export class Game {
     this.stageIndex = s.stageIndex
     this.traitId = s.traitId
     this.xp = s.xp
+    this.gold = s.gold
+    this.materials = s.materials
+    this.upgrades = new Map()
+    for (const u of s.upgrades) {
+      const up = this.upgrades.get(u.job) ?? {}
+      up[u.stat as UpgradeStat] = u.level
+      this.upgrades.set(u.job, up)
+    }
     this.partyJobs = s.party.map((p) => p.job)
     this.clearedStages = new Set(s.clearedStages)
     this.seenDialogues = new Set(s.seenDialogues)
@@ -987,6 +1241,8 @@ export class Game {
     if (this.currentEncounter) this.field.removeEncounter(this.currentEncounter.id)
     this.endBattle()
     this.gainXp(gained)
+    // 동전은 경험치와 같은 수로 들어온다 — 몹마다 값을 따로 두지 않아 밸런스가 함께 움직인다
+    this.gainGold(gained * this.data.economy.goldPerXp)
     for (const id of dropped) this.addItem(id)
     if (dropped.length > 0) {
       this.bus.emit({

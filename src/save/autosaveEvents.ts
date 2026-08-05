@@ -15,4 +15,9 @@ export const AUTOSAVE_ON: ReadonlySet<GameEvent['type']> = new Set<GameEvent['ty
   'itemUsed',
   'equipChanged',
   'areaChanged',
+  // 마을에서 오간 것은 되돌릴 수 없다 — 창을 닫는 순간 사라지면 안 된다
+  'bought',
+  'sold',
+  'dismantled',
+  'upgraded',
 ])

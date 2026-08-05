@@ -15,6 +15,10 @@ describe('자동 저장 대상', () => {
     'itemUsed', // 가방 내용과 체력
     'equipChanged', // 착용 장비 — 입고 바로 창을 닫아도 남아야 한다
     'areaChanged', // 구역 — 넘자마자 껐다 켜도 그 구역에서 이어져야 한다
+    'bought', // 마을에서 산 것
+    'sold', // 판 것
+    'dismantled', // 분해한 것 — 되돌릴 수 없다
+    'upgraded', // 성장 강화 — 값을 치렀다
   ]
 
   it.each(mustSave)('%s는 저장을 부른다', (type) => {

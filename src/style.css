@@ -381,6 +381,33 @@ dialog.options .row {
   gap: 0.35rem;
 }
 
+/* 마을 — 상점·처분·강화를 한 창에 세로로 둔다. 탭을 쓰지 않는 것은
+   제목만 훑어도 구역을 건너뛸 수 있고, 창은 <dialog>가 이미 가두기 때문이다 */
+dialog.options.town {
+  max-width: min(48rem, 94vw);
+  max-height: 84vh;
+  overflow-y: auto;
+}
+
+dialog.options.town h3 {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 1rem;
+}
+
+dialog.options.town section:first-of-type h3 {
+  margin-top: 0.4rem;
+}
+
+.town-wallet {
+  margin: 0 0 0.5rem;
+  font-weight: 600;
+}
+
+/* 팔기·분해 버튼은 한 아이템에 나란히 — 사이가 붙으면 잘못 누른다 */
+.town .bag-item [role='group'] {
+  gap: 0.5rem;
+}
+
 /* 상태창 — 파티원을 나란히 놓는다. 세로로만 쌓으면 스크롤이 길어져
    지금 누구를 보고 있는지 놓치기 쉽다 */
 .status-members {

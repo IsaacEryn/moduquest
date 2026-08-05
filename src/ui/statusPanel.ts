@@ -97,10 +97,12 @@ export class StatusPanel {
     stats.textContent = (Object.keys(STAT_KO) as CoreStat[])
       .map((k) => {
         const parts = [`기본 ${b.base[k]}`]
+        if (b.upgrade[k] !== 0) parts.push(`강화 +${b.upgrade[k]}`)
         if (b.equip[k] !== 0) parts.push(`장비 ${b.equip[k] > 0 ? '+' : ''}${b.equip[k]}`)
         if (b.set[k] !== 0) parts.push(`세트 +${b.set[k]}`)
         if (b.aura[k] !== 0) parts.push(`동료 +${b.aura[k]}`)
-        const traitDelta = b.total[k] - (b.base[k] + b.equip[k] + b.set[k] + b.aura[k])
+        const traitDelta =
+          b.total[k] - (b.base[k] + b.upgrade[k] + b.equip[k] + b.set[k] + b.aura[k])
         if (traitDelta !== 0) parts.push(`특성 ${traitDelta > 0 ? '+' : ''}${traitDelta}`)
         return parts.length > 1
           ? `${STAT_KO[k]} ${b.total[k]} (${parts.join(' ')})`

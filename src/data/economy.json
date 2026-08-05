@@ -1,0 +1,32 @@
+{
+  "goldPerXp": 1,
+  "shop": {
+    "stock": {
+      "potion_small": 10,
+      "potion_big": 20,
+      "mana_potion": 12,
+      "stamina_potion": 12,
+      "wood_sword": 15,
+      "leather_armor": 15,
+      "leather_shoes": 15,
+      "cloth_gloves": 15
+    }
+  },
+  "sell": {
+    "consumable": 4,
+    "byTier": { "1": 6, "2": 15, "3": 30 }
+  },
+  "dismantle": {
+    "byTier": { "1": 1, "2": 2, "3": 4 }
+  },
+  "upgrade": {
+    "stats": ["hp", "atk", "def", "spd"],
+    "gainPerLevel": { "hp": 5, "atk": 1, "def": 1, "spd": 1 },
+    "maxLevel": 3,
+    "costs": [
+      { "gold": 30, "materials": 2 },
+      { "gold": 60, "materials": 4 },
+      { "gold": 100, "materials": 7 }
+    ]
+  }
+}

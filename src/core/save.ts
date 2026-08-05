@@ -3,7 +3,7 @@ import { levelForXp } from './stats'
 import { resolveTraitId } from './traits'
 import type { EquipSlot, GameData, SaveSnapshot, StageData } from './types'
 
-export const SAVE_VERSION = 4
+export const SAVE_VERSION = 5
 export const SLOT_COUNT = 3
 
 const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'shoes', 'gloves']
@@ -119,6 +119,18 @@ function migrateV3(r: Record<string, unknown>, data: GameData): Record<string, u
   }
 }
 
+/** v4에는 마을이 없었다 — 빈 지갑으로 이어받는다 */
+function migrateV4(r: Record<string, unknown>): Record<string, unknown> {
+  return {
+    ...r,
+    // 다음 단계가 이어받도록 반드시 5를 적는다. 현재 버전을 적으면 체인이 끊긴다
+    schemaVersion: 5,
+    gold: 0,
+    materials: 0,
+    upgrades: [],
+  }
+}
+
 export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   let r = raw as Record<string, unknown>
@@ -126,6 +138,7 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
   if (r.schemaVersion === 1) r = migrateV1(r, data)
   if (r.schemaVersion === 2) r = migrateV2(r)
   if (r.schemaVersion === 3) r = migrateV3(r, data)
+  if (r.schemaVersion === 4) r = migrateV4(r)
   // 모르는 상위 버전은 되살리려 하지 않는다 — 조용히 새 게임을 시작하면 사라진 걸 모른다
   if (r.schemaVersion !== SAVE_VERSION) return null
 
@@ -265,6 +278,24 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     else inventory.push({ item: id, count: 1 })
   }
 
+  // 마을 지갑. 강화 단계는 (직업, 능력치) 한 쌍에 하나뿐이고 상한을 넘지 않는다
+  const gold = clampInt(r.gold, 0, 99999, 0)
+  const materials = clampInt(r.materials, 0, 9999, 0)
+  const upgradeStats = new Set<string>(data.economy.upgrade.stats)
+  const maxUpgrade = data.economy.upgrade.maxLevel
+  const seenUpgrades = new Set<string>()
+  const upgrades = (Array.isArray(r.upgrades) ? r.upgrades : [])
+    .filter((u): u is { job: string; stat: string; level: number } => {
+      const row = u as { job?: unknown; stat?: unknown }
+      if (typeof row?.job !== 'string' || !jobIds.has(row.job)) return false
+      if (typeof row?.stat !== 'string' || !upgradeStats.has(row.stat)) return false
+      const key = `${row.job}-${row.stat}`
+      if (seenUpgrades.has(key)) return false
+      seenUpgrades.add(key)
+      return true
+    })
+    .map((u) => ({ job: u.job, stat: u.stat, level: clampInt(u.level, 1, maxUpgrade, 1) }))
+
   const clearedStages = Array.isArray(r.clearedStages)
     ? [...new Set(r.clearedStages.filter((id): id is string => stageIds.has(id as string)))]
     : []
@@ -287,6 +318,9 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     kills,
     party,
     xp,
+    gold,
+    materials,
+    upgrades,
     seenDialogues,
     clearedStages,
     updatedAt: clampInt(r.updatedAt, 0, Number.MAX_SAFE_INTEGER, 0),

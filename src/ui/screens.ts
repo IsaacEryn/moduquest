@@ -12,6 +12,8 @@ export class Screens {
   hasSaves = false
   /** 필드 화면이 살아 있는 동안 구역 변경을 반영하는 갱신자 */
   private onAreaChanged: (() => void) | null = null
+  /** 마을 버튼을 지금 자리에 맞게 여닫는 갱신자 */
+  private onTownAvailability: (() => void) | null = null
 
   constructor(
     private game: Game,
@@ -24,9 +26,14 @@ export class Screens {
     private openBag: () => void,
     private openHelp: () => void,
     private openStatus: () => void,
+    private openTown: () => void,
   ) {
     bus.on((e) => {
       if (e.type === 'areaChanged') this.onAreaChanged?.()
+      // 쉼터에 서야 마을에 들를 수 있다 — 걸을 때마다 버튼이 규칙을 그대로 보인다
+      if (e.type === 'moved' || e.type === 'checkpoint' || e.type === 'areaChanged') {
+        this.onTownAvailability?.()
+      }
       if (e.type === 'mode') this.render(e.mode)
       if (e.type === 'dialogue' && this.dialogueLine) {
         this.dialogueLine.innerHTML = ''
@@ -51,6 +58,7 @@ export class Screens {
 
   private render(mode: GameMode): void {
     this.clear()
+    this.onTownAvailability = null
     switch (mode) {
       case 'title':
         this.renderTitle()
@@ -173,6 +181,20 @@ export class Screens {
     padButton('→', '동쪽으로 이동', 'right', () => this.game.moveField('east'))
     padButton('↓', '남쪽으로 이동', 'down', () => this.game.moveField('south'))
 
+    const townBtn = document.createElement('button')
+    townBtn.type = 'button'
+    townBtn.addEventListener('click', () => this.openTown())
+    // 못 들르는 이유를 버튼이 직접 말한다 — 눌러 봐야 아는 규칙은 규칙이 아니다
+    const refreshTown = () => {
+      const can = this.game.canVisitTown()
+      townBtn.textContent = can.ok ? '마을' : `마을 (${can.reason})`
+      townBtn.disabled = !can.ok
+    }
+    refreshTown()
+    this.onTownAvailability = () => {
+      if (townBtn.isConnected) refreshTown()
+    }
+
     const statusBtn = document.createElement('button')
     statusBtn.type = 'button'
     statusBtn.textContent = '상태'
@@ -197,7 +219,15 @@ export class Screens {
     optBtn.type = 'button'
     optBtn.textContent = '옵션'
     optBtn.addEventListener('click', () => this.openOptions())
-    s.querySelector('.secondary')!.append(statusBtn, bagBtn, stageBtn, traitBtn, helpBtn, optBtn)
+    s.querySelector('.secondary')!.append(
+      statusBtn,
+      bagBtn,
+      townBtn,
+      stageBtn,
+      traitBtn,
+      helpBtn,
+      optBtn,
+    )
     this.ui.append(s)
     s.focus()
   }
@@ -251,6 +281,8 @@ export class Screens {
       first = mk('처음부터 다시', () => this.game.startStage(0))
       mk('이 스테이지 다시', () => this.game.restartStage())
     }
+    // 다음 스테이지로 떠나기 전이 장비를 정리하고 강화할 자리다
+    mk('마을에 들르기', () => this.openTown())
     mk('타이틀로', () => this.game.returnToTitle())
 
     this.ui.append(s)

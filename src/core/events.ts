@@ -56,6 +56,21 @@ export type GameEvent =
       fromExitName: string | null
       reason: 'start' | 'exit' | 'respawn'
     }
+  // 마을 경제 — name은 데이터에서 온 이름이라 저장에는 들어가지 않는다
+  | { type: 'goldGained'; amount: number; total: number }
+  | { type: 'bought'; name: string; price: number; gold: number }
+  | { type: 'sold'; name: string; price: number; gold: number }
+  | { type: 'dismantled'; name: string; gained: number; materials: number }
+  | {
+      type: 'upgraded'
+      memberName: string
+      statName: string
+      level: number
+      /** 이번에 오른 양 */
+      gain: number
+      gold: number
+      materials: number
+    }
   | { type: 'stageStart'; index: number; total: number; title: string; objective: string }
   | { type: 'stageClear'; index: number; total: number; hasNext: boolean }
   | { type: 'optionsChanged' }

@@ -203,6 +203,37 @@ export class Announcer {
         this.caption('[아이템 사용]')
         break
       }
+      case 'goldGained': {
+        this.polite(`동전 ${e.amount}냥을 얻었다. 모두 ${e.total}냥.`)
+        break
+      }
+      case 'bought': {
+        this.polite(`${josa(e.name, '을', '를')} ${e.price}냥에 샀다. 동전 ${e.gold}냥 남았다.`)
+        this.caption('[동전 소리]')
+        break
+      }
+      case 'sold': {
+        this.polite(`${josa(e.name, '을', '를')} ${e.price}냥에 팔았다. 동전 ${e.gold}냥.`)
+        this.caption('[동전 소리]')
+        break
+      }
+      case 'dismantled': {
+        this.polite(
+          `${josa(e.name, '을', '를')} 분해해 강화 재료 ${e.gained}개를 얻었다. ` +
+            `재료 ${e.materials}개.`,
+        )
+        this.caption('[분해 소리]')
+        break
+      }
+      case 'upgraded': {
+        this.polite(
+          `${e.memberName}의 ${e.statName} 강화 ${e.level}단계. ` +
+            `${josa(e.statName, '이', '가')} ${e.gain} 올랐다. ` +
+            `동전 ${e.gold}냥, 재료 ${e.materials}개 남았다.`,
+        )
+        this.caption('[강화 소리]')
+        break
+      }
       case 'xpGained': {
         const next = e.toNext !== null ? ` 다음 레벨까지 ${e.toNext}.` : ''
         this.polite(`경험치 ${e.amount}를 얻었다.${next}`)

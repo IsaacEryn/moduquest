@@ -120,6 +120,34 @@ export interface ItemData {
   recolor?: { primary: string; secondary?: string }
 }
 
+/** 강화할 수 있는 능력치 — 마력은 뺀다. 특성이 마력을 건드리지 않는 것과 같은 결이다 */
+export type UpgradeStat = 'hp' | 'atk' | 'def' | 'spd'
+
+/**
+ * 마을 경제. 가격에도 확률이 없다 — 여기 적힌 수가 곧 게임 안의 수이고,
+ * 도움말이 이 표를 그대로 옮겨 적는다.
+ */
+export interface EconomyData {
+  /** 처치 경험치 1당 받는 동전. 몹마다 값을 따로 두지 않아 경험치 밸런스와 자동으로 맞는다 */
+  goldPerXp: number
+  shop: {
+    /** 파는 물건과 값. 여기 없는 것은 상점에 없다 */
+    stock: Record<string, number>
+  }
+  /** 되파는 값. 소모품은 한 값, 장비는 등급으로 정한다 */
+  sell: { consumable: number; byTier: Record<string, number> }
+  /** 장비를 분해해 얻는 강화 재료 수 */
+  dismantle: { byTier: Record<string, number> }
+  upgrade: {
+    stats: UpgradeStat[]
+    /** 한 단계당 오르는 양 */
+    gainPerLevel: Record<UpgradeStat, number>
+    maxLevel: number
+    /** costs[n]이 n+1단계로 올리는 값. 길이는 maxLevel과 같다 */
+    costs: { gold: number; materials: number }[]
+  }
+}
+
 export interface ProgressionData {
   /** 레벨 n이 되는 데 필요한 누적 경험치. 길이가 곧 최대 레벨 */
   xpTable: number[]
@@ -279,6 +307,12 @@ export interface SaveSnapshot {
   party: { job: string; hp: number; equipment: Partial<Record<EquipSlot, string>> }[]
   /** 레벨은 저장하지 않는다 — 경험치에서 유도한다(단일 진실 원천) */
   xp: number
+  /** 마을에서 쓰는 동전 */
+  gold: number
+  /** 장비를 분해해 모은 강화 재료 */
+  materials: number
+  /** 파티원별·능력치별 강화 단계. 올린 것만 들어간다 */
+  upgrades: { job: string; stat: string; level: number }[]
   seenDialogues: string[]
   clearedStages: string[]
   updatedAt: number
@@ -304,6 +338,7 @@ export interface GameData {
   progression: ProgressionData
   items: Record<string, ItemData>
   sets: Record<string, SetData>
+  economy: EconomyData
 }
 
 export type Dir = 'north' | 'south' | 'east' | 'west'

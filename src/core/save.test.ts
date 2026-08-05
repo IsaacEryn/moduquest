@@ -3,6 +3,7 @@ import { EventBus } from './events'
 import { Game } from './game'
 import { SAVE_VERSION, progressScore, sanitizeSnapshot } from './save'
 import type { GameData, SaveSnapshot, StageData, TraitsFile } from './types'
+import economy from '../data/economy.json'
 import items from '../data/items.json'
 import sets from '../data/sets.json'
 import jobs from '../data/jobs.json'
@@ -22,6 +23,7 @@ const DATA: GameData = {
   progression,
   items: items as GameData['items'],
   sets: sets as GameData['sets'],
+  economy: economy as GameData['economy'],
   stages: [stage1, stage2, stage3] as StageData[],
   traits: traitsFile as TraitsFile,
 }
@@ -350,6 +352,41 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
     const s = sanitizeSnapshot(rest, DATA)
     expect(s?.field.pos).toEqual(START1)
     expect(s?.field.defeated).toEqual([])
+  })
+
+  it('v4 기록은 빈 지갑으로 이어받는다', () => {
+    const { gold: _g, materials: _m, upgrades: _u, ...v4 } = valid()
+    const s = sanitizeSnapshot({ ...v4, schemaVersion: 4 }, DATA)
+    expect(s?.schemaVersion).toBe(SAVE_VERSION)
+    expect(s?.gold).toBe(0)
+    expect(s?.materials).toBe(0)
+    expect(s?.upgrades).toEqual([])
+  })
+
+  it('말이 안 되는 지갑은 범위 안으로 당긴다', () => {
+    expect(sanitizeSnapshot({ ...valid(), gold: -100 }, DATA)?.gold).toBe(0)
+    expect(sanitizeSnapshot({ ...valid(), gold: 1e9 }, DATA)?.gold).toBe(99999)
+    expect(sanitizeSnapshot({ ...valid(), materials: '많이' }, DATA)?.materials).toBe(0)
+  })
+
+  it('강화 기록은 실재하는 직업·능력치만, 한 쌍에 하나만 남는다', () => {
+    const s = sanitizeSnapshot(
+      {
+        ...valid(),
+        upgrades: [
+          { job: 'rogue', stat: 'atk', level: 2 },
+          { job: 'rogue', stat: 'atk', level: 3 }, // 같은 쌍 중복
+          { job: '없는직업', stat: 'atk', level: 1 },
+          { job: 'warrior', stat: 'mp', level: 1 }, // 강화하지 않는 능력치
+          { job: 'healer', stat: 'def', level: 99 }, // 상한 초과
+        ],
+      },
+      DATA,
+    )
+    expect(s?.upgrades).toEqual([
+      { job: 'rogue', stat: 'atk', level: 2 },
+      { job: 'healer', stat: 'def', level: DATA.economy.upgrade.maxLevel },
+    ])
   })
 
   it('버전은 항상 지금 버전으로 맞춰 나온다', () => {
