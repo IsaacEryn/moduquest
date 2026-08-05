@@ -12,7 +12,10 @@
       "cloth_gloves": 15,
       "wood_bow": 15,
       "wood_staff": 15,
-      "leather_robe": 15
+      "leather_robe": 15,
+      "bronze_dagger": 15,
+      "heavy_club": 15,
+      "padded_vest": 15
     }
   },
   "sell": {

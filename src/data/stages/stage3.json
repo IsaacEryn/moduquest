@@ -32,7 +32,8 @@
         {
           "id": "t1",
           "items": [
-            "potion_small"
+            "potion_small",
+            "healing_bell"
           ]
         }
       ],
@@ -776,14 +777,16 @@
           "id": "t1",
           "items": [
             "potion_big",
-            "echo_shoes"
+            "echo_shoes",
+            "war_axe"
           ]
         },
         {
           "id": "t2",
           "items": [
             "stamina_potion",
-            "mana_potion"
+            "mana_potion",
+            "silk_robe"
           ]
         }
       ],

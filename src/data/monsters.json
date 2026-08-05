@@ -44,7 +44,9 @@
     "drops": [
       "steel_gloves",
       "potion_big",
-      "chain_armor"
+      "chain_armor",
+      "horn_bow",
+      "plate_armor"
     ]
   },
   "cave_bat": {
@@ -94,7 +96,9 @@
     "drops": [
       "wind_shoes",
       "potion_big",
-      "echo_gloves"
+      "echo_gloves",
+      "flame_staff",
+      "twin_daggers"
     ]
   },
   "bell_keeper": {
@@ -115,7 +119,10 @@
       "echo_armor",
       "mana_potion",
       "echo_gloves",
-      "guide_lantern"
+      "guide_lantern",
+      "healing_bell",
+      "war_axe",
+      "silk_robe"
     ]
   }
 }

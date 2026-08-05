@@ -132,6 +132,59 @@
       "secondary": "#5d4a72"
     }
   },
+  "bronze_dagger": {
+    "name": "청동 단검",
+    "description": "짧고 가볍다. 찌르고 빠지기 좋다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 1,
+    "jobs": [
+      "rogue"
+    ],
+    "stats": {
+      "atk": 2,
+      "spd": 2
+    },
+    "recolor": {
+      "primary": "#b9762f"
+    }
+  },
+  "heavy_club": {
+    "name": "무거운 곤봉",
+    "description": "한 번 휘두르면 묵직하다. 대신 몸이 느려진다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 1,
+    "jobs": [
+      "warrior"
+    ],
+    "stats": {
+      "atk": 4,
+      "spd": -1
+    },
+    "recolor": {
+      "primary": "#6f5334"
+    }
+  },
+  "padded_vest": {
+    "name": "누비 조끼",
+    "description": "솜을 두툼히 넣었다. 무겁지만 잘 버틴다.",
+    "kind": "equipment",
+    "slot": "armor",
+    "tier": 1,
+    "jobs": [
+      "warrior"
+    ],
+    "stats": {
+      "hp": 16,
+      "def": 2,
+      "spd": -1
+    },
+    "recolor": {
+      "primary": "#7a5c46",
+      "secondary": "#5d4636"
+    }
+  },
   "steel_sword": {
     "name": "강철 검",
     "description": "돌 골렘의 몸에서 갈라져 나온 쇳조각을 벼렸다.",
@@ -185,6 +238,137 @@
     "minLevel": 4,
     "stats": {
       "def": 2
+    }
+  },
+  "horn_bow": {
+    "name": "뿔 활",
+    "description": "뿔을 덧대 시위가 멀리 간다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 2,
+    "minLevel": 4,
+    "jobs": [
+      "archer"
+    ],
+    "stats": {
+      "atk": 5,
+      "spd": 1
+    },
+    "recolor": {
+      "primary": "#c9b48a"
+    }
+  },
+  "twin_daggers": {
+    "name": "쌍단검",
+    "description": "양손에 하나씩. 손이 두 배로 빨라진다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 2,
+    "minLevel": 4,
+    "jobs": [
+      "rogue"
+    ],
+    "stats": {
+      "atk": 4,
+      "spd": 3
+    },
+    "recolor": {
+      "primary": "#9fb2c4"
+    }
+  },
+  "war_axe": {
+    "name": "전투 도끼",
+    "description": "한 번에 크게 찍는다. 가볍지는 않다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 2,
+    "minLevel": 4,
+    "jobs": [
+      "warrior"
+    ],
+    "stats": {
+      "atk": 7,
+      "spd": -1
+    },
+    "recolor": {
+      "primary": "#8b6b3f"
+    }
+  },
+  "flame_staff": {
+    "name": "불꽃 지팡이",
+    "description": "끝에 작은 불씨가 늘 붙어 있다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 2,
+    "minLevel": 4,
+    "jobs": [
+      "mage"
+    ],
+    "stats": {
+      "atk": 3,
+      "mp": 12
+    },
+    "recolor": {
+      "primary": "#d0763f"
+    }
+  },
+  "healing_bell": {
+    "name": "치유의 방울",
+    "description": "흔들면 맑은 소리가 상처를 눅인다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 2,
+    "minLevel": 4,
+    "jobs": [
+      "healer"
+    ],
+    "stats": {
+      "atk": 1,
+      "hp": 6,
+      "mp": 16
+    },
+    "recolor": {
+      "primary": "#e2cf8a"
+    }
+  },
+  "silk_robe": {
+    "name": "비단 로브",
+    "description": "얇은데 마력이 잘 흐른다.",
+    "kind": "equipment",
+    "slot": "armor",
+    "tier": 2,
+    "minLevel": 4,
+    "jobs": [
+      "mage",
+      "healer"
+    ],
+    "stats": {
+      "hp": 10,
+      "mp": 16
+    },
+    "recolor": {
+      "primary": "#8a6fb0",
+      "secondary": "#6a5490"
+    }
+  },
+  "plate_armor": {
+    "name": "판금 갑옷",
+    "description": "앞에 서는 사람의 옷. 무게가 곧 방패다.",
+    "kind": "equipment",
+    "slot": "armor",
+    "tier": 2,
+    "minLevel": 4,
+    "jobs": [
+      "warrior"
+    ],
+    "stats": {
+      "hp": 28,
+      "def": 4,
+      "spd": -1
+    },
+    "recolor": {
+      "primary": "#9aa6b2",
+      "secondary": "#77828e"
     }
   },
   "echo_sword": {

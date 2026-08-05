@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { GameData } from './types'
 import progression from '../data/progression.json'
 import items from '../data/items.json'
+import economyData from '../data/economy.json'
 import jobsData from '../data/jobs.json'
 import monstersData from '../data/monsters.json'
 import sets from '../data/sets.json'
@@ -13,6 +14,7 @@ const ITEMS = items as GameData['items']
 const SETS = sets as GameData['sets']
 const MONSTERS = monstersData as GameData['monsters']
 const JOBS = jobsData as GameData['jobs']
+const ECONOMY = economyData as GameData['economy']
 const MAX_LEVEL = progression.xpTable.length
 const STAGES = [stage1, stage2, stage3]
 
@@ -68,6 +70,33 @@ describe('아이템 데이터 무결성', () => {
       }
       // 빈 배열은 아무도 못 입는 장비다 — 실수를 데이터에서 막는다
       if (item.jobs) expect(item.jobs.length, `${id}의 전용 직업 수`).toBeGreaterThan(0)
+    }
+  })
+
+  it('직업마다 전용 무기가 등급별로 하나씩은 있다', () => {
+    for (const job of Object.keys(JOBS)) {
+      for (const tier of [1, 2]) {
+        const mine = Object.values(ITEMS).filter(
+          (i) => i.slot === 'weapon' && i.tier === tier && i.jobs?.includes(job),
+        )
+        expect(mine.length, `${job}의 ${tier}등급 전용 무기`).toBeGreaterThan(0)
+      }
+    }
+  })
+
+  it('모든 장비는 어디선가 손에 들어온다 — 아무도 못 얻는 장비는 없는 것과 같다', () => {
+    const reachable = new Set<string>(Object.keys(ECONOMY.shop.stock))
+    for (const m of Object.values(MONSTERS)) {
+      for (const d of [...(m.drops ?? []), ...(m.firstDrops ?? [])]) if (d) reachable.add(d)
+    }
+    for (const stage of STAGES) {
+      for (const area of stage.areas) {
+        for (const chest of area.chests ?? []) for (const id of chest.items) reachable.add(id)
+      }
+    }
+    for (const [id, item] of Object.entries(ITEMS)) {
+      if (item.kind !== 'equipment') continue
+      expect(reachable.has(id), `${id}를 얻을 길이 없다`).toBe(true)
     }
   })
 

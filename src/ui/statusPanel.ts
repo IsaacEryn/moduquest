@@ -6,6 +6,9 @@ import { gauge } from './gauge'
 const STAT_KO = { atk: '공격', def: '방어', spd: '속도' } as const
 type CoreStat = keyof typeof STAT_KO
 
+/** 오른 것은 +, 깎인 것은 - 그대로 — 무거운 장비의 대가를 감추지 않는다 */
+const signed = (v: number) => (v > 0 ? `+${v}` : `${v}`)
+
 /** 장비 한 점의 효과 문장 — 수치는 데이터에서 조립해 설명과 실제가 어긋나지 않는다 */
 function describeItem(item: ItemData, setName?: string): string {
   const parts: string[] = []
@@ -15,7 +18,7 @@ function describeItem(item: ItemData, setName?: string): string {
     number | undefined,
   ][])
     .filter(([, v]) => (v ?? 0) !== 0)
-    .map(([k, v]) => `${k} +${v}`)
+    .map(([k, v]) => `${k} ${signed(v as number)}`)
   if (bits.length) parts.push(bits.join(' '))
   const a = item.allyStats ?? {}
   const auraBits = (Object.entries({ 공격: a.atk, 방어: a.def, 속도: a.spd, 체력: a.hp, 마력: a.mp }) as [
@@ -23,7 +26,7 @@ function describeItem(item: ItemData, setName?: string): string {
     number | undefined,
   ][])
     .filter(([, v]) => (v ?? 0) !== 0)
-    .map(([k, v]) => `${k} +${v}`)
+    .map(([k, v]) => `${k} ${signed(v as number)}`)
   if (auraBits.length) parts.push(`동료 ${auraBits.join(' ')}`)
   if (setName) parts.push(setName)
   if (item.minLevel) parts.push(`${item.minLevel}레벨부터`)
@@ -205,7 +208,7 @@ export class StatusPanel {
       p.className = 'status-note'
       const bonus = (Object.entries({ 공격: set.bonus.atk, 방어: set.bonus.def, 속도: set.bonus.spd, 체력: set.bonus.hp, 마력: set.bonus.mp }) as [string, number | undefined][])
         .filter(([, v]) => (v ?? 0) !== 0)
-        .map(([k, v]) => `${k} +${v}`)
+        .map(([k, v]) => `${k} ${signed(v as number)}`)
         .join(' ')
       p.textContent = `${set.name} (${count}개): ${bonus}`
       section.append(p)
