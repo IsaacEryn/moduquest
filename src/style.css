@@ -453,6 +453,11 @@ dialog.options .row {
   text-align: left;
 }
 
+/* 닫기 버튼이 마지막 파티원 칸에 붙지 않게 — 눌러야 할 것을 잘못 누르지 않도록 */
+.status .slot-actions {
+  margin-top: 0.75rem;
+}
+
 /* 저장 자리 확인 문구 — 실수를 막는 질문이라 눈에 띄어야 한다 */
 .slot-confirm {
   margin: 0.25rem 0;
