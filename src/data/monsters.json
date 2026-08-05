@@ -88,12 +88,13 @@
     "xp": 30,
     "isBoss": true,
     "firstDrops": [
-      "chain_armor"
+      "chain_armor",
+      "story_banner"
     ],
     "drops": [
       "wind_shoes",
       "potion_big",
-      "story_banner"
+      "echo_gloves"
     ]
   },
   "bell_keeper": {
