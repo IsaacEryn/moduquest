@@ -94,6 +94,21 @@ describe('지도 한 장의 정합성', () => {
     expect(manhattan(m.v.checkpoint, m.v.places[m.area.boss.id])).toBeGreaterThanOrEqual(2)
   })
 
+  it.each(MAPS)('$id — 문이 막다른 칸이다', (m) => {
+    // 통로 한가운데 문이 있으면 지나가려던 사람이 끌려가고, 그 문 너머에만 있는 것은
+    // 영영 닿을 수 없다. 실제로 스테이지3에서 좁은 틈이 그렇게 잠긴 적이 있다
+    for (const exit of m.area.exits) {
+      const door = m.v.places[exit.id]
+      const open = [
+        { x: 0, y: -1 },
+        { x: 0, y: 1 },
+        { x: 1, y: 0 },
+        { x: -1, y: 0 },
+      ].filter((d) => isFloor(m.v, { x: door.x + d.x, y: door.y + d.y }))
+      expect(open.length, `${exit.id}의 트인 쪽`).toBe(1)
+    }
+  })
+
   it.each(MAPS)('$id — 문이 조우와 붙어 있지 않다', (m) => {
     // 문 옆에서 전투가 나면 이긴 뒤 문 위에 선 채로 전이가 일어나지 않는다
     for (const exit of m.area.exits) {

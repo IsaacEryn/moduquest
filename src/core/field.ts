@@ -36,6 +36,11 @@ export class Field {
   private enteredFrom: string | null = null
   /** 쉼터를 밟은 구역. 죽으면 여기로 돌아온다 */
   private checkpointArea: string | null = null
+  /**
+   * 밟아 본 칸. 어디를 이미 지났는지 헷갈리는 것은 난이도가 아니라 부담이라
+   * 특성이 아니라 기본 기능으로 둔다. 옵션에서 끌 수 있다.
+   */
+  private steppedOn = new Set<string>()
 
   /** 걸어서 이 거리 안만 알 수 있다. null이면 지도 전체를 안다 */
   private radius: number | null
@@ -49,11 +54,15 @@ export class Field {
     this.area = area
     this.pos = area.entryAt(null)
     this.radius = radius
+    this.markStep()
   }
 
   setPerceptionRadius(radius: number | null): void {
     this.radius = radius
   }
+
+  /** 지나온 길 표시를 쓸지. 옵션이 정하고 세 렌즈가 함께 따른다 */
+  showTrail = true
 
   /**
    * 지도만 갈아 끼운다. 없앤 조우·연 상자는 그대로 —
@@ -63,6 +72,24 @@ export class Field {
     this.area = area
     this.enteredFrom = fromExitId
     this.pos = area.entryAt(fromExitId)
+    this.markStep()
+  }
+
+  private markStep(): void {
+    this.steppedOn.add(`${this.area.areaId}|${this.pos.x},${this.pos.y}`)
+  }
+
+  /** 이 칸을 이미 밟았는지 — 렌더러가 발자국을 그리는 판정 */
+  hasStepped(p: Pos): boolean {
+    return this.steppedOn.has(`${this.area.areaId}|${p.x},${p.y}`)
+  }
+
+  /** 아직 안 가 본 이웃 칸의 방향들 — 둘러보기가 "새 길"을 알려 준다 */
+  freshDirections(): Dir[] {
+    return (Object.keys(DELTA) as Dir[]).filter((d) => {
+      const p = { x: this.pos.x + DELTA[d].x, y: this.pos.y + DELTA[d].y }
+      return !this.isWall(p) && !this.hasStepped(p)
+    })
   }
 
   get currentArea(): ResolvedArea {
@@ -158,6 +185,7 @@ export class Field {
       return undefined
     }
     this.pos = next
+    this.markStep()
     this.bus.emit({ type: 'moved', dir, pos: { ...this.pos }, ahead: this.describeAdjacent() })
     // 쉼터 판정을 조우 판정보다 먼저 — 몹 옆에 놓인 쉼터도 기록돼야 한다
     this.reachCheckpoint()
@@ -206,6 +234,7 @@ export class Field {
     enteredFrom: string | null = null,
   ): void {
     this.pos = { ...pos }
+    this.markStep()
     this.checkpointReached = checkpointReached
     this.enteredFrom = enteredFrom
     if (checkpointReached) this.checkpointArea = this.area.areaId
@@ -234,6 +263,7 @@ export class Field {
     const cp = this.area.checkpoint
     this.pos =
       this.checkpointReached && cp ? { ...cp } : this.area.entryAt(this.enteredFrom)
+    this.markStep()
   }
 
   private describeDistance(to: Pos): string {
@@ -292,6 +322,14 @@ export class Field {
       const note = this.area.darkness?.note
       parts.push(
         `${note ? `${note} ` : ''}걸어서 ${this.radius}칸 안만 알 수 있다. 그 밖은 알 수 없다.`,
+      )
+    }
+    if (this.showTrail) {
+      const fresh = this.freshDirections()
+      parts.push(
+        fresh.length > 0
+          ? `아직 가 보지 않은 쪽: ${fresh.map((d) => DIR_KO[d]).join(', ')}.`
+          : '사방 모두 가 본 길이다.',
       )
     }
     parts.push(`목표: ${objective}`)

@@ -17,6 +17,8 @@ interface Palette {
   checkpoint: number
   /** 구역과 구역을 잇는 문 */
   exit: number
+  /** 지나온 길 발자국 */
+  trail: number
   /** 아직 모르는 칸 */
   fog: number
 }
@@ -29,6 +31,7 @@ const NORMAL: Palette = {
   wallSpeck: 0x243229,
   checkpoint: 0xffd166,
   exit: 0x9ad0ff,
+  trail: 0x7d9c87,
   fog: 0x0c1013,
 }
 
@@ -41,6 +44,7 @@ const LOW_STIM: Palette = {
   wallSpeck: 0x2a3134,
   checkpoint: 0xbfae85,
   exit: 0x9aacbb,
+  trail: 0x6f7a74,
   fog: 0x111417,
 }
 
@@ -120,8 +124,8 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       this.events.on('wake', () => this.redraw())
       bus.on((e) => {
         if (e.type === 'moved' && this.scene.isActive()) {
-          // 지각 반경이 있으면 움직일 때마다 아는 범위가 바뀐다
-          if (game.perceptionRadius !== null) {
+          // 지각 반경이 있으면 아는 범위가, 발자국을 켜면 지나온 자리가 매번 바뀐다
+          if (game.perceptionRadius !== null || options.trail) {
             this.redraw()
             return
           }
@@ -177,6 +181,14 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
             .image(x * TILE + TILE / 2, y * TILE + TILE / 2, key)
             .setDepth(0)
           this.statics.push(t)
+          // 지나온 길 — 색만이 아니라 작은 점이라는 형태로도 구분된다
+          if (options.trail && tiles[y][x] === 0 && game.field.hasStepped({ x, y })) {
+            this.statics.push(
+              this.add
+                .rectangle(x * TILE + TILE / 2, y * TILE + TILE / 2, 6, 6, pal.trail)
+                .setDepth(0.5),
+            )
+          }
         }
       }
 

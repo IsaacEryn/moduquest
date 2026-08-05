@@ -235,7 +235,8 @@ const NEIGHBORS = [
   { x: -1, y: 0 },
 ]
 
-function reachable(v, from, to) {
+function reachable(v, from, to, blockedCells = []) {
+  const blocked = new Set(blockedCells.map((p) => `${p.x},${p.y}`))
   const seen = new Set()
   const queue = [from]
   while (queue.length > 0) {
@@ -246,7 +247,7 @@ function reachable(v, from, to) {
     if (p.x === to.x && p.y === to.y) return true
     for (const d of NEIGHBORS) {
       const n = { x: p.x + d.x, y: p.y + d.y }
-      if (isFloor(v, n)) queue.push(n)
+      if (isFloor(v, n) && !blocked.has(`${n.x},${n.y}`)) queue.push(n)
     }
   }
   return false
@@ -287,6 +288,15 @@ function validate(stage, area, vIndex, v, where) {
   // 문 앞에 설 자리가 있어야 하고, 문 옆에서 전투가 나면 전이가 끌려간다
   for (const exit of area.exits) {
     if (!entryOf(v, exit.id)) fail(where, `'${exit.id}' 문 옆에 설 바닥이 없다`)
+    // 문은 막다른 칸이어야 한다. 통로 한가운데 있으면 지나가려던 사람이 끌려가고,
+    // 그 문 너머에만 있는 것은 영영 닿을 수 없게 된다
+    const door0 = v.places[exit.id]
+    if (door0) {
+      const open = NEIGHBORS.filter((d) => isFloor(v, { x: door0.x + d.x, y: door0.y + d.y }))
+      if (open.length !== 1) {
+        fail(where, `문 '${exit.id}'이 막다른 칸이 아니다(트인 쪽 ${open.length})`)
+      }
+    }
     const door = v.places[exit.id]
     if (!door) continue
     for (const e of area.encounters) {
@@ -305,13 +315,20 @@ function validate(stage, area, vIndex, v, where) {
     if (dist < 2) fail(where, `쉼터와 보스가 ${dist}칸 — 보스 전 대사가 유실된다`)
   }
 
-  // 서는 자리 어디에서든 모든 것에 갈 수 있어야 한다
+  // 서는 자리 어디에서든 모든 것에 갈 수 있어야 한다.
+  // 문 칸은 밟는 순간 구역이 바뀌므로, 목표가 아닌 문은 벽으로 치고 길을 찾는다 —
+  // 그러지 않으면 "다른 문을 밟아야만 닿는 곳"이 생겨 왕복만 하게 된다
+  const doorCells = area.exits.map((e) => v.places[e.id]).filter(Boolean)
   const froms = [v.start, ...area.exits.map((e) => entryOf(v, e.id))].filter(Boolean)
-  const targets = [...Object.values(v.places), ...(v.checkpoint ? [v.checkpoint] : [])]
+  const targets = [
+    ...Object.entries(v.places).map(([id, p]) => ({ id, p })),
+    ...(v.checkpoint ? [{ id: '쉼터', p: v.checkpoint }] : []),
+  ]
   for (const from of froms) {
-    for (const t of targets) {
-      if (!reachable(v, from, t)) {
-        fail(where, `(${from.x},${from.y})에서 (${t.x},${t.y})에 갈 수 없다`)
+    for (const { id, p } of targets) {
+      const blocked = doorCells.filter((d) => !(d.x === p.x && d.y === p.y))
+      if (!reachable(v, from, p, blocked)) {
+        fail(where, `(${from.x},${from.y})에서 '${id}'에 문을 밟지 않고 갈 수 없다`)
       }
     }
   }

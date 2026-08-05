@@ -6,6 +6,8 @@ export interface Options {
   volume: number
   textLarge: boolean
   textLog: boolean
+  /** 지나온 길 표시 — 어디를 이미 지났는지 헷갈리는 부담을 덜어 준다 */
+  trail: boolean
 }
 
 const KEY = 'moduquest-options'
@@ -16,6 +18,7 @@ const DEFAULTS: Options = {
   volume: 0.8,
   textLarge: false,
   textLog: true,
+  trail: true,
 }
 
 /** 저장값은 신뢰하지 않는다 — 키별로 타입·범위를 확인하고 나머지는 기본값 */
@@ -27,6 +30,7 @@ function sanitize(raw: unknown): Options {
     if (typeof r.lowStim === 'boolean') o.lowStim = r.lowStim
     if (typeof r.textLarge === 'boolean') o.textLarge = r.textLarge
     if (typeof r.textLog === 'boolean') o.textLog = r.textLog
+    if (typeof r.trail === 'boolean') o.trail = r.trail
     if (typeof r.volume === 'number' && r.volume >= 0 && r.volume <= 1) {
       o.volume = r.volume
     }

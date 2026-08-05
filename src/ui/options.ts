@@ -38,6 +38,10 @@ export class OptionsPanel {
         <input type="checkbox" id="opt-textlog" />
       </div>
       <div class="row">
+        <label for="opt-trail">지나온 길 표시</label>
+        <input type="checkbox" id="opt-trail" />
+      </div>
+      <div class="row">
         <label for="opt-volume">소리 크기</label>
         <input type="range" id="opt-volume" min="0" max="100" step="10" />
       </div>
@@ -54,6 +58,7 @@ export class OptionsPanel {
     this.bind('opt-lowstim', 'lowStim')
     this.bind('opt-textlarge', 'textLarge')
     this.bind('opt-textlog', 'textLog')
+    this.bind('opt-trail', 'trail')
 
     const volume = this.dialog.querySelector<HTMLInputElement>('#opt-volume')!
     volume.addEventListener('change', () => {
@@ -87,7 +92,10 @@ export class OptionsPanel {
     this.applyGlobal()
   }
 
-  private bind(id: string, key: 'captions' | 'lowStim' | 'textLarge' | 'textLog'): void {
+  private bind(
+    id: string,
+    key: 'captions' | 'lowStim' | 'textLarge' | 'textLog' | 'trail',
+  ): void {
     const input = this.dialog.querySelector<HTMLInputElement>(`#${id}`)!
     input.addEventListener('change', () => {
       this.store.set(key, input.checked)
@@ -137,6 +145,7 @@ export class OptionsPanel {
     this.dialog.querySelector<HTMLInputElement>('#opt-lowstim')!.checked = o.lowStim
     this.dialog.querySelector<HTMLInputElement>('#opt-textlarge')!.checked = o.textLarge
     this.dialog.querySelector<HTMLInputElement>('#opt-textlog')!.checked = o.textLog
+    this.dialog.querySelector<HTMLInputElement>('#opt-trail')!.checked = o.trail
     this.dialog.querySelector<HTMLInputElement>('#opt-volume')!.value = String(
       Math.round(o.volume * 100),
     )

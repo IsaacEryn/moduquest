@@ -141,6 +141,14 @@ bus.on((e) => {
     screens.showTitle()
   })
 })
+// 지나온 길 표시는 옵션이 정하고 그림·글 두 렌즈가 함께 따른다
+const applyTrail = () => { game.field.showTrail = store.options.trail }
+applyTrail()
+bus.on((e) => {
+  if (e.type === 'optionsChanged' || e.type === 'areaChanged' || e.type === 'stageStart') {
+    applyTrail()
+  }
+})
 createRenderer(game, bus, store.options)
 // 같은 사건을 소리로도 — 방향이 있는 소리는 공간 음향으로 배치한다
 new Sfx(bus, store.options)
