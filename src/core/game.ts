@@ -52,6 +52,8 @@ export class Game {
   private stageIndex = 0
   private clearedStages = new Set<string>()
   private readonly monsterNames: Record<string, string>
+  /** 현재 파티 구성. 0번이 플레이어다 */
+  private partyJobs: string[]
 
   constructor(
     private data: GameData,
@@ -62,6 +64,7 @@ export class Game {
     private now: () => number = () => 0,
   ) {
     this.traitId = resolveTraitId(data.traits, traitId)
+    this.partyJobs = data.party.map((p) => p.job)
     this.party = this.buildParty()
     this.monsterNames = Object.fromEntries(
       Object.entries(data.monsters).map(([id, m]) => [id, m.name]),
@@ -75,7 +78,8 @@ export class Game {
    */
   private buildParty(): Combatant[] {
     const trait = this.trait
-    return this.data.party.map(({ job, isPlayer }) => {
+    return this.partyJobs.map((job, index) => {
+      const isPlayer = index === 0
       const j = this.data.jobs[job]
       const base = { hp: j.hp, atk: j.atk, def: j.def, spd: j.spd }
       const s = isPlayer ? applyStats(base, trait, this.data.traits.limits) : base
@@ -107,6 +111,10 @@ export class Game {
 
   get traits(): TraitsFile {
     return this.data.traits
+  }
+
+  get jobs(): Record<string, JobData> {
+    return this.data.jobs
   }
 
   /** 특성과 스테이지 어둠 중 좁은 쪽을 쓴다 */
@@ -182,6 +190,24 @@ export class Game {
 
   get partyLevel(): number {
     return 1
+  }
+
+  get currentPartyJobs(): string[] {
+    return [...this.partyJobs]
+  }
+
+  /**
+   * 파티 구성 변경. 타이틀에서만 — 모험 중에 동료를 갈아 끼우는 규칙은 없다.
+   * 세 명, 전부 실재하는 직업, 중복 없음이어야 받는다.
+   */
+  setParty(jobs: string[]): boolean {
+    if (this.mode !== 'title') return false
+    if (jobs.length !== this.data.party.length) return false
+    if (new Set(jobs).size !== jobs.length) return false
+    if (!jobs.every((j) => this.data.jobs[j])) return false
+    this.partyJobs = [...jobs]
+    this.party = this.buildParty()
+    return true
   }
 
   // --- 스테이지 ---
@@ -352,10 +378,21 @@ export class Game {
     this.emitDialogueLine()
   }
 
+  /**
+   * 대사 화자의 c1/c2 토큰을 실제 동료 이름으로 바꾼다.
+   * 동료 직업을 고를 수 있으므로 대본은 자리만 알고 이름은 여기서 정해진다.
+   */
+  private resolveSpeaker(speaker: string): string {
+    if (speaker === 'c1') return this.party[1]?.name ?? '동료'
+    if (speaker === 'c2') return this.party[2]?.name ?? '동료'
+    return speaker
+  }
+
   private emitDialogueLine(): void {
+    const raw = this.dialogueQueue[this.dialogueIndex]
     this.bus.emit({
       type: 'dialogue',
-      line: this.dialogueQueue[this.dialogueIndex],
+      line: { speaker: this.resolveSpeaker(raw.speaker), text: raw.text },
       last: this.dialogueIndex === this.dialogueQueue.length - 1,
     })
   }

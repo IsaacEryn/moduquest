@@ -15,6 +15,7 @@ import { Announcer } from './ui/announcer'
 import { BattleUI } from './ui/battleUI'
 import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
+import { PartyPanel } from './ui/partyPanel'
 import { LocalSaveRepository } from './save/saveRepository'
 import { Screens } from './ui/screens'
 import { SlotPanel } from './ui/slotPanel'
@@ -59,12 +60,22 @@ const announcer = new Announcer(bus, store.options, (text) => textLog.add(text))
 const saves = new LocalSaveRepository(data)
 /** 지금 쓰고 있는 자리. 새로 시작하거나 이어서 할 때 정해진다 */
 let activeSlot: number | null = null
+const partyPanel = new PartyPanel(game, {
+  ...pauseHooks,
+  onConfirm: (jobs) => {
+    game.setParty(jobs)
+    const names = jobs.map((j) => data.jobs[j]?.name ?? j)
+    announcer.polite(`파티를 정했다. 나는 ${names[0]}, 동료는 ${names[1]}와 ${names[2]}.`)
+    game.start()
+  },
+})
 const slotPanel = new SlotPanel(game, saves, {
   ...pauseHooks,
   announce: (text) => announcer.polite(text),
   onStart: (slot) => {
     activeSlot = slot
-    game.start()
+    // 자리를 골랐으면 파티부터 짠다 — 확정하면 모험이 시작된다
+    partyPanel.open()
   },
   onContinue: async (slot) => {
     const snapshot = await saves.load(slot)

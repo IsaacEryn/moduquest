@@ -327,6 +327,29 @@ dialog.options .row {
   color: var(--text);
 }
 
+/* 파티 짜기 */
+.party-groups {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.75rem;
+}
+
+.party-groups fieldset {
+  flex: 1;
+  min-width: 10rem;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  padding: 0.5rem 0.75rem;
+}
+
+.party-choice {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.25rem 0;
+}
+
 /* 저장 자리 확인 문구 — 실수를 막는 질문이라 눈에 띄어야 한다 */
 .slot-confirm {
   margin: 0.25rem 0;
