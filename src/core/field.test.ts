@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest'
 import { EventBus, type GameEvent } from './events'
 import { Field } from './field'
+import { resolveArea, type ResolvedArea } from './layout'
 import type { StageData } from './types'
 import stage1 from '../data/stages/stage1.json'
 
 const NAMES = { slime: '슬라임', goblin: '고블린', boss_golem: '돌 골렘' }
+const STAGE1 = stage1 as StageData
+const area1 = () => resolveArea(STAGE1, 'a', 0)
 
-function setup(stage: StageData = stage1 as StageData) {
+function setup(area: ResolvedArea = area1()) {
   const bus = new EventBus()
   const events: GameEvent[] = []
   bus.on((e) => events.push(e))
-  const field = new Field(stage, NAMES, bus)
+  const field = new Field(area, NAMES, bus)
   return { field, events }
 }
 
@@ -43,7 +46,7 @@ describe('조우', () => {
     field.move('east')
     field.move('east') // (4,8)
     const encounter = field.move('north') // (4,7) — e1(4,6) 인접
-    expect(encounter?.id).toBe('e1')
+    expect(encounter?.id).toBe('a-e1')
   })
 
   it('몹이 있는 칸으로 이동하려 하면 이동 없이 조우가 시작된다', () => {
@@ -53,13 +56,13 @@ describe('조우', () => {
     field.move('east')
     field.move('north') // (4,7)
     const encounter = field.move('north') // e1 칸 자체
-    expect(encounter?.id).toBe('e1')
+    expect(encounter?.id).toBe('a-e1')
     expect(field.pos).toEqual({ x: 4, y: 7 })
   })
 
   it('처치된 조우는 다시 등장하지 않는다', () => {
     const { field } = setup()
-    field.removeEncounter('e1')
+    field.removeEncounter('a-e1')
     field.move('east')
     field.move('east')
     field.move('east')
@@ -78,12 +81,12 @@ describe('체크포인트', () => {
 
   it('몹과 인접한 쉼터도 조우 시작 전에 기록된다', () => {
     // 쉼터 (10,2)는 보스 (10,1)과 인접 — 조우가 먼저 반환돼도 기록은 남아야 한다
-    const stage = structuredClone(stage1) as StageData
-    stage.checkpoint = { x: 10, y: 2 }
-    const { field } = setup(stage)
+    const area = area1()
+    area.checkpoint = { x: 10, y: 2 }
+    const { field } = setup(area)
     field.pos = { x: 9, y: 2 }
     const encounter = field.move('east')
-    expect(encounter?.id).toBe('boss')
+    expect(encounter?.id).toBe('a-boss')
     expect(field.checkpointReached).toBe(true)
   })
 
@@ -100,7 +103,7 @@ describe('체크포인트', () => {
 describe('주변 요약', () => {
   it('목표와 몹 방향이 포함된다', () => {
     const { field } = setup()
-    const text = field.summary()
+    const text = field.summary(STAGE1.objective)
     expect(text).toContain('목표')
     expect(text).toContain('슬라임')
   })

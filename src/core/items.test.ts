@@ -32,9 +32,11 @@ describe('아이템 데이터 무결성', () => {
 
   it('상자 내용물은 전부 실재하는 아이템이다', () => {
     for (const stage of STAGES) {
-      for (const chest of stage.chests ?? []) {
-        for (const id of chest.items) {
-          expect(ITEMS[id], `${stage.id} 상자의 ${id}`).toBeDefined()
+      for (const area of stage.areas) {
+        for (const chest of area.chests ?? []) {
+          for (const id of chest.items) {
+            expect(ITEMS[id], `${stage.id}/${area.id} 상자의 ${id}`).toBeDefined()
+          }
         }
       }
     }

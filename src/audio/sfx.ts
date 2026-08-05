@@ -110,6 +110,13 @@ export class Sfx {
         // 막힌 방향에서 둔탁하게 — 어느 쪽이 벽인지 소리로도 알 수 있다
         this.tone({ from: 90, to: 60, duration: 0.14, type: 'square', gain: 0.16 }, e.dir)
         break
+      case 'areaChanged':
+        // 문이 열리고 닫히는 낮은 두 음 — 쉼터 화음과 구별되게
+        this.chord([
+          { from: 300, to: 220, duration: 0.18, type: 'square', gain: 0.12 },
+          { from: 150, duration: 0.26, gain: 0.1 },
+        ])
+        break
       case 'equipChanged':
         // 짧은 금속성 딸깍 — 입고 벗는 손맛
         this.chord([

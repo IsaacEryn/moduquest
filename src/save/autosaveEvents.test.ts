@@ -14,6 +14,7 @@ describe('자동 저장 대상', () => {
     'traitChanged', // 특성
     'itemUsed', // 가방 내용과 체력
     'equipChanged', // 착용 장비 — 입고 바로 창을 닫아도 남아야 한다
+    'areaChanged', // 구역 — 넘자마자 껐다 켜도 그 구역에서 이어져야 한다
   ]
 
   it.each(mustSave)('%s는 저장을 부른다', (type) => {

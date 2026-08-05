@@ -45,6 +45,17 @@ export type GameEvent =
     }
   | { type: 'xpGained'; amount: number; total: number; toNext: number | null }
   | { type: 'levelUp'; level: number; unlocked: { jobName: string; skillName: string }[] }
+  | {
+      type: 'areaChanged'
+      areaId: string
+      areaName: string
+      /** 스테이지 안 몇 번째 구역인가 */
+      index: number
+      total: number
+      /** 어느 문으로 들어왔나. null이면 스테이지 시작이나 부활 */
+      fromExitName: string | null
+      reason: 'start' | 'exit' | 'respawn'
+    }
   | { type: 'stageStart'; index: number; total: number; title: string; objective: string }
   | { type: 'stageClear'; index: number; total: number; hasNext: boolean }
   | { type: 'optionsChanged' }

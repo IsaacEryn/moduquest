@@ -9,6 +9,7 @@ import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
 import progression from '../data/progression.json'
+import { resolveArea } from './layout'
 import stage1 from '../data/stages/stage1.json'
 import stage2 from '../data/stages/stage2.json'
 import stage3 from '../data/stages/stage3.json'
@@ -24,6 +25,9 @@ const DATA: GameData = {
   stages: [stage1, stage2, stage3] as StageData[],
   traits: traitsFile as TraitsFile,
 }
+
+/** 스테이지1 첫 구역의 시작 칸 — 좌표를 손으로 적지 않는다 */
+const START1 = resolveArea(DATA.stages[0], 'a', 0).entryAt(null)
 
 function makeGame() {
   const bus = new EventBus()
@@ -97,7 +101,7 @@ describe('저장과 복원', () => {
     a.field.pos = { x: 3, y: 4 }
     a.moveField('west') // (2,4) 보물상자
     const snapshot = a.snapshot()
-    expect(snapshot.field.openedChests).toEqual(['t1'])
+    expect(snapshot.field.openedChests).toEqual(['a-t1'])
     expect(snapshot.inventory).toEqual([
       { item: 'potion_small', count: 1 },
       { item: 'leather_armor', count: 1 },
@@ -106,7 +110,7 @@ describe('저장과 복원', () => {
     const b = makeGame()
     b.restore(snapshot)
     expect(b.inventoryList[0]).toMatchObject({ id: 'potion_small', count: 1 })
-    expect(b.field.openedChestIds).toEqual(['t1']) // 되살아나지 않는다
+    expect(b.field.openedChestIds).toEqual(['a-t1']) // 되살아나지 않는다
   })
 
   it('진행도는 되돌아가지 않는다', () => {
@@ -149,26 +153,26 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
       { ...valid(), field: { ...valid().field, pos: { x: 999, y: 999 } } },
       DATA,
     )
-    expect(outside?.field.pos).toEqual(stage1.map.start)
+    expect(outside?.field.pos).toEqual(START1)
 
     const onWall = sanitizeSnapshot(
       { ...valid(), field: { ...valid().field, pos: { x: 0, y: 0 } } },
       DATA,
     )
-    expect(onWall?.field.pos).toEqual(stage1.map.start)
+    expect(onWall?.field.pos).toEqual(START1)
   })
 
   it('없는 조우·대사 키는 버린다', () => {
     const s = sanitizeSnapshot(
       {
         ...valid(),
-        field: { ...valid().field, defeated: ['e1', '없는조우', 'e1'] },
+        field: { ...valid().field, defeated: ['a-e1', '없는조우', 'a-e1'] },
         seenDialogues: ['intro', '없는대사'],
         clearedStages: ['stage1', '없는스테이지'],
       },
       DATA,
     )
-    expect(s?.field.defeated).toEqual(['e1']) // 중복도 정리된다
+    expect(s?.field.defeated).toEqual(['a-e1']) // 중복도 정리된다
     expect(s?.seenDialogues).toEqual(['intro'])
     expect(s?.clearedStages).toEqual(['stage1'])
   })
@@ -214,7 +218,7 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
     const s = sanitizeSnapshot(
       {
         ...valid(),
-        field: { ...valid().field, openedChests: ['t1', '없는상자', 't1'] },
+        field: { ...valid().field, openedChests: ['a-t1', '없는상자', 'a-t1'] },
         inventory: [
           { item: 'potion_small', count: 500 },
           { item: '없는아이템', count: 1 },
@@ -226,7 +230,7 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
       },
       DATA,
     )
-    expect(s?.field.openedChests).toEqual(['t1'])
+    expect(s?.field.openedChests).toEqual(['a-t1'])
     expect(s?.inventory).toEqual([{ item: 'potion_small', count: 99 }])
     expect(s?.kills).toEqual([{ monster: 'slime', count: 5 }])
   })
@@ -344,7 +348,7 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
   it('필드가 통째로 빠져 있어도 죽지 않는다', () => {
     const { field: _f, ...rest } = valid()
     const s = sanitizeSnapshot(rest, DATA)
-    expect(s?.field.pos).toEqual(stage1.map.start)
+    expect(s?.field.pos).toEqual(START1)
     expect(s?.field.defeated).toEqual([])
   })
 

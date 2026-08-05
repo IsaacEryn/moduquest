@@ -226,6 +226,14 @@ export class Announcer {
         this.caption('[레벨 업]')
         break
       }
+      case 'areaChanged': {
+        const where =
+          e.total > 1 ? `${e.areaName}. ${e.total}구역 중 ${e.index + 1}번째.` : `${e.areaName}.`
+        const via = e.fromExitName ? ` ${josa(e.fromExitName, '을', '를')} 지나 왔다.` : ''
+        this.polite(`${where}${via}`)
+        this.caption('[구역 이동]')
+        break
+      }
       case 'stageStart':
         // 지금 어디쯤인지가 문장 안에 늘 있어야 한다
         this.polite(

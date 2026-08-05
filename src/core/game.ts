@@ -2,6 +2,7 @@ import { Battle, type StepResult } from './battle'
 import type { EventBus, GameMode } from './events'
 import { Field } from './field'
 import { SAVE_VERSION } from './save'
+import { nextVariant, resolveArea, type ResolvedArea } from './layout'
 import { computeMemberStats, levelForXp, type StatBreakdown } from './stats'
 import { applyCombat, perceptionRadius, resolveTrait, resolveTraitId } from './traits'
 import type {
@@ -69,6 +70,8 @@ export class Game {
     traitId?: string | null,
     /** 저장 시각 — 코어가 시계를 직접 읽지 않도록 주입받는다 */
     private now: () => number = () => 0,
+    /** 지도 순환의 자리 번호. 코어는 이것이 저장 자리인지 모른다 */
+    private layoutKeyOf: () => number = () => 0,
   ) {
     this.traitId = resolveTraitId(data.traits, traitId)
     this.partyJobs = data.party.map((p) => p.job)
@@ -76,7 +79,71 @@ export class Game {
     this.monsterNames = Object.fromEntries(
       Object.entries(data.monsters).map(([id, m]) => [id, m.name]),
     )
-    this.field = new Field(this.stage, this.monsterNames, bus, this.perceptionRadius)
+    const area = this.resolveFirstArea()
+    this.field = new Field(area, this.monsterNames, bus, this.radiusFor(area))
+  }
+
+  // --- 지도 구역과 변형 ---
+
+  /** 이 모험의 지도 순환 자리 */
+  private layoutKey = 0
+  /** 스테이지별로 걷고 있는 변형 */
+  private variantOf = new Map<string, number>()
+
+  private get variantIndex(): number {
+    return this.variantOf.get(this.stage.id) ?? 0
+  }
+
+  private resolveFirstArea(): ResolvedArea {
+    return resolveArea(this.stage, this.stage.areas[0].id, this.variantIndex)
+  }
+
+  /**
+   * 특성과 구역 어둠 중 좁은 쪽. Field가 생기기 전에도 필요해서 area를 직접 받는다 —
+   * 생성자가 Field보다 먼저 반경을 알아야 하는 닭과 달걀 때문이다.
+   */
+  private radiusFor(area: ResolvedArea): number | null {
+    const byTrait = perceptionRadius(this.trait, this.data.traits.limits)
+    const byArea = area.darkness?.radius ?? null
+    if (byTrait === null) return byArea
+    if (byArea === null) return byTrait
+    return Math.min(byTrait, byArea)
+  }
+
+  /**
+   * 구역 전환 — 지도만 갈아 끼우는 가벼운 길이다.
+   * 파티·경험치·본 대사·장비·처치 수·턴 타이머를 건드리지 않는다.
+   * 무거운 초기화가 필요하면 startStage를 쓸 것.
+   */
+  private enterArea(
+    areaId: string,
+    fromExitId: string | null,
+    reason: 'start' | 'exit' | 'respawn',
+  ): void {
+    const area = resolveArea(this.stage, areaId, this.variantIndex)
+    const fromExitName =
+      fromExitId === null
+        ? null
+        : (area.exits.find((e) => e.id.endsWith(`-${fromExitId}`))?.name ?? null)
+    this.field.enterArea(area, fromExitId)
+    this.field.setPerceptionRadius(this.radiusFor(area))
+    this.bus.emit({
+      type: 'areaChanged',
+      areaId: area.areaId,
+      areaName: area.areaName,
+      index: area.index,
+      total: area.total,
+      fromExitName,
+      reason,
+    })
+    this.bus.emit({ type: 'fieldSummary', text: this.field.summary(this.stage.objective) })
+    // 입구 칸이 쉼터일 수도 있다 — move()를 거치지 않는 길이라 여기서도 판정한다
+    if (this.field.reachCheckpoint()) this.beforeBossDialogue()
+  }
+
+  /** 쉼터에 처음 도착하면 보스 전 대사. 도착 판정 자체는 Field가 한다 */
+  private beforeBossDialogue(): void {
+    this.showDialogue(this.stage.script['beforeBoss'] ?? [], () => this.setMode('field'))
   }
 
   /**
@@ -145,13 +212,9 @@ export class Game {
     return this.data.jobs
   }
 
-  /** 특성과 스테이지 어둠 중 좁은 쪽을 쓴다 */
+  /** 특성과 지금 구역의 어둠 중 좁은 쪽을 쓴다 */
   get perceptionRadius(): number | null {
-    const byTrait = perceptionRadius(this.trait, this.data.traits.limits)
-    const byStage = this.stage.map.darkness?.radius ?? null
-    if (byTrait === null) return byStage
-    if (byStage === null) return byTrait
-    return Math.min(byTrait, byStage)
+    return this.radiusFor(this.field.currentArea)
   }
 
   /**
@@ -568,7 +631,14 @@ export class Game {
     // 어느 길로 왔든 이 스테이지에 걸맞은 최소 성장은 보장한다
     this.xp = Math.max(this.xp, this.data.progression.stageEntryXp[index] ?? 0)
     this.party = this.buildParty()
-    this.field = new Field(this.stage, this.monsterNames, this.bus, this.perceptionRadius)
+    // 지도는 여기서 한 번만 정해진다. 구역을 오가도 바뀌지 않는다
+    this.layoutKey = this.layoutKeyOf()
+    this.variantOf.set(
+      this.stage.id,
+      nextVariant(this.stage, this.layoutKey, this.variantOf.get(this.stage.id) ?? null),
+    )
+    const area = this.resolveFirstArea()
+    this.field = new Field(area, this.monsterNames, this.bus, this.radiusFor(area))
 
     this.bus.emit({
       type: 'stageStart',
@@ -619,8 +689,12 @@ export class Game {
       schemaVersion: SAVE_VERSION,
       stageIndex: this.stageIndex,
       traitId: this.traitId,
+      layoutKey: this.layoutKey,
+      variants: [...this.variantOf.entries()].map(([stage, variant]) => ({ stage, variant })),
       field: {
+        areaId: this.field.areaId,
         pos: { ...this.field.pos },
+        enteredFrom: this.field.entered,
         checkpointReached: this.field.checkpointReached,
         defeated: this.field.defeatedIds,
         openedChests: this.field.openedChestIds,
@@ -665,8 +739,18 @@ export class Game {
       const c = this.party.find((p) => p.id === saved.job)
       if (c) c.hp = Math.min(c.maxHp, Math.max(0, saved.hp))
     }
-    this.field = new Field(this.stage, this.monsterNames, this.bus, this.perceptionRadius)
-    this.field.restore(s.field.pos, s.field.checkpointReached, s.field.defeated, s.field.openedChests)
+    this.layoutKey = s.layoutKey
+    this.variantOf = new Map(s.variants.map((v) => [v.stage, v.variant]))
+    // 복원은 순환하지 않는다 — 같은 기록은 언제나 같은 지도다
+    const area = resolveArea(this.stage, s.field.areaId, this.variantIndex)
+    this.field = new Field(area, this.monsterNames, this.bus, this.radiusFor(area))
+    this.field.restore(
+      s.field.pos,
+      s.field.checkpointReached,
+      s.field.defeated,
+      s.field.openedChests,
+      s.field.enteredFrom,
+    )
 
     this.bus.emit({
       type: 'stageStart',
@@ -676,7 +760,7 @@ export class Game {
       objective: this.stage.objective,
     })
     this.setMode('field')
-    this.bus.emit({ type: 'fieldSummary', text: this.field.summary() })
+    this.bus.emit({ type: 'fieldSummary', text: this.field.summary(this.stage.objective) })
   }
 
   get clearedStageIds(): string[] {
@@ -756,12 +840,14 @@ export class Game {
       this.enterBattle(encounter)
       return
     }
-    // 쉼터에 처음 도착하면 보스 전 대사
-    if (!wasAtCheckpoint && this.field.checkpointReached) {
-      this.showDialogue(this.stage.script['beforeBoss'] ?? [], () =>
-        this.setMode('field'),
-      )
+    // 문을 밟으면 건너간다 — 상자와 같은 자리에서 판정한다
+    const exit = this.field.exitAt(this.field.pos)
+    if (exit) {
+      this.enterArea(exit.toArea, exit.toExit, 'exit')
+      return
     }
+    // 쉼터에 처음 도착하면 보스 전 대사
+    if (!wasAtCheckpoint && this.field.checkpointReached) this.beforeBossDialogue()
   }
 
   /** 조우에 보스 몹이 포함되는지 — 렌더러의 표시용 */
@@ -776,7 +862,7 @@ export class Game {
 
   fieldSummary(): void {
     if (this.mode !== 'field') return
-    this.bus.emit({ type: 'fieldSummary', text: this.field.summary() })
+    this.bus.emit({ type: 'fieldSummary', text: this.field.summary(this.stage.objective) })
   }
 
   // --- 전투 ---
@@ -922,7 +1008,7 @@ export class Game {
     } else {
       this.setMode('field')
       // 전투 후 위치 감각을 되찾도록 주변을 알려준다
-      this.bus.emit({ type: 'fieldSummary', text: this.field.summary() })
+      this.bus.emit({ type: 'fieldSummary', text: this.field.summary(this.stage.objective) })
     }
   }
 
@@ -934,10 +1020,17 @@ export class Game {
       a.cooldowns = a.skills.map(() => 0)
       a.defending = false
     }
+    const target = this.field.respawnTarget()
+    if (target.areaId !== this.field.areaId) {
+      // enterArea가 낭독까지 맡는다 — 여기서 또 요약하면 같은 문장이 두 번 붙는다
+      this.setMode('field')
+      this.enterArea(target.areaId, null, 'respawn')
+      return
+    }
     this.field.respawn()
     this.setMode('field')
     // 순간이동한 위치를 반드시 알려준다 — 공간 지도를 잃지 않도록
-    this.bus.emit({ type: 'fieldSummary', text: this.field.summary() })
+    this.bus.emit({ type: 'fieldSummary', text: this.field.summary(this.stage.objective) })
   }
 
   private endBattle(): void {
