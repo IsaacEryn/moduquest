@@ -408,6 +408,29 @@ dialog.options.town section:first-of-type h3 {
   gap: 0.5rem;
 }
 
+/* 좁은 화면에서는 파티원을 탭으로 고른다 — 셋을 세로로 쌓으면 스크롤만 길어진다.
+   34rem은 아래 첫 단 나눔과 같은 값이고, 그 경계는 statusPanel.ts도 함께 본다 */
+.status-tabs {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.6rem;
+  border-bottom: 1px solid var(--line, #3a4750);
+}
+
+.status-tabs [role='tab'] {
+  flex: 1 1 0;
+  min-width: 0;
+  border-radius: 0.4rem 0.4rem 0 0;
+  border-bottom: none;
+  overflow-wrap: anywhere;
+}
+
+.status-tabs [role='tab'][aria-selected='true'] {
+  background: var(--accent);
+  color: var(--panel);
+  font-weight: 600;
+}
+
 /* 상태창 — 파티원을 나란히 놓는다. 세로로만 쌓으면 스크롤이 길어져
    지금 누구를 보고 있는지 놓치기 쉽다 */
 .status-members {

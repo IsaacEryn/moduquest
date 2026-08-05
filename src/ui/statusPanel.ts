@@ -40,6 +40,13 @@ export class StatusPanel {
   private closed = true
   /** 바꾸기 목록이 열려 있는 슬롯 — 다시 그려도 유지한다 */
   private openPicker: { member: string; slot: EquipSlot } | null = null
+  /**
+   * 좁은 화면에서 보고 있는 파티원. 넓은 화면에서는 셋을 나란히 놓으므로 쓰지 않는다.
+   * 폭 기준은 style.css의 첫 단 나눔과 같은 34rem이다 — 두 곳이 어긋나면
+   * 탭도 없고 나란히도 아닌 화면이 생긴다.
+   */
+  private narrow = window.matchMedia('(max-width: 33.999rem)')
+  private activeMember: string | null = null
 
   constructor(
     private game: Game,
@@ -51,6 +58,7 @@ export class StatusPanel {
     this.dialog.innerHTML = `
       <h2 id="status-title">상태</h2>
       <p class="status-level"></p>
+      <div class="status-tabs" role="tablist" aria-label="파티원 고르기" hidden></div>
       <div class="status-members"></div>
       <div class="slot-actions">
         <button type="button" id="status-close">닫기</button>
@@ -59,7 +67,19 @@ export class StatusPanel {
     document.body.append(this.dialog)
     this.dialog.querySelector('#status-close')!.addEventListener('click', () => this.close())
     this.dialog.addEventListener('close', () => this.afterClose())
+    // 화면을 돌리거나 창을 늘이면 탭과 나란히 놓기 사이를 오간다.
+    // resize도 함께 듣는 것은 창 크기를 흉내 내는 환경에서 change가 오지 않는 일이
+    // 있기 때문이다 — 모드가 실제로 뒤집힐 때만 다시 그리므로 값은 싸다
+    const sync = () => {
+      if (!this.dialog.open || this.narrow.matches === this.tabbed) return
+      this.render()
+    }
+    this.narrow.addEventListener('change', sync)
+    window.addEventListener('resize', sync)
   }
+
+  /** 지금 탭으로 보여주고 있는가 — 다시 그릴지 판단하는 기준 */
+  private tabbed = false
 
   get isOpen(): boolean {
     return this.dialog.open
@@ -73,9 +93,68 @@ export class StatusPanel {
       `파티 ${g.partyLevel}레벨 · 경험치 ${g.currentXp}` +
       (next === null ? ' · 최고 레벨' : ` · 다음 레벨까지 ${next}`)
 
+    const ids = g.party.map((m) => m.id)
+    if (!this.activeMember || !ids.includes(this.activeMember)) this.activeMember = ids[0]
+    const tabbed = this.narrow.matches
+    this.tabbed = tabbed
+
     const wrap = this.dialog.querySelector('.status-members')!
     wrap.replaceChildren()
-    for (const member of g.party) wrap.append(this.renderMember(member.id))
+    for (const member of g.party) {
+      const section = this.renderMember(member.id)
+      section.id = `status-panel-${member.id}`
+      if (tabbed) {
+        // 좁은 화면에서는 한 사람씩 — 셋을 세로로 쌓으면 스크롤이 길어져
+        // 지금 누구를 보고 있는지 놓친다
+        section.setAttribute('role', 'tabpanel')
+        section.setAttribute('aria-labelledby', `status-tab-${member.id}`)
+        section.hidden = member.id !== this.activeMember
+      }
+      wrap.append(section)
+    }
+    this.renderTabs(tabbed)
+  }
+
+  private renderTabs(tabbed: boolean): void {
+    const list = this.dialog.querySelector<HTMLElement>('.status-tabs')!
+    list.replaceChildren()
+    list.hidden = !tabbed
+    if (!tabbed) return
+
+    const ids = this.game.party.map((m) => m.id)
+    for (const member of this.game.party) {
+      const tab = document.createElement('button')
+      tab.type = 'button'
+      tab.id = `status-tab-${member.id}`
+      tab.setAttribute('role', 'tab')
+      tab.setAttribute('aria-controls', `status-panel-${member.id}`)
+      const selected = member.id === this.activeMember
+      tab.setAttribute('aria-selected', String(selected))
+      // 탭 묶음 전체가 Tab 키 한 번이다 — 안에서는 화살표로 옮긴다
+      tab.tabIndex = selected ? 0 : -1
+      tab.textContent = member.isPlayer ? `${member.name} (나)` : member.name
+      tab.addEventListener('click', () => this.selectMember(member.id))
+      tab.addEventListener('keydown', (e) => {
+        const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
+        let next: string | null = null
+        if (step !== 0) {
+          const at = ids.indexOf(member.id)
+          next = ids[(at + step + ids.length) % ids.length]
+        } else if (e.key === 'Home') next = ids[0]
+        else if (e.key === 'End') next = ids[ids.length - 1]
+        if (!next) return
+        e.preventDefault()
+        this.selectMember(next)
+      })
+      list.append(tab)
+    }
+  }
+
+  private selectMember(memberId: string): void {
+    if (this.activeMember !== memberId) this.openPicker = null
+    this.activeMember = memberId
+    this.render()
+    this.dialog.querySelector<HTMLElement>(`#status-tab-${memberId}`)?.focus()
   }
 
   private renderMember(memberId: string): HTMLElement {
