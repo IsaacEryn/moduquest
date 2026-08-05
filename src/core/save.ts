@@ -1,8 +1,9 @@
+import { allChestIds, allEncounters, resolveArea } from './layout'
 import { levelForXp } from './stats'
 import { resolveTraitId } from './traits'
-import type { EquipSlot, GameData, SaveSnapshot } from './types'
+import type { EquipSlot, GameData, SaveSnapshot, StageData } from './types'
 
-export const SAVE_VERSION = 3
+export const SAVE_VERSION = 4
 export const SLOT_COUNT = 3
 
 const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'shoes', 'gloves']
@@ -63,28 +64,116 @@ function migrateV2(r: Record<string, unknown>): Record<string, unknown> {
   }
 }
 
+/**
+ * v3에는 구역이 없었다. 저장된 짧은 id가 이 스테이지에서 정확히 한 구역에만 있으면
+ * 그 구역 것으로 승격하고, 여러 구역에 걸치면 어느 것인지 알 수 없으므로 버린다.
+ * 구역이 하나뿐인 스테이지는 전부 살아나고, 다시 그린 스테이지는 저절로 정리된다.
+ */
+function migrateV3(r: Record<string, unknown>, data: GameData): Record<string, unknown> {
+  const stageIndex = clampInt(r.stageIndex, 0, data.stages.length - 1, 0)
+  const stage = data.stages[stageIndex]
+  const rawField = (r.field ?? {}) as Record<string, unknown>
+
+  /** 짧은 id → 그 id를 가진 구역들 */
+  const owners = (short: string, kind: 'enc' | 'chest'): string[] =>
+    stage.areas
+      .filter((a) =>
+        kind === 'enc'
+          ? [...a.encounters, ...(a.boss ? [a.boss] : [])].some((e) => e.id === short)
+          : (a.chests ?? []).some((c) => c.id === short),
+      )
+      .map((a) => a.id)
+
+  let lost = false
+  const promote = (ids: unknown, kind: 'enc' | 'chest'): string[] => {
+    if (!Array.isArray(ids)) return []
+    const out: string[] = []
+    for (const id of ids) {
+      if (typeof id !== 'string') continue
+      const areas = owners(id, kind)
+      if (areas.length === 1) out.push(`${areas[0]}-${id}`)
+      else lost = true
+    }
+    return out
+  }
+
+  const defeated = promote(rawField.defeated, 'enc')
+  const openedChests = promote(rawField.openedChests, 'chest')
+  // 지도를 다시 그린 스테이지라면 옛 좌표와 쉼터 기록은 지금의 그것이 아니다
+  const keep = !lost && stage.areas.length === 1
+  return {
+    ...r,
+    // 다음 단계가 이어받도록 반드시 4를 적는다. 현재 버전을 적으면 체인이 끊긴다
+    schemaVersion: 4,
+    layoutKey: 0,
+    variants: [],
+    field: {
+      ...rawField,
+      areaId: stage.areas[0].id,
+      enteredFrom: null,
+      defeated,
+      openedChests,
+      checkpointReached: keep && rawField.checkpointReached === true,
+      pos: keep ? rawField.pos : undefined,
+    },
+  }
+}
+
 export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
   let r = raw as Record<string, unknown>
 
   if (r.schemaVersion === 1) r = migrateV1(r, data)
   if (r.schemaVersion === 2) r = migrateV2(r)
+  if (r.schemaVersion === 3) r = migrateV3(r, data)
   // 모르는 상위 버전은 되살리려 하지 않는다 — 조용히 새 게임을 시작하면 사라진 걸 모른다
   if (r.schemaVersion !== SAVE_VERSION) return null
 
   const stageIndex = clampInt(r.stageIndex, 0, data.stages.length - 1, 0)
   const stage = data.stages[stageIndex]
 
-  const rawField = (r.field ?? {}) as Record<string, unknown>
-  const rawPos = (rawField.pos ?? {}) as Record<string, unknown>
-  let pos = {
-    x: clampInt(rawPos.x, 0, stage.map.width - 1, stage.map.start.x),
-    y: clampInt(rawPos.y, 0, stage.map.height - 1, stage.map.start.y),
-  }
-  // 벽 위에서 시작하면 이동 판정이 무너진다
-  if (stage.map.tiles[pos.y]?.[pos.x] !== 0) pos = { ...stage.map.start }
+  // 지도부터 확정한다 — 어느 변형의 어느 구역인지 모르면 좌표를 검증할 수 없다
+  const layoutKey = clampInt(r.layoutKey, 0, 999, 0)
+  const stageIds = new Set(data.stages.map((s) => s.id))
+  const seenStages = new Set<string>()
+  const variants = (Array.isArray(r.variants) ? r.variants : [])
+    .filter((v): v is { stage: string; variant: number } => {
+      const id = (v as { stage?: unknown })?.stage
+      if (typeof id !== 'string' || !stageIds.has(id) || seenStages.has(id)) return false
+      seenStages.add(id)
+      return true
+    })
+    .map((v) => {
+      const target = data.stages.find((s) => s.id === v.stage) as StageData
+      return { stage: v.stage, variant: clampInt(v.variant, 0, target.variantCount - 1, 0) }
+    })
 
-  const encounterIds = new Set([...stage.encounters.map((e) => e.id), stage.boss.id])
+  const rawField = (r.field ?? {}) as Record<string, unknown>
+  const variantIndex = variants.find((v) => v.stage === stage.id)?.variant ?? 0
+  const areaId =
+    typeof rawField.areaId === 'string' && stage.areas.some((a) => a.id === rawField.areaId)
+      ? rawField.areaId
+      : stage.areas[0].id
+  const area = resolveArea(stage, areaId, variantIndex)
+
+  const enteredFrom =
+    typeof rawField.enteredFrom === 'string' &&
+    area.exits.some((e) => e.id.endsWith(`-${rawField.enteredFrom as string}`))
+      ? (rawField.enteredFrom as string)
+      : null
+
+  const rawPos = (rawField.pos ?? {}) as Record<string, unknown>
+  const fallback = area.entryAt(enteredFrom)
+  let pos = {
+    x: clampInt(rawPos.x, 0, area.width - 1, fallback.x),
+    y: clampInt(rawPos.y, 0, area.height - 1, fallback.y),
+  }
+  // 벽 위나 문 위에서 시작하면 이동 판정이 무너지거나 서 있는 채로 전이가 안 된다
+  if (area.tiles[pos.y]?.[pos.x] !== 0) pos = { ...fallback }
+  if (area.exits.some((e) => e.pos.x === pos.x && e.pos.y === pos.y)) pos = { ...fallback }
+
+  // 없앤 조우는 스테이지 전체에서 찾는다 — 지금 구역만 보면 다른 구역 몹이 부활한다
+  const encounterIds = new Set(allEncounters(stage).map((e) => e.id))
   const defeated = Array.isArray(rawField.defeated)
     ? [...new Set(rawField.defeated.filter((id): id is string => encounterIds.has(id as string)))]
     : []
@@ -95,7 +184,7 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
   /** 무효 자리에서 밀려난 장비 — 지우지 않고 가방으로 돌려준다 */
   const returned: string[] = []
 
-  const chestIds = new Set((stage.chests ?? []).map((c) => c.id))
+  const chestIds = new Set(allChestIds(stage))
   const openedChests = Array.isArray(rawField.openedChests)
     ? [...new Set(rawField.openedChests.filter((id): id is string => chestIds.has(id as string)))]
     : []
@@ -176,7 +265,6 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     else inventory.push({ item: id, count: 1 })
   }
 
-  const stageIds = new Set(data.stages.map((s) => s.id))
   const clearedStages = Array.isArray(r.clearedStages)
     ? [...new Set(r.clearedStages.filter((id): id is string => stageIds.has(id as string)))]
     : []
@@ -185,7 +273,16 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     schemaVersion: SAVE_VERSION,
     stageIndex,
     traitId: resolveTraitId(data.traits, typeof r.traitId === 'string' ? r.traitId : null),
-    field: { pos, checkpointReached: rawField.checkpointReached === true, defeated, openedChests },
+    layoutKey,
+    variants,
+    field: {
+      areaId,
+      pos,
+      enteredFrom,
+      checkpointReached: rawField.checkpointReached === true,
+      defeated,
+      openedChests,
+    },
     inventory,
     kills,
     party,

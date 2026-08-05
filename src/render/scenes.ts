@@ -1,6 +1,7 @@
 import Phaser from 'phaser'
 import type { EventBus } from '../core/events'
 import { EQUIP_SLOTS, type Game } from '../core/game'
+import { MAP_SIZE } from '../core/layout'
 import type { Combatant, Pos } from '../core/types'
 import type { Options } from '../ui/optionsStore'
 import { SPRITES, drawSprite, drawTile } from './sprites'
@@ -14,6 +15,8 @@ interface Palette {
   wall: number
   wallSpeck: number
   checkpoint: number
+  /** 구역과 구역을 잇는 문 */
+  exit: number
   /** 아직 모르는 칸 */
   fog: number
 }
@@ -25,6 +28,7 @@ const NORMAL: Palette = {
   wall: 0x1a2620,
   wallSpeck: 0x243229,
   checkpoint: 0xffd166,
+  exit: 0x9ad0ff,
   fog: 0x0c1013,
 }
 
@@ -36,6 +40,7 @@ const LOW_STIM: Palette = {
   wall: 0x22282b,
   wallSpeck: 0x2a3134,
   checkpoint: 0xbfae85,
+  exit: 0x9aacbb,
   fog: 0x111417,
 }
 
@@ -139,6 +144,8 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
         if (e.type === 'chestOpened' && this.scene.isActive()) this.redraw()
         // 입고 벗으면 형상이 바뀐다 — 전투는 매번 새로 그리므로 필드만 챙기면 된다
         if (e.type === 'equipChanged' && this.scene.isActive()) this.redraw()
+        // 구역이 바뀌면 지도가 통째로 바뀐다. mode를 거치지 않는 길이라 직접 받는다
+        if (e.type === 'areaChanged' && this.scene.isActive()) this.redraw()
         if ((e.type === 'mode' && e.mode === 'field') || e.type === 'optionsChanged') {
           if (this.scene.isActive()) this.redraw()
         }
@@ -153,7 +160,7 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       this.statics = []
       this.player?.destroy()
 
-      const { width, height, tiles } = game.stage.map
+      const { width, height, tiles } = game.field.currentArea
       for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
           // 모르는 칸은 평면 색으로 덮는다. 그라디언트·애니메이션을 쓰지 않는 이유는
@@ -173,11 +180,21 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
         }
       }
 
-      // 쉼터 — 어떤 특성에서도 항상 보인다. 길을 가리지는 않는다
-      const cp = px(game.stage.checkpoint)
-      this.statics.push(
-        this.add.rectangle(cp.x, cp.y, TILE - 12, TILE - 12, pal.checkpoint).setDepth(1),
-      )
+      // 어둠을 뚫고 늘 보이는 것들 — 쉼터와 문. 길을 잃는 건 재미가 아니다.
+      // 색만으로 구분하지 않도록 쉼터는 네모, 문은 세로 막대로 형태를 나눈다
+      const cpPos = game.field.currentArea.checkpoint
+      if (cpPos) {
+        const cp = px(cpPos)
+        this.statics.push(
+          this.add.rectangle(cp.x, cp.y, TILE - 12, TILE - 12, pal.checkpoint).setDepth(1),
+        )
+      }
+      for (const exit of game.field.knownExits()) {
+        const e = px(exit.pos)
+        this.statics.push(
+          this.add.rectangle(e.x, e.y, TILE - 20, TILE - 8, pal.exit).setDepth(1),
+        )
+      }
 
       // 안 연 상자 — 몹과 같은 isKnown 판정을 지나야 보인다
       for (const chest of game.field.knownChests()) {
@@ -391,8 +408,8 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
   const phaserGame = new Phaser.Game({
     type: Phaser.AUTO,
     parent: 'game',
-    width: game.stage.map.width * TILE,
-    height: game.stage.map.height * TILE,
+    width: MAP_SIZE.width * TILE,
+    height: MAP_SIZE.height * TILE,
     pixelArt: true,
     backgroundColor: NORMAL.bg,
     // 크기는 CSS가 결정한다(반응형·리플로우 대응). 내부 해상도는 384×320 고정

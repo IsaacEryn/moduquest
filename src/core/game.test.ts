@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { EventBus, type GameEvent } from './events'
 import { Game, type TurnScheduler } from './game'
+import { resolveArea } from './layout'
 import type { GameData, StageData, TraitsFile } from './types'
 import items from '../data/items.json'
 import sets from '../data/sets.json'
@@ -61,6 +62,29 @@ function makeGame() {
   return { game, bus, events, timer }
 }
 
+/**
+ * 조우 옆으로 걸어가 전투를 연다. 좌표를 손으로 적으면 지도를 다시 그릴 때마다
+ * 벽 위로 순간이동한다 — 자리는 데이터에서 찾는다
+ */
+function stepInto(game: Game, encounterId: string): void {
+  const area = game.field.currentArea
+  const target = area.encounters.find((e) => e.id.endsWith(encounterId))!
+  const dirs = [
+    { d: 'south' as const, x: 0, y: -1 },
+    { d: 'north' as const, x: 0, y: 1 },
+    { d: 'west' as const, x: 1, y: 0 },
+    { d: 'east' as const, x: -1, y: 0 },
+  ]
+  for (const { d, x, y } of dirs) {
+    const from = { x: target.pos.x + x, y: target.pos.y + y }
+    if (area.tiles[from.y]?.[from.x] !== 0) continue
+    game.field.pos = from
+    game.moveField(d)
+    return
+  }
+  throw new Error(`${encounterId} 옆에 설 자리가 없다`)
+}
+
 /** 대사를 끝까지 넘겨 필드로 보낸다 */
 function skipDialogue(game: Game) {
   let guard = 0
@@ -87,7 +111,7 @@ describe('스테이지 진행', () => {
     game.startStage(1)
     expect(game.stage.id).toBe('stage2')
     expect(game.field).not.toBe(beforeField)
-    expect(game.field.pos).toEqual(stage2.map.start)
+    expect(game.field.pos).toEqual(resolveArea(game.stage, 'a', 0).entryAt(null))
     expect(game.player.hp).toBe(game.player.maxHp) // 완전 회복
   })
 
@@ -124,9 +148,8 @@ describe('스테이지 진행', () => {
     events.length = 0
     game.startStage(1)
     skipDialogue(game)
-    // 스테이지2의 첫 조우(4,6)로 이동 — 같은 키라도 다시 나와야 한다
-    game.field.pos = { x: 4, y: 7 }
-    game.moveField('north')
+    // 스테이지2의 첫 조우로 이동 — 같은 대사 키라도 다시 나와야 한다
+    stepInto(game, 'e1')
     expect(game.mode).toBe('dialogue')
   })
 })

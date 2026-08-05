@@ -1,21 +1,11 @@
 import type { EventBus, GameEvent } from '../core/events'
 import { DIR_KO } from '../core/field'
 import type { Combatant } from '../core/types'
-import type { Options } from './optionsStore'
+import { josa, toward } from '../core/korean'
 
-/** 받침 유무에 따라 조사를 고른다 (을/를, 이/가, 은/는). "슬라임 1"처럼 숫자로 끝나는 이름도 처리 */
-export function josa(word: string, withFinal: string, withoutFinal: string): string {
-  const lastChar = word[word.length - 1]
-  let hasFinal: boolean
-  if (/[0-9]/.test(lastChar)) {
-    // 영·일·삼·육·칠·팔로 읽히는 숫자는 받침이 있다
-    hasFinal = '013678'.includes(lastChar)
-  } else {
-    const code = word.charCodeAt(word.length - 1)
-    hasFinal = code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 > 0
-  }
-  return `${word}${hasFinal ? withFinal : withoutFinal}`
-}
+// 다른 UI가 쓰던 자리를 유지한다 — 규칙 자체는 코어에 있다
+export { josa, toward }
+import type { Options } from './optionsStore'
 
 function who(c: Combatant): string {
   return c.isPlayer ? '나' : c.name
@@ -99,7 +89,7 @@ export class Announcer {
         this.clearCaption()
         break
       case 'moved': {
-        let text = `${josa(DIR_KO[e.dir], '으로', '로')} 한 칸.`
+        let text = `${toward(DIR_KO[e.dir])} 한 칸.`
         if (e.ahead) text += ` 앞에 ${e.ahead}.`
         this.polite(text)
         break
@@ -163,7 +153,7 @@ export class Announcer {
         break
       }
       case 'traitChanged':
-        this.polite(`특성을 ${josa(e.name, '으로', '로')} 바꿨다. ${e.description}`)
+        this.polite(`특성을 ${toward(e.name)} 바꿨다. ${e.description}`)
         break
       case 'equipChanged': {
         const who = e.isPlayer ? '나는' : josa(e.memberName, '은', '는')
@@ -224,6 +214,14 @@ export class Announcer {
           this.polite(`${josa(u.jobName, '이', '가')} 새 기술, ${josa(u.skillName, '을', '를')} 배웠다.`)
         }
         this.caption('[레벨 업]')
+        break
+      }
+      case 'areaChanged': {
+        const where =
+          e.total > 1 ? `${e.areaName}. ${e.total}구역 중 ${e.index + 1}번째.` : `${e.areaName}.`
+        const via = e.fromExitName ? ` ${josa(e.fromExitName, '을', '를')} 지나 왔다.` : ''
+        this.polite(`${where}${via}`)
+        this.caption('[구역 이동]')
         break
       }
       case 'stageStart':

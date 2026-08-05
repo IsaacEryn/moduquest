@@ -10,6 +10,8 @@ export class Screens {
 
   /** 타이틀에 "이어서 하기"를 보일지 — 저장된 기록이 있을 때만 */
   hasSaves = false
+  /** 필드 화면이 살아 있는 동안 구역 변경을 반영하는 갱신자 */
+  private onAreaChanged: (() => void) | null = null
 
   constructor(
     private game: Game,
@@ -24,6 +26,7 @@ export class Screens {
     private openStatus: () => void,
   ) {
     bus.on((e) => {
+      if (e.type === 'areaChanged') this.onAreaChanged?.()
       if (e.type === 'mode') this.render(e.mode)
       if (e.type === 'dialogue' && this.dialogueLine) {
         this.dialogueLine.innerHTML = ''
@@ -41,6 +44,7 @@ export class Screens {
 
   private clear(): void {
     this.battleUI.unmount()
+    this.onAreaChanged = null
     this.dialogueLine = null
     this.ui.replaceChildren()
   }
@@ -140,10 +144,17 @@ export class Screens {
       <div class="pad" role="group" aria-label="이동 조작"></div>
       <div class="secondary"></div>
     `
-    s.querySelector('.objective')!.textContent =
+    const objective = s.querySelector('.objective')!
+    const describe = () =>
       `스테이지 ${this.game.currentStageIndex + 1} / ${this.game.stageCount}. ` +
-      `${this.game.stage.title}. 파티 ${this.game.partyLevel}레벨. ` +
+      `${this.game.stage.title} — ${this.game.field.where}. ` +
+      `파티 ${this.game.partyLevel}레벨. ` +
       `목표: ${this.game.stage.objective} 화살표 키나 아래 버튼으로 움직인다.`
+    objective.textContent = describe()
+    // 구역을 넘으면 여기 적힌 곳도 따라 바뀌어야 한다
+    this.onAreaChanged = () => {
+      if (objective.isConnected) objective.textContent = describe()
+    }
 
     // 화면 방향 버튼 — 키보드가 없는 환경(터치·스위치·마우스 전용)을 위한 같은 조작
     const pad = s.querySelector<HTMLElement>('.pad')!

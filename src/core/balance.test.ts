@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Battle } from './battle'
 import { EventBus } from './events'
+import { allEncounters } from './layout'
 import { applyCombat, applyStats, resolveTrait } from './traits'
 import type { Combatant, GameData, StageData, TraitsFile } from './types'
 import jobs from '../data/jobs.json'
@@ -105,7 +106,8 @@ function simulate(allies: Combatant[], enemyIds: string[]) {
 function winsWholeStage(jobIds: string[], traitId: string, stageIndex: number): string | null {
   const stage = STAGES[stageIndex]
   const level = entryLevel(stageIndex)
-  for (const e of [...stage.encounters, stage.boss]) {
+  // 좌표를 한 번도 읽지 않는다 — 그래서 지도 변형이 몇 장이든 시뮬 결과가 같다
+  for (const e of allEncounters(stage)) {
     const result = simulate(buildPartyOf(jobIds, traitId, level), e.monsters)
     if (result.outcome !== 'victory') return e.id
   }
@@ -152,7 +154,10 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
         Object.fromEntries(
           TRAIT_IDS.map((id) => [
             id,
-            simulate(buildPartyOf(BASE_PARTY, id, entryLevel(i)), s.boss.monsters).rounds,
+            simulate(
+              buildPartyOf(BASE_PARTY, id, entryLevel(i)),
+              s.areas.find((a) => a.boss)!.boss!.monsters,
+            ).rounds,
           ]),
         ),
       ]),

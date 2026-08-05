@@ -43,6 +43,9 @@ const data: GameData = {
   sets: setsData as GameData['sets'],
 }
 
+/** 지금 쓰고 있는 자리. 새로 시작하거나 이어서 할 때 정해진다 */
+let activeSlot: number | null = null
+
 const bus = new EventBus()
 const store = new OptionsStore(bus)
 const traitStore = new TraitStore()
@@ -55,6 +58,8 @@ const game = new Game(
   },
   traitStore.get(),
   () => Date.now(),
+  // 지도 순환의 자리 번호 — 자리마다 다른 지도로 시작한다
+  () => activeSlot ?? 0,
 )
 // 옵션·특성 화면이 열려 있는 동안은 게임도 멈춘다 — "언제든 멈출 수 있다"
 const pauseHooks = { onOpen: () => game.pause(), onClose: () => game.resume() }
@@ -74,8 +79,6 @@ textLog.setVisible(store.options.textLog)
 const announcer = new Announcer(bus, store.options, (text) => textLog.add(text))
 
 const saves = new LocalSaveRepository(data)
-/** 지금 쓰고 있는 자리. 새로 시작하거나 이어서 할 때 정해진다 */
-let activeSlot: number | null = null
 const partyPanel = new PartyPanel(game, {
   ...pauseHooks,
   onConfirm: (jobs) => {

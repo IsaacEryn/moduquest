@@ -107,7 +107,7 @@ describe('특성 적용', () => {
     expect(game.currentTraitId).toBe('balanced')
 
     // 쉼터에서는 허용한다
-    game.field.pos = { ...game.stage.checkpoint }
+    game.field.pos = { ...game.field.currentArea.checkpoint! }
     expect(game.canChangeTrait().ok).toBe(true)
     expect(game.setTrait('narrow-focus')).toBe(true)
     expect(game.currentTraitId).toBe('narrow-focus')
@@ -148,7 +148,7 @@ describe('지각 반경', () => {
 
   it('요약이 모르는 곳의 위치를 말하지 않고, 모른다는 사실은 알린다', () => {
     const { game } = makeGame('narrow-focus')
-    const text = game.field.summary()
+    const text = game.field.summary(game.stage.objective)
     // 목표 문장에는 보스 이름이 나오지만, 위치 안내("...칸에 돌 골렘.")는 없어야 한다
     expect(text).not.toContain('에 돌 골렘.')
     expect(text).not.toContain('에 슬라임.')
@@ -158,13 +158,13 @@ describe('지각 반경', () => {
   it('반경 안의 몹은 위치까지 알려준다', () => {
     const { game } = makeGame('narrow-focus')
     game.field.pos = { x: 4, y: 7 } // 슬라임 조우 (4,6) 바로 아래
-    expect(game.field.summary()).toContain('에 슬라임.')
+    expect(game.field.summary(game.stage.objective)).toContain('에 슬라임.')
   })
 
   it('쉼터와 목표는 어떤 특성에서도 항상 알려준다', () => {
     for (const id of Object.keys(TRAITS.traits)) {
       const { game } = makeGame(id)
-      const text = game.field.summary()
+      const text = game.field.summary(game.stage.objective)
       expect(text, id).toContain('쉼터')
       expect(text, id).toContain('목표')
     }
