@@ -1,4 +1,5 @@
 import type { EventBus } from './events'
+import { toward } from './korean'
 import type { ResolvedArea, ResolvedExit, Route } from './layout'
 import type { Dir, EncounterData, Pos } from './types'
 
@@ -249,7 +250,7 @@ export class Field {
     if (route.here) return null
     const exit = this.area.exits.find((e) => e.id.endsWith(`-${route.viaExitId}`))
     if (!exit) return `${what}는 ${route.areaName}에 있다.`
-    return `${what}는 ${route.areaName}에 있다. ${exit.name}으로 간다.`
+    return `${what}는 ${route.areaName}에 있다. ${toward(exit.name)} 간다.`
   }
 
   /** 지금 구역이 스테이지의 몇 번째인지 — "셋 중 둘째" */
