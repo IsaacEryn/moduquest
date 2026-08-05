@@ -5,7 +5,13 @@
     "hp": 40,
     "atk": 10,
     "def": 4,
-    "spd": 5
+    "spd": 5,
+    "xp": 6,
+    "drops": [
+      null,
+      null,
+      "potion_small"
+    ]
   },
   "goblin": {
     "name": "고블린",
@@ -13,7 +19,12 @@
     "hp": 55,
     "atk": 13,
     "def": 6,
-    "spd": 8
+    "spd": 8,
+    "xp": 9,
+    "drops": [
+      null,
+      "potion_small"
+    ]
   },
   "boss_golem": {
     "name": "돌 골렘",
@@ -22,7 +33,11 @@
     "atk": 16,
     "def": 9,
     "spd": 4,
-    "isBoss": true
+    "xp": 25,
+    "isBoss": true,
+    "drops": [
+      "potion_big"
+    ]
   },
   "cave_bat": {
     "name": "굴박쥐",
@@ -30,7 +45,13 @@
     "hp": 38,
     "atk": 12,
     "def": 3,
-    "spd": 14
+    "spd": 14,
+    "xp": 8,
+    "drops": [
+      null,
+      null,
+      "potion_small"
+    ]
   },
   "echo_shard": {
     "name": "울림 조각",
@@ -38,7 +59,12 @@
     "hp": 36,
     "atk": 9,
     "def": 10,
-    "spd": 2
+    "spd": 2,
+    "xp": 10,
+    "drops": [
+      null,
+      "potion_small"
+    ]
   },
   "echo_golem": {
     "name": "울림 골렘",
@@ -47,7 +73,11 @@
     "atk": 18,
     "def": 10,
     "spd": 5,
-    "isBoss": true
+    "xp": 30,
+    "isBoss": true,
+    "drops": [
+      "potion_big"
+    ]
   },
   "bell_keeper": {
     "name": "종지기",
@@ -56,6 +86,10 @@
     "atk": 17,
     "def": 8,
     "spd": 10,
-    "isBoss": true
+    "xp": 35,
+    "isBoss": true,
+    "drops": [
+      "bell_shard"
+    ]
   }
 }

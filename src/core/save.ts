@@ -1,7 +1,7 @@
 import type { GameData, SaveSnapshot } from './types'
 import { resolveTraitId } from './traits'
 
-export const SAVE_VERSION = 1
+export const SAVE_VERSION = 2
 export const SLOT_COUNT = 3
 
 /**
@@ -33,10 +33,26 @@ function clampInt(v: unknown, min: number, max: number, fallback: number): numbe
  * 데이터가 바뀌면 검증도 함께 따라간다.
  * 읽을 수 없으면 null을 돌려주고, 호출자가 사용자에게 알린다.
  */
+/**
+ * 옛 버전은 살려서 읽는다 — 기록을 지우지 않는 것이 관대한 설계다.
+ * v1에는 파티 구성과 경험치가 없었으니 기본 구성과 스테이지 기준 경험치를 채운다.
+ */
+function migrateV1(r: Record<string, unknown>, data: GameData): Record<string, unknown> {
+  const stageIndex = clampInt(r.stageIndex, 0, data.stages.length - 1, 0)
+  const oldParty = Array.isArray(r.party) ? (r.party as Record<string, unknown>[]) : []
+  return {
+    ...r,
+    schemaVersion: SAVE_VERSION,
+    party: oldParty.map((p) => ({ job: p?.id, hp: p?.hp })),
+    xp: data.progression.stageEntryXp[stageIndex] ?? 0,
+  }
+}
+
 export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
-  const r = raw as Record<string, unknown>
+  let r = raw as Record<string, unknown>
 
+  if (r.schemaVersion === 1) r = migrateV1(r, data)
   // 모르는 상위 버전은 되살리려 하지 않는다 — 조용히 새 게임을 시작하면 사라진 걸 모른다
   if (r.schemaVersion !== SAVE_VERSION) return null
 
@@ -57,15 +73,51 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     ? [...new Set(rawField.defeated.filter((id): id is string => encounterIds.has(id as string)))]
     : []
 
-  const jobIds = new Set(data.party.map((p) => p.job))
-  const partyHp = Array.isArray(r.party)
+  const chestIds = new Set((stage.chests ?? []).map((c) => c.id))
+  const openedChests = Array.isArray(rawField.openedChests)
+    ? [...new Set(rawField.openedChests.filter((id): id is string => chestIds.has(id as string)))]
+    : []
+
+  // 인벤토리·처치 수: 실재하는 id만, 개수는 상한을 둔다
+  const itemIds = new Set(Object.keys(data.items))
+  const seenItems = new Set<string>()
+  const inventory = (Array.isArray(r.inventory) ? r.inventory : [])
+    .filter((e): e is { item: string; count: number } => {
+      const item = (e as { item?: unknown })?.item
+      if (typeof item !== 'string' || !itemIds.has(item) || seenItems.has(item)) return false
+      seenItems.add(item)
+      return true
+    })
+    .map((e) => ({ item: e.item, count: clampInt(e.count, 1, 99, 1) }))
+
+  const monsterIds = new Set(Object.keys(data.monsters))
+  const seenMonsters = new Set<string>()
+  const kills = (Array.isArray(r.kills) ? r.kills : [])
+    .filter((e): e is { monster: string; count: number } => {
+      const monster = (e as { monster?: unknown })?.monster
+      if (typeof monster !== 'string' || !monsterIds.has(monster) || seenMonsters.has(monster))
+        return false
+      seenMonsters.add(monster)
+      return true
+    })
+    .map((e) => ({ monster: e.monster, count: clampInt(e.count, 1, 99999, 1) }))
+
+  // 파티 구성: 실재하는 직업 · 정원수 · 중복 없음이 아니면 기본 구성으로 되돌린다
+  const jobIds = new Set(Object.keys(data.jobs))
+  let party = Array.isArray(r.party)
     ? r.party
         .filter(
-          (p): p is { id: string; hp: number } =>
-            !!p && typeof p === 'object' && jobIds.has((p as { id?: string }).id ?? ''),
+          (p): p is { job: string; hp: number } =>
+            !!p && typeof p === 'object' && jobIds.has((p as { job?: string }).job ?? ''),
         )
-        .map((p) => ({ id: p.id, hp: clampInt(p.hp, 0, 9999, 1) }))
+        .map((p) => ({ job: p.job, hp: clampInt(p.hp, 0, 9999, 1) }))
     : []
+  if (
+    party.length !== data.party.length ||
+    new Set(party.map((p) => p.job)).size !== party.length
+  ) {
+    party = data.party.map((p) => ({ job: p.job, hp: 9999 }))
+  }
 
   const scriptKeys = new Set(Object.keys(stage.script))
   const seenDialogues = Array.isArray(r.seenDialogues)
@@ -81,8 +133,11 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     schemaVersion: SAVE_VERSION,
     stageIndex,
     traitId: resolveTraitId(data.traits, typeof r.traitId === 'string' ? r.traitId : null),
-    field: { pos, checkpointReached: rawField.checkpointReached === true, defeated },
-    party: partyHp,
+    field: { pos, checkpointReached: rawField.checkpointReached === true, defeated, openedChests },
+    inventory,
+    kills,
+    party,
+    xp: clampInt(r.xp, 0, 999999, 0),
     seenDialogues,
     clearedStages,
     updatedAt: clampInt(r.updatedAt, 0, Number.MAX_SAFE_INTEGER, 0),

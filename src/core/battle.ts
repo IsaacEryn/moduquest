@@ -1,5 +1,5 @@
 import type { EventBus } from './events'
-import type { Combatant, MonsterData, PlayerAction } from './types'
+import type { Combatant, MonsterData, PlayerAction, SkillData } from './types'
 
 export type StepResult = 'waiting-player' | 'continue' | 'victory' | 'defeat'
 
@@ -34,7 +34,8 @@ export class Battle {
         atk: m.atk,
         def: m.def,
         spd: m.spd,
-        cooldownLeft: 0,
+        skills: [],
+        cooldowns: [],
         defending: false,
         sprite: m.sprite,
         isBoss: m.isBoss,
@@ -61,7 +62,7 @@ export class Battle {
     })
 
     for (const a of this.allies) {
-      a.cooldownLeft = 0
+      a.cooldowns = a.skills.map(() => 0)
       a.defending = false
       a.hitsSinceDeflect = 0
     }
@@ -117,7 +118,7 @@ export class Battle {
       if (!target) return null
       this.attack(actor, target)
     } else if (action.kind === 'skill') {
-      if (!this.useSkill(actor, action.targetId)) return null
+      if (!this.useSkill(actor, action.skillIndex, action.targetId)) return null
     } else if (action.kind === 'defend') {
       actor.defending = true
       this.bus.emit({ type: 'defended', actor })
@@ -128,33 +129,57 @@ export class Battle {
   }
 
   /**
-   * 스킬 실행 — 동작은 skill.kind가 결정하므로 새 스킬은 데이터로만 추가한다.
+   * 플레이어의 아이템 사용. 아이템이 무엇인지는 코어 밖(Game)이 알고,
+   * 여기는 턴 규칙(내 차례인가, 대상이 살아 있는가)만 책임진다. 턴을 소모한다.
+   */
+  playerUseItem(targetId: string, heal: number, itemName: string): StepResult | null {
+    const actor = this.currentActor
+    if (!actor.isPlayer || actor.hp <= 0) return null
+    const target = this.findAlive(this.allies, targetId)
+    if (!target) return null
+    const amount = Math.min(heal, target.maxHp - target.hp)
+    target.hp += amount
+    this.bus.emit({ type: 'itemUsed', name: itemName, target, amount })
+    return this.afterAction()
+  }
+
+  /**
+   * 스킬 실행 — 동작은 skill.kind와 targeting이 결정하므로 새 스킬은 데이터로만 추가한다.
+   * 전체 대상(-all)은 대상별로 개별 계산해 결정성을 지킨다.
    * 규칙상 불가(쿨다운, 대상 없음)면 false를 반환하고 아무 일도 일어나지 않는다.
    */
-  private useSkill(actor: Combatant, targetId?: string): boolean {
-    const skill = actor.skill
-    if (!skill || actor.cooldownLeft > 0) return false
+  private useSkill(actor: Combatant, skillIndex: number, targetId?: string): boolean {
+    const skill = actor.skills[skillIndex]
+    if (!skill) return false
+    if ((actor.cooldowns[skillIndex] ?? 0) > 0) return false
 
     switch (skill.kind) {
       case 'damage': {
-        const target = this.findAlive(this.opponentsOf(actor), targetId)
-        if (!target) return false
-        this.attack(actor, target, skill.multiplier ?? 1)
+        if (skill.targeting === 'enemy-all') {
+          const pool = this.opponentsOf(actor).filter((c) => c.hp > 0)
+          if (pool.length === 0) return false
+          for (const target of pool) {
+            this.attack(actor, target, skill.multiplier ?? 1, skill.pierce ?? 0, skill.name)
+          }
+        } else {
+          const target = this.findAlive(this.opponentsOf(actor), targetId)
+          if (!target) return false
+          this.attack(actor, target, skill.multiplier ?? 1, skill.pierce ?? 0, skill.name)
+        }
         break
       }
       case 'heal': {
-        // 대상 미지정이면 체력 비율이 가장 낮은 아군
         const pool = this.sideOf(actor).filter((c) => c.hp > 0)
-        const target = targetId
-          ? this.findAlive(pool, targetId)
-          : [...pool].sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
-        if (!target) return false
-        const amount = Math.min(
-          Math.floor(target.maxHp * (skill.healRatio ?? 0)),
-          target.maxHp - target.hp,
-        )
-        target.hp += amount
-        this.bus.emit({ type: 'healed', actor, target, amount })
+        if (skill.targeting === 'ally-all') {
+          for (const target of pool) this.healTarget(actor, target, skill)
+        } else {
+          // 대상 미지정이면 체력 비율이 가장 낮은 아군
+          const target = targetId
+            ? this.findAlive(pool, targetId)
+            : [...pool].sort((a, b) => a.hp / a.maxHp - b.hp / b.maxHp)[0]
+          if (!target) return false
+          this.healTarget(actor, target, skill)
+        }
         break
       }
       case 'taunt': {
@@ -164,8 +189,17 @@ export class Battle {
         break
       }
     }
-    actor.cooldownLeft = Math.max(0, skill.cooldown + (actor.cooldownDelta ?? 0))
+    actor.cooldowns[skillIndex] = Math.max(0, skill.cooldown + (actor.cooldownDelta ?? 0))
     return true
+  }
+
+  private healTarget(actor: Combatant, target: Combatant, skill: SkillData): void {
+    const amount = Math.min(
+      Math.floor(target.maxHp * (skill.healRatio ?? 0)),
+      target.maxHp - target.hp,
+    )
+    target.hp += amount
+    this.bus.emit({ type: 'healed', actor, target, amount })
   }
 
   private sideOf(c: Combatant): Combatant[] {
@@ -181,18 +215,30 @@ export class Battle {
     return c && c.hp > 0 ? c : undefined
   }
 
-  /** 동료 NPC 규칙: 치유·도발은 필요할 때만, 그 외에는 공격 */
+  /**
+   * 동료 NPC 규칙: 치유·도발은 필요할 때만, 공격 스킬은 준비되면 쓴다.
+   * 스킬이 여럿이면 배열 앞에서부터 — 우선순위도 데이터다.
+   */
   private npcAct(actor: Combatant): void {
-    const skill = actor.skill
-    if (skill && actor.cooldownLeft === 0) {
-      const allies = this.sideOf(actor).filter((c) => c.hp > 0)
+    const allies = this.sideOf(actor).filter((c) => c.hp > 0)
+    const enemies = this.opponentsOf(actor).filter((c) => c.hp > 0)
+    for (let i = 0; i < actor.skills.length; i++) {
+      if ((actor.cooldowns[i] ?? 0) > 0) continue
+      const skill = actor.skills[i]
       const shouldUse =
         (skill.kind === 'heal' && allies.some((a) => a.hp / a.maxHp < 0.5)) ||
         (skill.kind === 'taunt' &&
-          allies.some((a) => a !== actor && a.hp / a.maxHp < 0.4))
-      if (shouldUse && this.useSkill(actor)) return
+          allies.some((a) => a !== actor && a.hp / a.maxHp < 0.4)) ||
+        (skill.kind === 'damage' &&
+          (skill.targeting !== 'enemy-all' || enemies.length >= 2))
+      // 대상 id는 단일 적 공격에만 — 치유는 비워 두면 가장 아픈 아군에게 간다
+      const targetId =
+        skill.kind === 'damage' && skill.targeting === 'enemy'
+          ? enemies[0]?.id
+          : undefined
+      if (shouldUse && this.useSkill(actor, i, targetId)) return
     }
-    const target = this.aliveEnemies()[0]
+    const target = enemies[0]
     if (target) this.attack(actor, target)
   }
 
@@ -209,16 +255,23 @@ export class Battle {
    * 피해 계산 순서: 흘림 판정 → 기본 피해(관통 반영) → 방어 시 절반 → 최소 1.
    * 흘림은 최소 1 규칙의 유일한 예외다.
    */
-  private attack(actor: Combatant, target: Combatant, multiplier = 1): void {
+  private attack(
+    actor: Combatant,
+    target: Combatant,
+    multiplier = 1,
+    extraPierce = 0,
+    skillName?: string,
+  ): void {
     if (this.tryDeflect(target)) {
       this.bus.emit({ type: 'deflected', actor, target })
       return
     }
-    const effectiveDef = Math.max(0, target.def - (actor.pierce ?? 0))
+    const pierce = (actor.pierce ?? 0) + extraPierce
+    const effectiveDef = Math.max(0, target.def - pierce)
     let damage = Math.max(1, Math.floor(actor.atk * multiplier) - effectiveDef)
     if (target.defending) damage = Math.max(1, Math.floor(damage / 2))
     target.hp = Math.max(0, target.hp - damage)
-    this.bus.emit({ type: 'attacked', actor, target, damage })
+    this.bus.emit({ type: 'attacked', actor, target, damage, skillName })
     if (target.hp === 0) this.bus.emit({ type: 'downed', target })
   }
 
@@ -265,7 +318,7 @@ export class Battle {
       this.turnIndex = 0
       // 라운드 종료: 쿨다운·도발 지속시간 감소
       for (const c of this.order) {
-        if (c.cooldownLeft > 0) c.cooldownLeft -= 1
+        c.cooldowns = c.cooldowns.map((v) => (v > 0 ? v - 1 : 0))
       }
       if (this.tauntRounds > 0) {
         this.tauntRounds -= 1

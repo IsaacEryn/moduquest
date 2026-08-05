@@ -110,6 +110,35 @@ export class Sfx {
         // 막힌 방향에서 둔탁하게 — 어느 쪽이 벽인지 소리로도 알 수 있다
         this.tone({ from: 90, to: 60, duration: 0.14, type: 'square', gain: 0.16 }, e.dir)
         break
+      case 'chestOpened':
+        // 삐걱 열리고 반짝 — 낮은 음에서 높은 두 음으로
+        this.chord([
+          { from: 180, to: 240, duration: 0.16, type: 'square', gain: 0.12 },
+          { from: 784, duration: 0.22, gain: 0.1 },
+          { from: 1175, duration: 0.34, gain: 0.09 },
+        ])
+        break
+      case 'itemGained':
+        this.chord([
+          { from: 698, duration: 0.14, gain: 0.12 },
+          { from: 1047, duration: 0.26, gain: 0.1 },
+        ])
+        break
+      case 'itemUsed':
+        // 치유와 비슷하지만 더 짧게 — 물약 마시는 소리
+        this.chord([
+          { from: 440, to: 660, duration: 0.14, gain: 0.13 },
+          { from: 880, duration: 0.18, gain: 0.08 },
+        ])
+        break
+      case 'levelUp':
+        // 위로 올라가는 세 음 — 성장의 소리
+        this.chord([
+          { from: 523, duration: 0.18, gain: 0.14 },
+          { from: 659, duration: 0.32, gain: 0.13 },
+          { from: 880, duration: 0.5, gain: 0.12 },
+        ])
+        break
       case 'checkpoint':
         this.chord([
           { from: 523, duration: 0.3, gain: 0.16 },

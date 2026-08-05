@@ -108,6 +108,8 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
             })
           }
         }
+        // 연 상자는 사라져야 한다 — 이동 트윈 대신 전체를 다시 그린다
+        if (e.type === 'chestOpened' && this.scene.isActive()) this.redraw()
         if ((e.type === 'mode' && e.mode === 'field') || e.type === 'optionsChanged') {
           if (this.scene.isActive()) this.redraw()
         }
@@ -147,6 +149,12 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       this.statics.push(
         this.add.rectangle(cp.x, cp.y, TILE - 12, TILE - 12, pal.checkpoint).setDepth(1),
       )
+
+      // 안 연 상자 — 몹과 같은 isKnown 판정을 지나야 보인다
+      for (const chest of game.field.knownChests()) {
+        const p = px(chest.pos)
+        this.statics.push(this.add.image(p.x, p.y, texKey('chest')).setDepth(1))
+      }
 
       // 모르는 몹은 어둡게 덮지 않고 아예 그리지 않는다
       for (const e of game.field.knownEncounters()) {

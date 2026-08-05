@@ -1,7 +1,10 @@
 /** 스킬 동작은 kind가 결정한다 — 새 스킬은 코드 수정 없이 데이터로 추가한다 */
 export type SkillKind = 'damage' | 'heal' | 'taunt'
-/** 대상 선택 UI가 어느 목록을 보여줄지 결정한다 */
-export type SkillTargeting = 'enemy' | 'ally' | 'self'
+/**
+ * 대상 선택 UI가 어느 목록을 보여줄지 결정한다.
+ * -all은 대상 선택 없이 그쪽 전원에게 — 대상별로 개별 계산해 결정성을 지킨다
+ */
+export type SkillTargeting = 'enemy' | 'ally' | 'self' | 'enemy-all' | 'ally-all'
 
 export interface SkillData {
   id: string
@@ -10,21 +13,28 @@ export interface SkillData {
   targeting: SkillTargeting
   cooldown: number
   description: string
+  /** 이 레벨부터 쓸 수 있다. 없으면 처음부터 */
+  unlockLevel?: number
   duration?: number
   multiplier?: number
   healRatio?: number
+  /** 이 스킬만의 추가 관통 — 치명타의 결정적 번역 */
+  pierce?: number
 }
 
 export interface JobData {
   name: string
   role: string
+  /** 어떤 렌즈로 즐기는가 — 직업 선택 화면의 안내 문구 */
+  playstyle?: string
   /** 스프라이트 키 — 생략하면 직업 id를 쓴다 */
   sprite?: string
   hp: number
   atk: number
   def: number
   spd: number
-  skill: SkillData
+  /** 배열 순서가 NPC의 사용 우선순위다 */
+  skills: SkillData[]
   advantages: Record<string, number>
 }
 
@@ -35,7 +45,31 @@ export interface MonsterData {
   atk: number
   def: number
   spd: number
+  /** 처치 시 파티가 얻는 경험치 — 고정값이라 결정적이다 */
+  xp?: number
+  /**
+   * 드랍 순환 목록. N번째 처치는 drops[(N-1) % 길이]를 준다(null = 없음).
+   * 확률처럼 보이지만 셀 수 있는 규칙이다. 보스는 목록의 전부를 준다.
+   */
+  drops?: (string | null)[]
   isBoss?: boolean
+}
+
+export interface ItemData {
+  name: string
+  description: string
+  /** 사용 시 회복량. 없으면 쓸 수 없는 기념품 */
+  heal?: number
+  keepsake?: boolean
+}
+
+export interface ProgressionData {
+  /** 레벨 n이 되는 데 필요한 누적 경험치. 길이가 곧 최대 레벨 */
+  xpTable: number[]
+  /** 스테이지 진입 시 최소 보장 경험치 — 마이그레이션과 밸런스 검증의 기준선 */
+  stageEntryXp: number[]
+  /** 직업별 레벨당 성장 */
+  growth: Record<string, { hp: number; atk: number; def: number; spd: number }>
 }
 
 export interface Pos {
@@ -74,6 +108,8 @@ export interface StageData {
     darkness?: { radius: number; note: string }
   }
   encounters: EncounterData[]
+  /** 밟으면 열리는 보물상자. 내용은 고정이다 */
+  chests?: { id: string; pos: Pos; items: string[] }[]
   checkpoint: Pos
   boss: EncounterData
   /** 대사 묶음. intro·beforeBoss·clear는 관례적 키, 그 외는 조우가 참조 */
@@ -117,9 +153,17 @@ export interface SaveSnapshot {
   schemaVersion: number
   stageIndex: number
   traitId: string
-  field: { pos: Pos; checkpointReached: boolean; defeated: string[] }
-  /** 최대 체력·능력치는 직업과 특성에서 다시 계산한다 — 밸런스 수정이 저장값에 박히지 않게 */
-  party: { id: string; hp: number }[]
+  field: { pos: Pos; checkpointReached: boolean; defeated: string[]; openedChests: string[] }
+  inventory: { item: string; count: number }[]
+  /** 몹 종별 처치 수 — 드랍 순환의 카운터 */
+  kills: { monster: string; count: number }[]
+  /**
+   * 파티 구성과 남은 체력. 0번이 플레이어.
+   * 최대 체력·능력치는 직업·레벨·특성에서 다시 계산한다 — 밸런스 수정이 저장값에 박히지 않게
+   */
+  party: { job: string; hp: number }[]
+  /** 레벨은 저장하지 않는다 — 경험치에서 유도한다(단일 진실 원천) */
+  xp: number
   seenDialogues: string[]
   clearedStages: string[]
   updatedAt: number
@@ -142,6 +186,8 @@ export interface GameData {
   /** 배열 순서가 진행 순서다 — 같은 사실을 두 곳에 두지 않으려고 nextStageId를 두지 않는다 */
   stages: StageData[]
   traits: TraitsFile
+  progression: ProgressionData
+  items: Record<string, ItemData>
 }
 
 export type Dir = 'north' | 'south' | 'east' | 'west'
@@ -157,8 +203,9 @@ export interface Combatant {
   atk: number
   def: number
   spd: number
-  skill?: SkillData
-  cooldownLeft: number
+  /** 지금 쓸 수 있는(언락된) 스킬들. cooldowns는 같은 인덱스로 대응한다 */
+  skills: SkillData[]
+  cooldowns: number[]
   defending: boolean
   sprite?: string
   isBoss?: boolean
@@ -174,5 +221,6 @@ export interface Combatant {
 
 export type PlayerAction =
   | { kind: 'attack'; targetId: string }
-  | { kind: 'skill'; targetId?: string }
+  | { kind: 'skill'; skillIndex: number; targetId?: string }
+  | { kind: 'item'; itemId: string; targetId: string }
   | { kind: 'defend' }

@@ -10,7 +10,7 @@ export type GameEvent =
   | { type: 'battleStart'; enemies: Combatant[]; order: Combatant[] }
   | { type: 'turnStart'; actor: Combatant }
   | { type: 'playerTurn' }
-  | { type: 'attacked'; actor: Combatant; target: Combatant; damage: number }
+  | { type: 'attacked'; actor: Combatant; target: Combatant; damage: number; skillName?: string }
   | { type: 'healed'; actor: Combatant; target: Combatant; amount: number }
   | { type: 'taunted'; actor: Combatant; duration: number }
   | { type: 'defended'; actor: Combatant }
@@ -21,6 +21,11 @@ export type GameEvent =
   | { type: 'defeat' }
   | { type: 'battleEnd' }
   | { type: 'battleSummary'; text: string }
+  | { type: 'itemGained'; names: string[] }
+  | { type: 'chestOpened'; itemNames: string[] }
+  | { type: 'itemUsed'; name: string; target: Combatant; amount: number }
+  | { type: 'xpGained'; amount: number; total: number; toNext: number | null }
+  | { type: 'levelUp'; level: number; unlocked: { jobName: string; skillName: string }[] }
   | { type: 'stageStart'; index: number; total: number; title: string; objective: string }
   | { type: 'stageClear'; index: number; total: number; hasNext: boolean }
   | { type: 'optionsChanged' }

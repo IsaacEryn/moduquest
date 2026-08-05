@@ -1,0 +1,11 @@
+{
+  "xpTable": [0, 30, 70, 120, 180],
+  "stageEntryXp": [0, 52, 110],
+  "growth": {
+    "warrior": { "hp": 12, "atk": 2, "def": 1, "spd": 0 },
+    "rogue": { "hp": 8, "atk": 3, "def": 1, "spd": 1 },
+    "archer": { "hp": 8, "atk": 3, "def": 1, "spd": 1 },
+    "mage": { "hp": 7, "atk": 3, "def": 1, "spd": 0 },
+    "healer": { "hp": 8, "atk": 2, "def": 1, "spd": 1 }
+  }
+}

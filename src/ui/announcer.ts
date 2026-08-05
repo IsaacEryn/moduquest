@@ -132,8 +132,9 @@ export class Announcer {
       case 'attacked': {
         const target = e.target.isPlayer ? '나' : e.target.name
         const left = e.target.hp > 0 ? ` 남은 체력 ${e.target.hp}.` : ''
-        this.polite(`${who(e.actor)}의 공격. ${target}에게 ${e.damage} 피해.${left}`)
-        this.caption('[타격]')
+        const verb = e.skillName ?? '공격'
+        this.polite(`${who(e.actor)}의 ${verb}. ${target}에게 ${e.damage} 피해.${left}`)
+        this.caption(e.skillName ? `[${e.skillName}]` : '[타격]')
         break
       }
       case 'healed': {
@@ -164,6 +165,40 @@ export class Announcer {
       case 'traitChanged':
         this.polite(`특성을 ${josa(e.name, '으로', '로')} 바꿨다. ${e.description}`)
         break
+      case 'itemGained': {
+        for (const name of e.names) {
+          this.polite(`${josa(name, '을', '를')} 얻었다.`)
+        }
+        this.caption('[아이템]')
+        break
+      }
+      case 'chestOpened': {
+        const got = e.itemNames.map((n) => josa(n, '을', '를')).join(', ')
+        this.polite(`보물상자를 열었다. ${got} 얻었다.`)
+        this.caption('[상자 소리]')
+        break
+      }
+      case 'itemUsed': {
+        const target = e.target.isPlayer ? '내가' : josa(e.target.name, '이', '가')
+        this.polite(
+          `${josa(e.name, '을', '를')} 썼다. ${target} ${e.amount} 회복. 체력 ${e.target.hp}.`,
+        )
+        this.caption('[아이템 사용]')
+        break
+      }
+      case 'xpGained': {
+        const next = e.toNext !== null ? ` 다음 레벨까지 ${e.toNext}.` : ''
+        this.polite(`경험치 ${e.amount}를 얻었다.${next}`)
+        break
+      }
+      case 'levelUp': {
+        this.polite(`파티가 ${e.level}레벨이 되었다. 모두 강해졌다.`)
+        for (const u of e.unlocked) {
+          this.polite(`${josa(u.jobName, '이', '가')} 새 기술, ${josa(u.skillName, '을', '를')} 배웠다.`)
+        }
+        this.caption('[레벨 업]')
+        break
+      }
       case 'stageStart':
         // 지금 어디쯤인지가 문장 안에 늘 있어야 한다
         this.polite(

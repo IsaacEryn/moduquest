@@ -33,6 +33,28 @@ const GOLEM_PIXELS = [
 ]
 
 export const SPRITES: Record<string, SpriteDef> = {
+  // 보물상자 — 나무 몸통에 쇠테와 자물쇠. 바닥과 구분되는 따뜻한 갈색
+  chest: {
+    palette: { w: '#a9744f', W: '#7d5335', m: '#d9b23c', M: '#8f7524', k: '#3a2c1e' },
+    pixels: [
+      '                ',
+      '                ',
+      '                ',
+      '   wwwwwwwwww   ',
+      '  wWWWWWWWWWWw  ',
+      '  wWmmmmmmmmWw  ',
+      '  wWWWWWWWWWWw  ',
+      '  mmmmmmmmmmmm  ',
+      '  wWWWWmmWWWWw  ',
+      '  wWWWWmkWWWWw  ',
+      '  wWWWWmmWWWWw  ',
+      '  wWWWWWWWWWWw  ',
+      '  wWWWWWWWWWWw  ',
+      '  wwwwwwwwwwww  ',
+      '   MMMMMMMMMM   ',
+      '                ',
+    ],
+  },
   // 도적 — 후드와 단검, 날렵한 실루엣.
   // 숲 바닥이 초록이라 후드는 대비되는 남색 계열로 둔다(색만이 아니라 형태로도 구분되게)
   rogue: {
@@ -97,6 +119,50 @@ export const SPRITES: Record<string, SpriteDef> = {
       '     cccccc   w ',
       '    cccccccc  w ',
       '   cccccccccc   ',
+      '                ',
+    ],
+  },
+  // 궁수 — 초록 두건에 옆으로 든 활. 활 곡선이 실루엣을 만든다
+  archer: {
+    palette: { g: '#5e8f52', G: '#3f6338', s: SKIN, w: '#a97f4f', t: '#d8d3c0' },
+    pixels: [
+      '                ',
+      '     gggggg     ',
+      '    gGGGGGGg    ',
+      '    gGssssGg    ',
+      '    gGsttssg    ',
+      '    gGssssGg    ',
+      '     gGssGg   w ',
+      '    gggggggg ww ',
+      '   gGgggggggGw  ',
+      '  gGggggggggw   ',
+      '  gg gggggg w   ',
+      '     gggggg ww  ',
+      '     gg  gg  w  ',
+      '     gg  gg     ',
+      '    GGG  GGG    ',
+      '                ',
+    ],
+  },
+  // 마법사 — 뾰족한 보라 모자와 지팡이 끝의 빛
+  mage: {
+    palette: { m: '#7d6bb0', M: '#554687', s: SKIN, w: '#6b4a2f', l: '#ffd166' },
+    pixels: [
+      '       m        ',
+      '      mmm       ',
+      '     mmMmm      ',
+      '    mmMMMmm     ',
+      '   mmmmmmmmm    ',
+      '    mMssssMm    ',
+      '    mMsmsmsm  l ',
+      '    mMssssMm  w ',
+      '     mmmmmm   w ',
+      '   mmMmmmmMmm w ',
+      '  mMmmmmmmmmMmw ',
+      '  mm mmmmmm mmw ',
+      '     mmmmmm   w ',
+      '    mmmmmmmm    ',
+      '   mmmmmmmmmm   ',
       '                ',
     ],
   },

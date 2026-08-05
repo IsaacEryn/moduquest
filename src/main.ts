@@ -1,7 +1,9 @@
 import './style.css'
+import itemsData from './data/items.json'
 import jobs from './data/jobs.json'
 import monsters from './data/monsters.json'
 import party from './data/party.json'
+import progression from './data/progression.json'
 import stage1 from './data/stages/stage1.json'
 import stage2 from './data/stages/stage2.json'
 import stage3 from './data/stages/stage3.json'
@@ -12,9 +14,12 @@ import { Game } from './core/game'
 import type { Dir, GameData, StageData } from './core/types'
 import { createRenderer } from './render/scenes'
 import { Announcer } from './ui/announcer'
+import { BagPanel } from './ui/bagPanel'
 import { BattleUI } from './ui/battleUI'
+import { HelpPanel } from './ui/helpPanel'
 import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
+import { PartyPanel } from './ui/partyPanel'
 import { LocalSaveRepository } from './save/saveRepository'
 import { Screens } from './ui/screens'
 import { SlotPanel } from './ui/slotPanel'
@@ -27,9 +32,11 @@ const data: GameData = {
   jobs: jobs as GameData['jobs'],
   monsters,
   party,
+  progression,
   // 배열 순서가 진행 순서다
   stages: [stage1, stage2, stage3] as StageData[],
   traits: traits as GameData['traits'],
+  items: itemsData,
 }
 
 const bus = new EventBus()
@@ -59,12 +66,22 @@ const announcer = new Announcer(bus, store.options, (text) => textLog.add(text))
 const saves = new LocalSaveRepository(data)
 /** 지금 쓰고 있는 자리. 새로 시작하거나 이어서 할 때 정해진다 */
 let activeSlot: number | null = null
+const partyPanel = new PartyPanel(game, {
+  ...pauseHooks,
+  onConfirm: (jobs) => {
+    game.setParty(jobs)
+    const names = jobs.map((j) => data.jobs[j]?.name ?? j)
+    announcer.polite(`파티를 정했다. 나는 ${names[0]}, 동료는 ${names[1]}와 ${names[2]}.`)
+    game.start()
+  },
+})
 const slotPanel = new SlotPanel(game, saves, {
   ...pauseHooks,
   announce: (text) => announcer.polite(text),
   onStart: (slot) => {
     activeSlot = slot
-    game.start()
+    // 자리를 골랐으면 파티부터 짠다 — 확정하면 모험이 시작된다
+    partyPanel.open()
   },
   onContinue: async (slot) => {
     const snapshot = await saves.load(slot)
@@ -77,6 +94,8 @@ const stageSelect = new StageSelect(game, {
   ...pauseHooks,
   onPick: (index) => game.startStage(index),
 })
+const bagPanel = new BagPanel(game, pauseHooks)
+const helpPanel = new HelpPanel(pauseHooks)
 const screens = new Screens(
   game,
   bus,
@@ -85,13 +104,15 @@ const screens = new Screens(
   () => traitPanel.open(),
   (mode) => void slotPanel.open(mode),
   () => stageSelect.open(),
+  () => bagPanel.open(),
+  () => helpPanel.open(),
 )
 
 /**
  * 필드에서 상황이 바뀔 때마다 지금 자리에 저장한다 — 저장 버튼을 따로 두지 않는다.
  * 걸어간 위치까지 남겨야 "이어서 하기"가 실제로 이어진다.
  */
-const AUTOSAVE_ON = new Set(['moved', 'checkpoint', 'mode', 'traitChanged'])
+const AUTOSAVE_ON = new Set(['moved', 'checkpoint', 'mode', 'traitChanged', 'itemUsed'])
 bus.on((e) => {
   if (!AUTOSAVE_ON.has(e.type)) return
   if (activeSlot === null || !game.canSave) return

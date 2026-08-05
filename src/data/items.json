@@ -1,0 +1,17 @@
+{
+  "potion_small": {
+    "name": "작은 물약",
+    "description": "동료 한 명의 체력을 30 회복한다.",
+    "heal": 30
+  },
+  "potion_big": {
+    "name": "큰 물약",
+    "description": "동료 한 명의 체력을 60 회복한다.",
+    "heal": 60
+  },
+  "bell_shard": {
+    "name": "울림돌 조각",
+    "description": "종지기가 갖고 있던 파란 돌. 가만히 들으면 작은 종소리가 난다.",
+    "keepsake": true
+  }
+}

@@ -15,8 +15,10 @@ import type {
   Dir,
   EncounterData,
   GameData,
+  JobData,
   PlayerAction,
   SaveSnapshot,
+  SkillData,
   StageData,
   TraitData,
   TraitsFile,
@@ -50,6 +52,8 @@ export class Game {
   private stageIndex = 0
   private clearedStages = new Set<string>()
   private readonly monsterNames: Record<string, string>
+  /** 현재 파티 구성. 0번이 플레이어다 */
+  private partyJobs: string[]
 
   constructor(
     private data: GameData,
@@ -60,6 +64,7 @@ export class Game {
     private now: () => number = () => 0,
   ) {
     this.traitId = resolveTraitId(data.traits, traitId)
+    this.partyJobs = data.party.map((p) => p.job)
     this.party = this.buildParty()
     this.monsterNames = Object.fromEntries(
       Object.entries(data.monsters).map(([id, m]) => [id, m.name]),
@@ -73,9 +78,17 @@ export class Game {
    */
   private buildParty(): Combatant[] {
     const trait = this.trait
-    return this.data.party.map(({ job, isPlayer }) => {
+    return this.partyJobs.map((job, index) => {
+      const isPlayer = index === 0
       const j = this.data.jobs[job]
-      const base = { hp: j.hp, atk: j.atk, def: j.def, spd: j.spd }
+      const grow = this.data.progression.growth[job]
+      const lv = this.partyLevel - 1
+      const base = {
+        hp: j.hp + (grow?.hp ?? 0) * lv,
+        atk: j.atk + (grow?.atk ?? 0) * lv,
+        def: j.def + (grow?.def ?? 0) * lv,
+        spd: j.spd + (grow?.spd ?? 0) * lv,
+      }
       const s = isPlayer ? applyStats(base, trait, this.data.traits.limits) : base
       const c: Combatant = {
         id: job,
@@ -87,8 +100,8 @@ export class Game {
         atk: s.atk,
         def: s.def,
         spd: s.spd,
-        skill: j.skill,
-        cooldownLeft: 0,
+        skills: this.unlockedSkills(j),
+        cooldowns: [],
         defending: false,
         sprite: j.sprite ?? job,
       }
@@ -105,6 +118,10 @@ export class Game {
 
   get traits(): TraitsFile {
     return this.data.traits
+  }
+
+  get jobs(): Record<string, JobData> {
+    return this.data.jobs
   }
 
   /** 특성과 스테이지 어둠 중 좁은 쪽을 쓴다 */
@@ -172,6 +189,172 @@ export class Game {
     return p
   }
 
+  /** 지금 레벨에서 쓸 수 있는 스킬만 */
+  private unlockedSkills(j: JobData): SkillData[] {
+    const level = this.partyLevel
+    return j.skills.filter((s) => (s.unlockLevel ?? 1) <= level)
+  }
+
+  // --- 경험치·레벨 ---
+
+  private xp = 0
+
+  get currentXp(): number {
+    return this.xp
+  }
+
+  /** 레벨은 경험치에서 유도한다 — 두 값이 어긋날 일이 없다 */
+  get partyLevel(): number {
+    const table = this.data.progression.xpTable
+    let level = 1
+    for (let i = 1; i < table.length; i++) {
+      if (this.xp >= table[i]) level = i + 1
+    }
+    return level
+  }
+
+  /** 다음 레벨까지 남은 경험치. 최고 레벨이면 null */
+  get xpToNext(): number | null {
+    const table = this.data.progression.xpTable
+    const next = table[this.partyLevel]
+    return next === undefined ? null : next - this.xp
+  }
+
+  /**
+   * 경험치를 더하고 레벨이 올랐으면 파티를 다시 계산한다.
+   * 체력은 비율을 유지한다 — 레벨업이 곧 회복이 되지 않게.
+   */
+  private gainXp(amount: number): void {
+    if (amount <= 0) return
+    const before = this.partyLevel
+    this.xp += amount
+    this.bus.emit({
+      type: 'xpGained',
+      amount,
+      total: this.xp,
+      toNext: this.xpToNext,
+    })
+    const after = this.partyLevel
+    if (after === before) return
+
+    // 이번 레벨업으로 새로 열린 스킬 목록
+    const unlocked: { jobName: string; skillName: string }[] = []
+    for (const job of this.partyJobs) {
+      for (const s of this.data.jobs[job].skills) {
+        const lv = s.unlockLevel ?? 1
+        if (lv > before && lv <= after) {
+          unlocked.push({ jobName: this.data.jobs[job].name, skillName: s.name })
+        }
+      }
+    }
+
+    const ratios = this.party.map((c) => c.hp / c.maxHp)
+    this.party = this.buildParty()
+    this.party.forEach((c, i) => {
+      c.hp = Math.max(1, Math.min(c.maxHp, Math.round(c.maxHp * ratios[i])))
+    })
+    this.bus.emit({ type: 'levelUp', level: after, unlocked })
+  }
+
+  get currentPartyJobs(): string[] {
+    return [...this.partyJobs]
+  }
+
+  // --- 아이템·인벤토리 ---
+
+  /** 파티 공유 인벤토리. id → 개수 */
+  private inventory = new Map<string, number>()
+  /** 몹 종별 처치 수 — 드랍 순환의 카운터. 스테이지를 넘어도 이어진다 */
+  private kills = new Map<string, number>()
+
+  /** 가방·전투 메뉴 표시용 목록. 개수 0은 목록에 없다 */
+  get inventoryList(): {
+    id: string
+    name: string
+    description: string
+    count: number
+    usable: boolean
+  }[] {
+    return [...this.inventory.entries()]
+      .filter(([, count]) => count > 0)
+      .map(([id, count]) => {
+        const item = this.data.items[id]
+        return {
+          id,
+          name: item.name,
+          description: item.description,
+          count,
+          usable: (item.heal ?? 0) > 0,
+        }
+      })
+  }
+
+  private addItem(id: string): void {
+    if (!this.data.items[id]) return
+    this.inventory.set(id, (this.inventory.get(id) ?? 0) + 1)
+  }
+
+  private consumeItem(id: string): void {
+    const left = (this.inventory.get(id) ?? 0) - 1
+    if (left > 0) this.inventory.set(id, left)
+    else this.inventory.delete(id)
+  }
+
+  /**
+   * 처치를 세고 이번 승리의 드랍을 모은다.
+   * N번째 처치는 drops[(N-1) % 길이] — 확률이 아니라 세는 규칙이다.
+   * 보스는 목록 전부를 준다.
+   */
+  private collectDrops(monsterIds: string[]): string[] {
+    const dropped: string[] = []
+    for (const id of monsterIds) {
+      const m = this.data.monsters[id]
+      const count = (this.kills.get(id) ?? 0) + 1
+      this.kills.set(id, count)
+      const drops = m?.drops ?? []
+      if (drops.length === 0) continue
+      if (m.isBoss) {
+        for (const d of drops) if (d) dropped.push(d)
+      } else {
+        const d = drops[(count - 1) % drops.length]
+        if (d) dropped.push(d)
+      }
+    }
+    return dropped
+  }
+
+  /**
+   * 필드에서 아이템 사용. 체력이 이미 가득이면 쓰지 않는다 —
+   * 낭비를 규칙으로 막아야 실수 조작이 손해가 되지 않는다.
+   */
+  useItemInField(itemId: string, targetId: string): boolean {
+    if (this.mode !== 'field') return false
+    const item = this.data.items[itemId]
+    if (!item?.heal || (this.inventory.get(itemId) ?? 0) <= 0) return false
+    const target = this.party.find((c) => c.id === targetId)
+    if (!target || target.hp <= 0) return false
+    const amount = Math.min(item.heal, target.maxHp - target.hp)
+    if (amount <= 0) return false
+    target.hp += amount
+    this.consumeItem(itemId)
+    this.bus.emit({ type: 'itemUsed', name: item.name, target, amount })
+    return true
+  }
+
+  /**
+   * 파티 구성 변경. 타이틀에서만 — 모험 중에 동료를 갈아 끼우는 규칙은 없다.
+   * 세 명, 전부 실재하는 직업, 중복 없음이어야 받는다.
+   */
+  setParty(jobs: string[]): boolean {
+    if (this.mode !== 'title') return false
+    if (jobs.length !== this.data.party.length) return false
+    if (new Set(jobs).size !== jobs.length) return false
+    if (!jobs.every((j) => this.data.jobs[j])) return false
+    this.partyJobs = [...jobs]
+    this.party = this.buildParty()
+    return true
+  }
+
   // --- 스테이지 ---
 
   get stage(): StageData {
@@ -214,6 +397,8 @@ export class Game {
     this.bus.emit({ type: 'battleEnd' })
 
     this.stageIndex = index
+    // 어느 길로 왔든 이 스테이지에 걸맞은 최소 성장은 보장한다
+    this.xp = Math.max(this.xp, this.data.progression.stageEntryXp[index] ?? 0)
     this.party = this.buildParty()
     this.field = new Field(this.stage, this.monsterNames, this.bus, this.perceptionRadius)
 
@@ -270,8 +455,12 @@ export class Game {
         pos: { ...this.field.pos },
         checkpointReached: this.field.checkpointReached,
         defeated: this.field.defeatedIds,
+        openedChests: this.field.openedChestIds,
       },
-      party: this.party.map((c) => ({ id: c.id, hp: c.hp })),
+      inventory: [...this.inventory.entries()].map(([item, count]) => ({ item, count })),
+      kills: [...this.kills.entries()].map(([monster, count]) => ({ monster, count })),
+      party: this.party.map((c) => ({ job: c.id, hp: c.hp })),
+      xp: this.xp,
       seenDialogues: [...this.seenDialogues],
       clearedStages: [...this.clearedStages],
       updatedAt: this.now(),
@@ -292,15 +481,19 @@ export class Game {
 
     this.stageIndex = s.stageIndex
     this.traitId = s.traitId
+    this.xp = s.xp
+    this.partyJobs = s.party.map((p) => p.job)
     this.clearedStages = new Set(s.clearedStages)
     this.seenDialogues = new Set(s.seenDialogues)
+    this.inventory = new Map(s.inventory.map((i) => [i.item, i.count]))
+    this.kills = new Map(s.kills.map((k) => [k.monster, k.count]))
     this.party = this.buildParty()
     for (const saved of s.party) {
-      const c = this.party.find((p) => p.id === saved.id)
+      const c = this.party.find((p) => p.id === saved.job)
       if (c) c.hp = Math.min(c.maxHp, Math.max(0, saved.hp))
     }
     this.field = new Field(this.stage, this.monsterNames, this.bus, this.perceptionRadius)
-    this.field.restore(s.field.pos, s.field.checkpointReached, s.field.defeated)
+    this.field.restore(s.field.pos, s.field.checkpointReached, s.field.defeated, s.field.openedChests)
 
     this.bus.emit({
       type: 'stageStart',
@@ -340,10 +533,21 @@ export class Game {
     this.emitDialogueLine()
   }
 
+  /**
+   * 대사 화자의 c1/c2 토큰을 실제 동료 이름으로 바꾼다.
+   * 동료 직업을 고를 수 있으므로 대본은 자리만 알고 이름은 여기서 정해진다.
+   */
+  private resolveSpeaker(speaker: string): string {
+    if (speaker === 'c1') return this.party[1]?.name ?? '동료'
+    if (speaker === 'c2') return this.party[2]?.name ?? '동료'
+    return speaker
+  }
+
   private emitDialogueLine(): void {
+    const raw = this.dialogueQueue[this.dialogueIndex]
     this.bus.emit({
       type: 'dialogue',
-      line: this.dialogueQueue[this.dialogueIndex],
+      line: { speaker: this.resolveSpeaker(raw.speaker), text: raw.text },
       last: this.dialogueIndex === this.dialogueQueue.length - 1,
     })
   }
@@ -366,6 +570,15 @@ export class Game {
     if (this.mode !== 'field') return
     const wasAtCheckpoint = this.field.checkpointReached
     const encounter = this.field.move(dir)
+    // 상자는 밟는 순간 열린다 — 전투가 이어져도 이미 연 것이다
+    const chest = this.field.openChestAt(this.field.pos)
+    if (chest) {
+      for (const id of chest.items) this.addItem(id)
+      this.bus.emit({
+        type: 'chestOpened',
+        itemNames: chest.items.map((id) => this.data.items[id]?.name ?? ''),
+      })
+    }
     if (encounter) {
       this.enterBattle(encounter)
       return
@@ -425,6 +638,16 @@ export class Game {
 
   playerAction(action: PlayerAction): void {
     if (!this.battle || this.mode !== 'battle') return
+    // 아이템은 인벤토리를 아는 여기서 검증하고, 턴 규칙은 전투가 판정한다
+    if (action.kind === 'item') {
+      const item = this.data.items[action.itemId]
+      if (!item?.heal || (this.inventory.get(action.itemId) ?? 0) <= 0) return
+      const result = this.battle.playerUseItem(action.targetId, item.heal, item.name)
+      if (result === null) return
+      this.consumeItem(action.itemId)
+      this.handleStep(result)
+      return
+    }
     const result = this.battle.playerAction(action)
     // null이면 규칙상 무효한 입력(내 차례 아님, 쿨다운 등) — 아무 일도 없다
     if (result !== null) this.handleStep(result)
@@ -489,8 +712,23 @@ export class Game {
 
   private onVictory(): void {
     const wasBoss = this.battle?.isBossBattle ?? false
+    // 처치한 몹들의 고정 경험치 — 무작위가 없다
+    const gained =
+      this.currentEncounter?.monsters.reduce(
+        (sum, id) => sum + (this.data.monsters[id]?.xp ?? 0),
+        0,
+      ) ?? 0
+    const dropped = this.collectDrops(this.currentEncounter?.monsters ?? [])
     if (this.currentEncounter) this.field.removeEncounter(this.currentEncounter.id)
     this.endBattle()
+    this.gainXp(gained)
+    for (const id of dropped) this.addItem(id)
+    if (dropped.length > 0) {
+      this.bus.emit({
+        type: 'itemGained',
+        names: dropped.map((id) => this.data.items[id]?.name ?? ''),
+      })
+    }
     if (wasBoss) {
       this.clearedStages.add(this.stage.id)
       this.showDialogue(this.stage.script['clear'] ?? [], () => {
@@ -514,7 +752,7 @@ export class Game {
     // 관대한 재시작: 체크포인트에서 전원 완전 회복, 페널티 없음
     for (const a of this.party) {
       a.hp = a.maxHp
-      a.cooldownLeft = 0
+      a.cooldowns = a.skills.map(() => 0)
       a.defending = false
     }
     this.field.respawn()

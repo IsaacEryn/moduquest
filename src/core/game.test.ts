@@ -2,9 +2,11 @@ import { describe, expect, it } from 'vitest'
 import { EventBus, type GameEvent } from './events'
 import { Game, type TurnScheduler } from './game'
 import type { GameData, StageData, TraitsFile } from './types'
+import items from '../data/items.json'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
+import progression from '../data/progression.json'
 import stage1 from '../data/stages/stage1.json'
 import stage2 from '../data/stages/stage2.json'
 import stage3 from '../data/stages/stage3.json'
@@ -44,6 +46,8 @@ function makeGame() {
     jobs: jobs as GameData['jobs'],
     monsters,
     party,
+  progression,
+  items,
     stages: [stage1, stage2, stage3] as StageData[],
     traits: traitsFile as TraitsFile,
   }
@@ -192,6 +196,133 @@ describe('스테이지 클리어', () => {
 
     const clear = events.find((e) => e.type === 'stageClear')
     expect(clear).toMatchObject({ index: 0, total: 3, hasNext: true })
+  })
+})
+
+describe('경험치와 레벨', () => {
+  it('이기면 처치한 몹들의 고정 경험치를 얻는다', () => {
+    const { game, events, timer } = makeGame()
+    game.start()
+    skipDialogue(game)
+    game.moveField('east')
+    game.moveField('east')
+    game.moveField('east')
+    game.moveField('north') // e1: 슬라임 ×2 = 12
+    skipDialogue(game)
+    for (const e of game.battle!.enemies) e.hp = 1
+    let guard = 0
+    while (game.mode === 'battle' && guard++ < 60) {
+      if (game.battle!.currentActor.isPlayer) {
+        const target = game.battle!.enemies.find((e) => e.hp > 0)
+        if (!target) break
+        game.playerAction({ kind: 'attack', targetId: target.id })
+      }
+      timer.flush() // NPC·몹 턴 진행
+    }
+    const xpEvent = events.find((e) => e.type === 'xpGained')
+    expect(xpEvent).toMatchObject({ amount: 12, total: 12 })
+    expect(game.currentXp).toBe(12)
+    expect(game.partyLevel).toBe(1)
+  })
+
+  it('레벨은 경험치에서 유도되고, 3레벨에 두 번째 스킬이 열린다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    expect(game.player.skills.length).toBe(1)
+
+    game.restore({ ...base, xp: 70 }) // xpTable[2]=70 → 3레벨
+    expect(game.partyLevel).toBe(3)
+    expect(game.player.skills.length).toBe(2)
+    expect(game.player.skills[1].name).toBe('급소 찌르기')
+    // 성장이 능력치에 반영된다: 도적 공격 18 + 3×2레벨
+    expect(game.player.atk).toBe(18 + 3 * 2)
+  })
+
+  it('스테이지에 진입하면 그에 걸맞은 경험치가 보장된다', () => {
+    const { game } = makeGame()
+    game.startStage(2)
+    expect(game.currentXp).toBeGreaterThanOrEqual(110)
+    expect(game.partyLevel).toBeGreaterThanOrEqual(3)
+  })
+})
+
+describe('아이템과 보물상자', () => {
+  /** 전투를 끝까지 돌린다 — 플레이어는 공격만, NPC·몹 턴은 타이머로 진행 */
+  function fightOut(game: Game, timer: { flush: () => void }) {
+    let guard = 0
+    while (game.mode === 'battle' && guard++ < 60) {
+      if (game.battle!.currentActor.isPlayer) {
+        const target = game.battle!.enemies.find((e) => e.hp > 0)
+        if (!target) break
+        game.playerAction({ kind: 'attack', targetId: target.id })
+      }
+      timer.flush()
+    }
+  }
+
+  it('드랍은 처치 수 순환이다 — 슬라임 3번째마다 작은 물약', () => {
+    const { game, events, timer } = makeGame()
+    const base = game.snapshot()
+    // 이미 두 번 잡았다면 이번 조우(슬라임 둘)에서 3번째만 물약이다
+    game.restore({ ...base, kills: [{ monster: 'slime', count: 2 }] })
+    game.field.pos = { x: 4, y: 7 }
+    game.moveField('north') // e1: 슬라임 ×2
+    skipDialogue(game)
+    for (const e of game.battle!.enemies) e.hp = 1
+    fightOut(game, timer)
+
+    const gained = events.find((e) => e.type === 'itemGained')
+    expect(gained).toMatchObject({ names: ['작은 물약'] })
+    expect(game.inventoryList).toEqual([
+      expect.objectContaining({ id: 'potion_small', count: 1, usable: true }),
+    ])
+  })
+
+  it('보물상자는 밟으면 열리고 두 번 열리지 않는다', () => {
+    const { game, events } = makeGame()
+    game.start()
+    skipDialogue(game)
+    game.field.pos = { x: 3, y: 4 }
+    game.moveField('west') // (2,4) 상자
+    expect(events.find((e) => e.type === 'chestOpened')).toMatchObject({
+      itemNames: ['작은 물약'],
+    })
+    expect(game.inventoryList[0]).toMatchObject({ id: 'potion_small', count: 1 })
+
+    events.length = 0
+    game.moveField('east')
+    game.moveField('west') // 같은 칸을 다시 밟아도
+    expect(events.some((e) => e.type === 'chestOpened')).toBe(false)
+  })
+
+  it('전투에서 도구를 쓰면 회복하고 턴을 소모한다', () => {
+    const { game, events } = makeGame()
+    const base = game.snapshot()
+    game.restore({ ...base, inventory: [{ item: 'potion_small', count: 1 }] })
+    game.field.pos = { x: 4, y: 7 }
+    game.moveField('north')
+    skipDialogue(game)
+    const player = game.player
+    player.hp = player.maxHp - 50
+
+    game.playerAction({ kind: 'item', itemId: 'potion_small', targetId: player.id })
+    expect(events.find((e) => e.type === 'itemUsed')).toMatchObject({
+      name: '작은 물약',
+      amount: 30,
+    })
+    expect(player.hp).toBe(player.maxHp - 20)
+    expect(game.inventoryList.length).toBe(0) // 다 썼다
+  })
+
+  it('필드에서도 물약을 쓴다 — 체력이 가득이면 쓰지 않는다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({ ...base, inventory: [{ item: 'potion_small', count: 2 }] })
+    expect(game.useItemInField('potion_small', 'rogue')).toBe(false) // 가득
+    game.player.hp -= 10
+    expect(game.useItemInField('potion_small', 'rogue')).toBe(true)
+    expect(game.player.hp).toBe(game.player.maxHp)
+    expect(game.inventoryList[0].count).toBe(1)
   })
 })
 
