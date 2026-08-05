@@ -16,6 +16,7 @@ import { createRenderer } from './render/scenes'
 import { Announcer } from './ui/announcer'
 import { BagPanel } from './ui/bagPanel'
 import { BattleUI } from './ui/battleUI'
+import { HelpPanel } from './ui/helpPanel'
 import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
 import { PartyPanel } from './ui/partyPanel'
@@ -94,6 +95,7 @@ const stageSelect = new StageSelect(game, {
   onPick: (index) => game.startStage(index),
 })
 const bagPanel = new BagPanel(game, pauseHooks)
+const helpPanel = new HelpPanel(pauseHooks)
 const screens = new Screens(
   game,
   bus,
@@ -103,6 +105,7 @@ const screens = new Screens(
   (mode) => void slotPanel.open(mode),
   () => stageSelect.open(),
   () => bagPanel.open(),
+  () => helpPanel.open(),
 )
 
 /**
