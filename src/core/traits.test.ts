@@ -3,6 +3,7 @@ import { EventBus } from './events'
 import { Game } from './game'
 import { applyStats, perceptionRadius, resolveTrait, resolveTraitId } from './traits'
 import type { GameData, StageData, TraitsFile } from './types'
+import items from '../data/items.json'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
@@ -18,6 +19,7 @@ function makeGame(traitId?: string) {
     monsters,
     party,
   progression,
+  items,
     stages: [stage as StageData],
     traits: TRAITS,
   }

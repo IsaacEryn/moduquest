@@ -350,6 +350,29 @@ dialog.options .row {
   margin: 0.25rem 0;
 }
 
+/* 가방 — 아이템마다 설명과 사용 버튼 묶음 */
+.bag-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.bag-item {
+  margin: 0.5rem 0;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--line, #3a4750);
+}
+
+.bag-item p {
+  margin: 0 0 0.35rem;
+}
+
+.bag-item [role='group'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
 /* 저장 자리 확인 문구 — 실수를 막는 질문이라 눈에 띄어야 한다 */
 .slot-confirm {
   margin: 0.25rem 0;

@@ -129,6 +129,21 @@ export class Battle {
   }
 
   /**
+   * 플레이어의 아이템 사용. 아이템이 무엇인지는 코어 밖(Game)이 알고,
+   * 여기는 턴 규칙(내 차례인가, 대상이 살아 있는가)만 책임진다. 턴을 소모한다.
+   */
+  playerUseItem(targetId: string, heal: number, itemName: string): StepResult | null {
+    const actor = this.currentActor
+    if (!actor.isPlayer || actor.hp <= 0) return null
+    const target = this.findAlive(this.allies, targetId)
+    if (!target) return null
+    const amount = Math.min(heal, target.maxHp - target.hp)
+    target.hp += amount
+    this.bus.emit({ type: 'itemUsed', name: itemName, target, amount })
+    return this.afterAction()
+  }
+
+  /**
    * 스킬 실행 — 동작은 skill.kind와 targeting이 결정하므로 새 스킬은 데이터로만 추가한다.
    * 전체 대상(-all)은 대상별로 개별 계산해 결정성을 지킨다.
    * 규칙상 불가(쿨다운, 대상 없음)면 false를 반환하고 아무 일도 일어나지 않는다.

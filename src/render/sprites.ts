@@ -33,6 +33,28 @@ const GOLEM_PIXELS = [
 ]
 
 export const SPRITES: Record<string, SpriteDef> = {
+  // 보물상자 — 나무 몸통에 쇠테와 자물쇠. 바닥과 구분되는 따뜻한 갈색
+  chest: {
+    palette: { w: '#a9744f', W: '#7d5335', m: '#d9b23c', M: '#8f7524', k: '#3a2c1e' },
+    pixels: [
+      '                ',
+      '                ',
+      '                ',
+      '   wwwwwwwwww   ',
+      '  wWWWWWWWWWWw  ',
+      '  wWmmmmmmmmWw  ',
+      '  wWWWWWWWWWWw  ',
+      '  mmmmmmmmmmmm  ',
+      '  wWWWWmmWWWWw  ',
+      '  wWWWWmkWWWWw  ',
+      '  wWWWWmmWWWWw  ',
+      '  wWWWWWWWWWWw  ',
+      '  wWWWWWWWWWWw  ',
+      '  wwwwwwwwwwww  ',
+      '   MMMMMMMMMM   ',
+      '                ',
+    ],
+  },
   // 도적 — 후드와 단검, 날렵한 실루엣.
   // 숲 바닥이 초록이라 후드는 대비되는 남색 계열로 둔다(색만이 아니라 형태로도 구분되게)
   rogue: {

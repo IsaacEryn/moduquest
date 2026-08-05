@@ -3,6 +3,7 @@ import { EventBus } from './events'
 import { Game } from './game'
 import { SAVE_VERSION, progressScore, sanitizeSnapshot } from './save'
 import type { GameData, SaveSnapshot, StageData, TraitsFile } from './types'
+import items from '../data/items.json'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
@@ -17,6 +18,7 @@ const DATA: GameData = {
   monsters,
   party,
   progression,
+  items,
   stages: [stage1, stage2, stage3] as StageData[],
   traits: traitsFile as TraitsFile,
 }
@@ -84,6 +86,22 @@ describe('저장과 복원', () => {
     expect(g.canSave).toBe(false) // 인트로 대사
     skipDialogue(g)
     expect(g.canSave).toBe(true) // 필드
+  })
+
+  it('상자·인벤토리·처치 수가 함께 저장되고 복원된다', () => {
+    const a = makeGame()
+    a.start()
+    skipDialogue(a)
+    a.field.pos = { x: 3, y: 4 }
+    a.moveField('west') // (2,4) 보물상자
+    const snapshot = a.snapshot()
+    expect(snapshot.field.openedChests).toEqual(['t1'])
+    expect(snapshot.inventory).toEqual([{ item: 'potion_small', count: 1 }])
+
+    const b = makeGame()
+    b.restore(snapshot)
+    expect(b.inventoryList[0]).toMatchObject({ id: 'potion_small', count: 1 })
+    expect(b.field.openedChestIds).toEqual(['t1']) // 되살아나지 않는다
   })
 
   it('진행도는 되돌아가지 않는다', () => {
@@ -185,6 +203,27 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
       DATA,
     )
     expect(s?.party.map((p) => p.job)).toEqual(['mage', 'archer', 'healer'])
+  })
+
+  it('없는 아이템·몹·상자 id는 버리고 개수는 상한을 지킨다', () => {
+    const s = sanitizeSnapshot(
+      {
+        ...valid(),
+        field: { ...valid().field, openedChests: ['t1', '없는상자', 't1'] },
+        inventory: [
+          { item: 'potion_small', count: 500 },
+          { item: '없는아이템', count: 1 },
+        ],
+        kills: [
+          { monster: 'slime', count: 5 },
+          { monster: '없는몹', count: 2 },
+        ],
+      },
+      DATA,
+    )
+    expect(s?.field.openedChests).toEqual(['t1'])
+    expect(s?.inventory).toEqual([{ item: 'potion_small', count: 99 }])
+    expect(s?.kills).toEqual([{ monster: 'slime', count: 5 }])
   })
 
   it('모르는 특성은 기본값으로 되돌린다', () => {

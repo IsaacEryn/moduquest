@@ -73,6 +73,35 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     ? [...new Set(rawField.defeated.filter((id): id is string => encounterIds.has(id as string)))]
     : []
 
+  const chestIds = new Set((stage.chests ?? []).map((c) => c.id))
+  const openedChests = Array.isArray(rawField.openedChests)
+    ? [...new Set(rawField.openedChests.filter((id): id is string => chestIds.has(id as string)))]
+    : []
+
+  // 인벤토리·처치 수: 실재하는 id만, 개수는 상한을 둔다
+  const itemIds = new Set(Object.keys(data.items))
+  const seenItems = new Set<string>()
+  const inventory = (Array.isArray(r.inventory) ? r.inventory : [])
+    .filter((e): e is { item: string; count: number } => {
+      const item = (e as { item?: unknown })?.item
+      if (typeof item !== 'string' || !itemIds.has(item) || seenItems.has(item)) return false
+      seenItems.add(item)
+      return true
+    })
+    .map((e) => ({ item: e.item, count: clampInt(e.count, 1, 99, 1) }))
+
+  const monsterIds = new Set(Object.keys(data.monsters))
+  const seenMonsters = new Set<string>()
+  const kills = (Array.isArray(r.kills) ? r.kills : [])
+    .filter((e): e is { monster: string; count: number } => {
+      const monster = (e as { monster?: unknown })?.monster
+      if (typeof monster !== 'string' || !monsterIds.has(monster) || seenMonsters.has(monster))
+        return false
+      seenMonsters.add(monster)
+      return true
+    })
+    .map((e) => ({ monster: e.monster, count: clampInt(e.count, 1, 99999, 1) }))
+
   // 파티 구성: 실재하는 직업 · 정원수 · 중복 없음이 아니면 기본 구성으로 되돌린다
   const jobIds = new Set(Object.keys(data.jobs))
   let party = Array.isArray(r.party)
@@ -104,7 +133,9 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     schemaVersion: SAVE_VERSION,
     stageIndex,
     traitId: resolveTraitId(data.traits, typeof r.traitId === 'string' ? r.traitId : null),
-    field: { pos, checkpointReached: rawField.checkpointReached === true, defeated },
+    field: { pos, checkpointReached: rawField.checkpointReached === true, defeated, openedChests },
+    inventory,
+    kills,
     party,
     xp: clampInt(r.xp, 0, 999999, 0),
     seenDialogues,

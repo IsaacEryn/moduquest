@@ -1,4 +1,5 @@
 import './style.css'
+import itemsData from './data/items.json'
 import jobs from './data/jobs.json'
 import monsters from './data/monsters.json'
 import party from './data/party.json'
@@ -13,6 +14,7 @@ import { Game } from './core/game'
 import type { Dir, GameData, StageData } from './core/types'
 import { createRenderer } from './render/scenes'
 import { Announcer } from './ui/announcer'
+import { BagPanel } from './ui/bagPanel'
 import { BattleUI } from './ui/battleUI'
 import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
@@ -33,6 +35,7 @@ const data: GameData = {
   // 배열 순서가 진행 순서다
   stages: [stage1, stage2, stage3] as StageData[],
   traits: traits as GameData['traits'],
+  items: itemsData,
 }
 
 const bus = new EventBus()
@@ -90,6 +93,7 @@ const stageSelect = new StageSelect(game, {
   ...pauseHooks,
   onPick: (index) => game.startStage(index),
 })
+const bagPanel = new BagPanel(game, pauseHooks)
 const screens = new Screens(
   game,
   bus,
@@ -98,13 +102,14 @@ const screens = new Screens(
   () => traitPanel.open(),
   (mode) => void slotPanel.open(mode),
   () => stageSelect.open(),
+  () => bagPanel.open(),
 )
 
 /**
  * 필드에서 상황이 바뀔 때마다 지금 자리에 저장한다 — 저장 버튼을 따로 두지 않는다.
  * 걸어간 위치까지 남겨야 "이어서 하기"가 실제로 이어진다.
  */
-const AUTOSAVE_ON = new Set(['moved', 'checkpoint', 'mode', 'traitChanged'])
+const AUTOSAVE_ON = new Set(['moved', 'checkpoint', 'mode', 'traitChanged', 'itemUsed'])
 bus.on((e) => {
   if (!AUTOSAVE_ON.has(e.type)) return
   if (activeSlot === null || !game.canSave) return

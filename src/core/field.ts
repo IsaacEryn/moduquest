@@ -20,6 +20,8 @@ export class Field {
   /** 아직 살아있는 조우 (보스 포함) */
   alive: Map<string, EncounterData>
   checkpointReached = false
+  /** 이미 연 상자. 스테이지를 다시 시작하면 리셋된다 — defeated와 같은 의미론 */
+  private opened = new Set<string>()
 
   /** 걸어서 이 거리 안만 알 수 있다. null이면 맵 전체를 안다 */
   private radius: number | null
@@ -58,6 +60,26 @@ export class Field {
   /** 지금 아는 조우만 */
   knownEncounters(): EncounterData[] {
     return [...this.alive.values()].filter((e) => this.isKnown(e.pos))
+  }
+
+  /** 아직 안 연 상자 중 아는 것만 — 렌즈 셋 모두 이 목록으로 그린다 */
+  knownChests(): { id: string; pos: Pos; items: string[] }[] {
+    return (this.stage.chests ?? []).filter(
+      (c) => !this.opened.has(c.id) && this.isKnown(c.pos),
+    )
+  }
+
+  /** 지금 선 칸에 안 연 상자가 있으면 열고 돌려준다 — 밟는 것이 여는 것이다 */
+  openChestAt(p: Pos): { id: string; pos: Pos; items: string[] } | undefined {
+    const chest = (this.stage.chests ?? []).find(
+      (c) => !this.opened.has(c.id) && c.pos.x === p.x && c.pos.y === p.y,
+    )
+    if (chest) this.opened.add(chest.id)
+    return chest
+  }
+
+  get openedChestIds(): string[] {
+    return [...this.opened]
   }
 
   isWall(p: Pos): boolean {
@@ -122,10 +144,11 @@ export class Field {
   }
 
   /** 저장된 진행도를 되돌린다. 전달값은 이미 검증된 것만 온다 */
-  restore(pos: Pos, checkpointReached: boolean, defeated: string[]): void {
+  restore(pos: Pos, checkpointReached: boolean, defeated: string[], openedChests: string[] = []): void {
     this.pos = { ...pos }
     this.checkpointReached = checkpointReached
     for (const id of defeated) this.alive.delete(id)
+    for (const id of openedChests) this.opened.add(id)
   }
 
   get defeatedIds(): string[] {
@@ -158,6 +181,9 @@ export class Field {
     const parts: string[] = [`지금 위치 동 ${this.pos.x}, 남 ${this.pos.y}.`]
     for (const e of this.knownEncounters()) {
       parts.push(`${this.describeDistance(e.pos)}에 ${this.encounterName(e)}.`)
+    }
+    for (const c of this.knownChests()) {
+      parts.push(`${this.describeDistance(c.pos)}에 보물상자.`)
     }
     const cp = this.stage.checkpoint
     if (!(this.pos.x === cp.x && this.pos.y === cp.y)) {

@@ -47,7 +47,20 @@ export interface MonsterData {
   spd: number
   /** 처치 시 파티가 얻는 경험치 — 고정값이라 결정적이다 */
   xp?: number
+  /**
+   * 드랍 순환 목록. N번째 처치는 drops[(N-1) % 길이]를 준다(null = 없음).
+   * 확률처럼 보이지만 셀 수 있는 규칙이다. 보스는 목록의 전부를 준다.
+   */
+  drops?: (string | null)[]
   isBoss?: boolean
+}
+
+export interface ItemData {
+  name: string
+  description: string
+  /** 사용 시 회복량. 없으면 쓸 수 없는 기념품 */
+  heal?: number
+  keepsake?: boolean
 }
 
 export interface ProgressionData {
@@ -95,6 +108,8 @@ export interface StageData {
     darkness?: { radius: number; note: string }
   }
   encounters: EncounterData[]
+  /** 밟으면 열리는 보물상자. 내용은 고정이다 */
+  chests?: { id: string; pos: Pos; items: string[] }[]
   checkpoint: Pos
   boss: EncounterData
   /** 대사 묶음. intro·beforeBoss·clear는 관례적 키, 그 외는 조우가 참조 */
@@ -138,7 +153,10 @@ export interface SaveSnapshot {
   schemaVersion: number
   stageIndex: number
   traitId: string
-  field: { pos: Pos; checkpointReached: boolean; defeated: string[] }
+  field: { pos: Pos; checkpointReached: boolean; defeated: string[]; openedChests: string[] }
+  inventory: { item: string; count: number }[]
+  /** 몹 종별 처치 수 — 드랍 순환의 카운터 */
+  kills: { monster: string; count: number }[]
   /**
    * 파티 구성과 남은 체력. 0번이 플레이어.
    * 최대 체력·능력치는 직업·레벨·특성에서 다시 계산한다 — 밸런스 수정이 저장값에 박히지 않게
@@ -169,6 +187,7 @@ export interface GameData {
   stages: StageData[]
   traits: TraitsFile
   progression: ProgressionData
+  items: Record<string, ItemData>
 }
 
 export type Dir = 'north' | 'south' | 'east' | 'west'
@@ -203,4 +222,5 @@ export interface Combatant {
 export type PlayerAction =
   | { kind: 'attack'; targetId: string }
   | { kind: 'skill'; skillIndex: number; targetId?: string }
+  | { kind: 'item'; itemId: string; targetId: string }
   | { kind: 'defend' }

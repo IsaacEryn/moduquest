@@ -72,9 +72,10 @@ export class BattleUI {
     this.enemyList = section.querySelector('ul[data-side="enemy"]')!
     this.menu = section.querySelector('.menu')!
 
-    // ESC로 대상 선택 취소 — 개별 버튼이 아니라 컨테이너에서 한 번만 처리
+    // ESC로 대상·도구 선택 취소 — 개별 버튼이 아니라 컨테이너에서 한 번만 처리
     this.menu.addEventListener('keydown', (ev) => {
-      if (ev.key === 'Escape' && this.menu.getAttribute('aria-label') === '대상 선택') {
+      const label = this.menu.getAttribute('aria-label')
+      if (ev.key === 'Escape' && (label === '대상 선택' || label === '도구 선택')) {
         ev.stopPropagation()
         this.renderMenu(true)
       }
@@ -161,13 +162,45 @@ export class BattleUI {
       )
     })
 
+    // 쓸 수 있는 아이템이 있을 때만 — 빈 가방 버튼은 소음이다
+    if (this.game.inventoryList.some((i) => i.usable)) {
+      mk('도구', () => this.pickItem())
+    }
+
     mk('방어', () => this.act(() => this.game.playerAction({ kind: 'defend' })))
 
     if (focus && this.myTurn) attackBtn.focus()
   }
 
-  /** 대상 선택: 스킬의 targeting에 맞는 목록으로 메뉴를 교체, ESC로 복귀 */
-  private pickTarget(action: { kind: 'attack' } | { kind: 'skill'; skillIndex: number }): void {
+  /** 도구 선택: 쓸 수 있는 아이템 목록으로 메뉴를 교체, 고르면 대상 선택으로 */
+  private pickItem(): void {
+    this.menu.setAttribute('aria-label', '도구 선택')
+    this.menu.replaceChildren()
+
+    const usable = this.game.inventoryList.filter((i) => i.usable)
+    usable.forEach((item, i) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = `${item.name} ×${item.count} — ${item.description}`
+      b.addEventListener('click', () => this.pickTarget({ kind: 'item', itemId: item.id }))
+      this.menu.append(b)
+      if (i === 0) b.focus()
+    })
+
+    const cancel = document.createElement('button')
+    cancel.type = 'button'
+    cancel.textContent = '뒤로'
+    cancel.addEventListener('click', () => this.renderMenu(true))
+    this.menu.append(cancel)
+  }
+
+  /** 대상 선택: 행동의 성격에 맞는 목록으로 메뉴를 교체, ESC로 복귀 */
+  private pickTarget(
+    action:
+      | { kind: 'attack' }
+      | { kind: 'skill'; skillIndex: number }
+      | { kind: 'item'; itemId: string },
+  ): void {
     const battle = this.game.battle
     if (!battle) return
     this.menu.setAttribute('aria-label', '대상 선택')
@@ -175,8 +208,8 @@ export class BattleUI {
 
     const player = this.game.player
     const targetAllies =
-      action.kind === 'skill' &&
-      player.skills[action.skillIndex]?.targeting === 'ally'
+      action.kind === 'item' ||
+      (action.kind === 'skill' && player.skills[action.skillIndex]?.targeting === 'ally')
     const pool = targetAllies ? this.game.party : battle.enemies
     const targets = pool.filter((e) => e.hp > 0)
 
