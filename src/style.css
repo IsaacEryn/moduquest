@@ -275,6 +275,11 @@ button:disabled {
 }
 
 /* 옵션 */
+/* 상태창은 파티 셋을 나란히 놓아야 해서 다른 창보다 넓다 */
+dialog.options.status {
+  max-width: min(60rem, 94vw);
+}
+
 dialog.options {
   background: var(--panel);
   color: var(--text);
@@ -376,11 +381,31 @@ dialog.options .row {
   gap: 0.35rem;
 }
 
-/* 상태창 — 멤버별 구역과 장비 슬롯 */
+/* 상태창 — 파티원을 나란히 놓는다. 세로로만 쌓으면 스크롤이 길어져
+   지금 누구를 보고 있는지 놓치기 쉽다 */
+.status-members {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr;
+}
+
+/* 넓으면 셋을 나란히, 중간이면 둘씩 */
+@media (min-width: 34rem) {
+  .status-members {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (min-width: 52rem) {
+  .status-members {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
 .status-member {
-  margin: 0.6rem 0;
-  padding-top: 0.5rem;
-  border-top: 1px solid var(--line, #3a4750);
+  min-width: 0;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--line, #3a4750);
+  border-radius: 0.4rem;
 }
 
 .status-member h3 {
@@ -408,6 +433,12 @@ dialog.options .row {
   align-items: center;
   gap: 0.375rem;
   margin: 0.25rem 0;
+}
+
+/* 칸이 좁아지므로 긴 장비 이름이 넘치지 않게 */
+.status-slots li > span {
+  flex: 1 1 100%;
+  overflow-wrap: anywhere;
 }
 
 .status-picker {
