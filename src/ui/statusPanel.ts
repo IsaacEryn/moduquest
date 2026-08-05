@@ -1,6 +1,7 @@
 import { EQUIP_SLOTS, SLOT_KO, type Game } from '../core/game'
 import type { EquipSlot, ItemData } from '../core/types'
 import { josa } from './announcer'
+import { gauge } from './gauge'
 
 const STAT_KO = { atk: '공격', def: '방어', spd: '속도' } as const
 type CoreStat = keyof typeof STAT_KO
@@ -169,7 +170,7 @@ export class StatusPanel {
     h.textContent = c.isPlayer ? `${c.name} (나)` : c.name
     const vitals = document.createElement('p')
     vitals.textContent = `체력 ${c.hp}/${c.maxHp} · 마력 ${c.mp}/${c.maxMp}`
-    section.append(h, vitals)
+    section.append(h, vitals, gauge(c.hp, c.maxHp, 'hp'), gauge(c.mp, c.maxMp, 'mp'))
 
     // 능력치 내역 — 출처가 있는 것만 말한다. "공격 21 (기본 18 + 장비 2 + 동료 1)"
     const stats = document.createElement('p')

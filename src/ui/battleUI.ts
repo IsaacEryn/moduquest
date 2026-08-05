@@ -2,6 +2,7 @@ import { Battle } from '../core/battle'
 import type { EventBus } from '../core/events'
 import type { Game } from '../core/game'
 import type { Combatant } from '../core/types'
+import { gauge } from './gauge'
 
 /**
  * 전투 화면의 DOM 레이어: 상태판·행동 메뉴·시각 로그. 전부 시맨틱 마크업.
@@ -14,6 +15,9 @@ export class BattleUI {
   private enemyList!: HTMLUListElement
   private menu!: HTMLDivElement
   private myTurn = false
+  /** 지금 행동하는 쪽 — 목록에 (차례) 표시를 남긴다 */
+  private currentActorId: string | null = null
+  private turnStatus: HTMLParagraphElement | null = null
 
   constructor(
     private game: Game,
@@ -26,6 +30,7 @@ export class BattleUI {
         case 'playerTurn': {
           const wasMyTurn = this.myTurn
           this.myTurn = true
+          if (this.turnStatus) this.turnStatus.textContent = '내 차례 — 행동을 고르자.'
           this.renderMenu(!wasMyTurn)
           break
         }
@@ -38,12 +43,22 @@ export class BattleUI {
           this.renderStatus()
           break
         case 'turnStart':
-          // 라운드가 넘어가면 마력이 조용히 돌아온다 — 턴마다 상태판을 다시 읽는다
-          this.renderStatus()
+          // 라운드가 넘어가면 마력이 조용히 돌아온다 — 턴마다 상태판을 다시 읽는다.
+          // 버튼이 왜 회색인지도 여기서 말한다 — 지금 누구 차례인지가 그 이유다
+          this.currentActorId = e.actor.id
           if (!e.actor.isPlayer) {
             this.myTurn = false
             this.setMenuDisabled(true)
+            if (this.turnStatus) {
+              const name = e.actor.side === 'ally' ? e.actor.name : `적 ${e.actor.name}`
+              this.turnStatus.textContent = `${name}의 차례…`
+            }
           }
+          this.renderStatus()
+          break
+        case 'battleEnd':
+          this.currentActorId = null
+          if (this.turnStatus) this.turnStatus.textContent = ''
           break
       }
     })
@@ -56,6 +71,7 @@ export class BattleUI {
     section.setAttribute('aria-label', '전투')
     section.innerHTML = `
       <h2 class="visually-hidden">전투</h2>
+      <p class="turn-status"></p>
       <div class="parties">
         <section aria-label="아군"><h3>아군</h3><ul data-side="ally"></ul></section>
         <section aria-label="적"><h3>적</h3><ul data-side="enemy"></ul></section>
@@ -74,6 +90,8 @@ export class BattleUI {
     this.allyList = section.querySelector('ul[data-side="ally"]')!
     this.enemyList = section.querySelector('ul[data-side="enemy"]')!
     this.menu = section.querySelector('.menu')!
+    this.turnStatus = section.querySelector('.turn-status')
+    this.currentActorId = null
 
     // ESC로 대상·도구 선택 취소 — 개별 버튼이 아니라 컨테이너에서 한 번만 처리
     this.menu.addEventListener('keydown', (ev) => {
@@ -111,7 +129,13 @@ export class BattleUI {
       const deflect = Battle.willDeflect(c) ? ' · 다음 피격 흘림' : ''
       const mana = c.maxMp > 0 ? ` · 마력 ${c.mp}/${c.maxMp}` : ''
       const line = c.id === front?.id ? ' (앞줄)' : ''
-      li.textContent = `${c.name}${line} — 체력 ${c.hp}/${c.maxHp}${mana}${deflect}`
+      const acting = c.id === this.currentActorId ? ' (차례)' : ''
+      // 문장이 의미 채널이다 — 게이지는 그 곁의 시각 장식일 뿐이라 문장을 바꾸지 않는다
+      const text = document.createElement('span')
+      text.textContent = `${c.name}${line}${acting} — 체력 ${c.hp}/${c.maxHp}${mana}${deflect}`
+      li.append(text, gauge(c.hp, c.maxHp, 'hp'))
+      if (c.maxMp > 0) li.append(gauge(c.mp, c.maxMp, 'mp'))
+      if (c.id === this.currentActorId) li.classList.add('acting')
       return li
     }
     this.allyList.replaceChildren(...this.game.party.map(item))

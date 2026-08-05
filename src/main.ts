@@ -18,6 +18,7 @@ import { createRenderer } from './render/scenes'
 import { Announcer } from './ui/announcer'
 import { BagPanel } from './ui/bagPanel'
 import { BattleUI } from './ui/battleUI'
+import { FieldHud } from './ui/fieldHud'
 import { HelpPanel } from './ui/helpPanel'
 import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
@@ -115,6 +116,8 @@ const bagPanel = new BagPanel(game, pauseHooks)
 const helpPanel = new HelpPanel(pauseHooks)
 const statusPanel = new StatusPanel(game, pauseHooks)
 const townPanel = new TownPanel(game, pauseHooks)
+// 필드 상단 상시 현황 — 창을 열지 않아도 체력과 지갑이 보인다
+const fieldHud = new FieldHud(game, bus)
 const screens = new Screens(
   game,
   bus,
@@ -127,6 +130,7 @@ const screens = new Screens(
   () => helpPanel.open(),
   () => statusPanel.open(),
   () => townPanel.open(),
+  fieldHud,
 )
 
 /**

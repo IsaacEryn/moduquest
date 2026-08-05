@@ -27,6 +27,7 @@ export class Screens {
     private openHelp: () => void,
     private openStatus: () => void,
     private openTown: () => void,
+    private hud: { el: HTMLElement; refresh: () => void },
   ) {
     bus.on((e) => {
       if (e.type === 'areaChanged') this.onAreaChanged?.()
@@ -152,12 +153,18 @@ export class Screens {
       <div class="pad" role="group" aria-label="이동 조작"></div>
       <div class="secondary"></div>
     `
+    // 스테이지 번호·레벨·지갑은 HUD 칩이 상시로 보여준다 — 문장에는 목표만 남긴다
+    s.prepend(this.hud.el)
+    this.hud.refresh()
+
     const objective = s.querySelector('.objective')!
-    const describe = () =>
-      `스테이지 ${this.game.currentStageIndex + 1} / ${this.game.stageCount}. ` +
-      `${this.game.stage.title} — ${this.game.field.where}. ` +
-      `파티 ${this.game.partyLevel}레벨. ` +
-      `목표: ${this.game.stage.objective} 화살표 키나 아래 버튼으로 움직인다.`
+    const describe = () => {
+      const title = this.game.stage.title
+      const where = this.game.field.where
+      // 구역이 하나뿐인 스테이지는 제목과 구역명이 같다 — 같은 말을 두 번 하지 않는다
+      const place = where.includes(title) ? where : `${title} — ${where}`
+      return `${place}. 목표: ${this.game.stage.objective}`
+    }
     objective.textContent = describe()
     // 구역을 넘으면 여기 적힌 곳도 따라 바뀌어야 한다
     this.onAreaChanged = () => {
