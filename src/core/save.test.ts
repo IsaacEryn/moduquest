@@ -173,7 +173,7 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
   it('파티 구성이 깨져 있으면 기본 구성으로 되돌린다', () => {
     // 없는 직업이 섞이거나 정원이 모자라면 구성 전체를 기본값으로
     const broken = sanitizeSnapshot(
-      { ...valid(), party: [{ job: 'rogue', hp: 10 }, { job: '없는직업', hp: 10 }] },
+      { ...valid(), party: [{ job: 'rogue', hp: 10, equipment: {} }, { job: '없는직업', hp: 10 }] },
       DATA,
     )
     expect(broken?.party.map((p) => p.job)).toEqual(['rogue', 'warrior', 'healer'])
@@ -182,9 +182,9 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
       {
         ...valid(),
         party: [
-          { job: 'healer', hp: 10 },
-          { job: 'healer', hp: 10 },
-          { job: 'rogue', hp: 10 },
+          { job: 'healer', hp: 10, equipment: {} },
+          { job: 'healer', hp: 10, equipment: {} },
+          { job: 'rogue', hp: 10, equipment: {} },
         ],
       },
       DATA,
@@ -197,9 +197,9 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
       {
         ...valid(),
         party: [
-          { job: 'mage', hp: 40 },
-          { job: 'archer', hp: 50 },
-          { job: 'healer', hp: 60 },
+          { job: 'mage', hp: 40, equipment: {} },
+          { job: 'archer', hp: 50, equipment: {} },
+          { job: 'healer', hp: 60, equipment: {} },
         ],
       },
       DATA,
@@ -240,13 +240,71 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
         ...valid(),
         party: [
           { job: 'rogue', hp: -50 },
-          { job: 'warrior', hp: 120 },
-          { job: 'healer', hp: 80 },
+          { job: 'warrior', hp: 120, equipment: {} },
+          { job: 'healer', hp: 80, equipment: {} },
         ],
       },
       DATA,
     )
     expect(s?.party[0].hp).toBe(0)
+  })
+
+  it('v2 기록은 빈 손으로 이어받는다', () => {
+    const v2 = {
+      schemaVersion: 2,
+      stageIndex: 1,
+      traitId: 'balanced',
+      field: { pos: { x: 1, y: 8 }, checkpointReached: false, defeated: [], openedChests: [] },
+      inventory: [{ item: 'potion_small', count: 2 }],
+      kills: [{ monster: 'slime', count: 3 }],
+      party: [
+        { job: 'rogue', hp: 44 },
+        { job: 'warrior', hp: 100 },
+        { job: 'healer', hp: 70 },
+      ],
+      xp: 60,
+      seenDialogues: [],
+      clearedStages: ['stage1'],
+      updatedAt: 500,
+    }
+    const s = sanitizeSnapshot(v2, DATA)
+    expect(s?.schemaVersion).toBe(SAVE_VERSION)
+    expect(s?.party.every((p) => Object.keys(p.equipment).length === 0)).toBe(true)
+    expect(s?.inventory).toEqual([{ item: 'potion_small', count: 2 }])
+    expect(s?.xp).toBe(60)
+  })
+
+  it('장비 검증 — 슬롯 불일치와 레벨 미달은 가방으로 강등된다', () => {
+    const base = valid() // xp 0 → 1레벨
+    const s = sanitizeSnapshot(
+      {
+        ...base,
+        party: [
+          {
+            job: 'rogue',
+            hp: 50,
+            equipment: {
+              weapon: 'chain_armor', // 슬롯 불일치 (갑옷을 무기 칸에)
+              armor: 'echo_armor', // 4레벨 조건 미달
+              shoes: 'leather_shoes', // 정상
+              gloves: '없는장비', // 실재하지 않음
+            },
+          },
+          { job: 'warrior', hp: 100, equipment: {} },
+          { job: 'healer', hp: 70, equipment: {} },
+        ],
+      },
+      DATA,
+    )
+    expect(s?.party[0].equipment).toEqual({ shoes: 'leather_shoes' })
+    // 밀려난 장비는 지워지지 않고 가방으로
+    expect(s?.inventory).toEqual(
+      expect.arrayContaining([
+        { item: 'chain_armor', count: 1 },
+        { item: 'echo_armor', count: 1 },
+      ]),
+    )
+    expect(s?.inventory.some((e) => e.item === '없는장비')).toBe(false)
   })
 
   it('v1 기록은 버리지 않고 살려서 읽는다', () => {
@@ -276,7 +334,7 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
 
   it('복원할 때 체력이 최대치를 넘지 않는다', () => {
     const g = makeGame()
-    g.restore({ ...valid(), party: [{ job: 'rogue', hp: 9999 }] })
+    g.restore({ ...valid(), party: [{ job: 'rogue', hp: 9999, equipment: {} }] })
     expect(g.player.hp).toBe(g.player.maxHp)
   })
 

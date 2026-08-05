@@ -389,6 +389,112 @@ describe('아이템과 보물상자', () => {
   })
 })
 
+describe('장비', () => {
+  it('입으면 능력치가 오르고 벗으면 돌아온다 — 가방과 어긋나지 않는다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({ ...base, inventory: [{ item: 'wood_sword', count: 1 }] })
+    const before = game.player.atk
+
+    expect(game.equip('rogue', 'wood_sword')).toBe(true)
+    expect(game.player.atk).toBe(before + 2)
+    expect(game.inventoryList.find((i) => i.id === 'wood_sword')).toBeUndefined()
+
+    expect(game.unequip('rogue', 'weapon')).toBe(true)
+    expect(game.player.atk).toBe(before)
+    expect(game.inventoryList.find((i) => i.id === 'wood_sword')?.count).toBe(1)
+  })
+
+  it('같은 슬롯에 입으면 맞교환된다 — 중간 상태가 없다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({
+      ...base,
+      xp: 70, // 3레벨 — 강철 검 조건
+      inventory: [
+        { item: 'wood_sword', count: 1 },
+        { item: 'steel_sword', count: 1 },
+      ],
+    })
+    game.equip('rogue', 'wood_sword')
+    expect(game.equip('rogue', 'steel_sword')).toBe(true)
+    expect(game.equipmentOf('rogue').weapon).toBe('steel_sword')
+    expect(game.inventoryList.find((i) => i.id === 'wood_sword')?.count).toBe(1)
+  })
+
+  it('레벨이 모자라면 입을 수 없고 이유를 말해 준다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({ ...base, inventory: [{ item: 'steel_sword', count: 1 }] })
+    const check = game.canEquip('rogue', 'steel_sword')
+    expect(check.ok).toBe(false)
+    expect(check.reason).toContain('3레벨')
+    expect(game.equip('rogue', 'steel_sword')).toBe(false)
+    expect(game.inventoryList.find((i) => i.id === 'steel_sword')?.count).toBe(1)
+  })
+
+  it('울림 세트 2개부터 보너스가 붙는다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({
+      ...base,
+      xp: 120, // 4레벨 — 울림 장비 조건
+      inventory: [
+        { item: 'echo_sword', count: 1 },
+        { item: 'echo_armor', count: 1 },
+      ],
+    })
+    game.equip('rogue', 'echo_sword')
+    expect(game.statBreakdownOf('rogue')!.set.atk).toBe(0) // 1개는 세트가 아니다
+    game.equip('rogue', 'echo_armor')
+    const b = game.statBreakdownOf('rogue')!
+    expect(b.set).toMatchObject({ atk: 2, def: 2 })
+    expect(game.player.atk).toBe(b.total.atk)
+  })
+
+  it('오라 장비는 착용자가 아니라 동료를 강화한다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({ ...base, xp: 70, inventory: [{ item: 'story_banner', count: 1 }] })
+    const warriorBefore = game.party[1].atk
+    const rogueBefore = game.player.atk
+    game.equip('warrior', 'story_banner')
+    // 전사 자신은 깃발의 본체 수치(+1)만, 동료들은 오라(+1)를 받는다
+    expect(game.party[1].atk).toBe(warriorBefore + 1)
+    expect(game.statBreakdownOf('warrior')!.aura.atk).toBe(0)
+    expect(game.player.atk).toBe(rogueBefore + 1)
+    expect(game.statBreakdownOf('rogue')!.aura.atk).toBe(1)
+  })
+
+  it('특성을 바꿔도 성장과 장비가 유지된다 (회귀)', () => {
+    // 예전 setTrait은 직업 기본값에서 재계산해 성장·장비를 날렸다
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({
+      ...base,
+      xp: 70, // 3레벨
+      inventory: [{ item: 'wood_sword', count: 1 }],
+      field: { ...base.field, pos: { x: 9, y: 2 }, checkpointReached: true }, // 쉼터
+    })
+    game.equip('rogue', 'wood_sword')
+    expect(game.setTrait('swift-step')).toBe(true) // 속도 +3, 공격 -2
+    // 공격 = 기본 18 + 성장 3×2 + 나무 검 2 − 특성 2
+    expect(game.player.atk).toBe(18 + 6 + 2 - 2)
+    expect(game.player.spd).toBe(12 + 2 + 3)
+  })
+
+  it('파티에서 빠지는 직업의 장비는 가방으로 돌아온다', () => {
+    const { game } = makeGame()
+    // 타이틀에서 장비를 채운 뒤 구성을 바꾼다
+    game.restore({ ...game.snapshot(), inventory: [{ item: 'wood_sword', count: 1 }] })
+    game.equip('warrior', 'wood_sword')
+    game.returnToTitle()
+    expect(game.setParty(['rogue', 'mage', 'healer'])).toBe(true) // 전사가 빠진다
+    expect(game.inventoryList.find((i) => i.id === 'wood_sword')?.count).toBe(1)
+    expect(game.equipmentOf('warrior')).toEqual({})
+  })
+})
+
 describe('지각 반경 합성', () => {
   it('어두운 스테이지는 특성이 없어도 반경이 생긴다', () => {
     const { game } = makeGame()

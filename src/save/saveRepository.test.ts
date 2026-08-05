@@ -32,7 +32,7 @@ function snapshot(stageIndex = 0, defeated: string[] = []): SaveSnapshot {
     field: { pos: { x: 1, y: 8 }, checkpointReached: false, defeated, openedChests: [] },
     inventory: [],
     kills: [],
-    party: [{ job: 'rogue', hp: 90 }, { job: 'warrior', hp: 120 }, { job: 'healer', hp: 80 }],
+    party: [{ job: 'rogue', hp: 90, equipment: {} }, { job: 'warrior', hp: 120, equipment: {} }, { job: 'healer', hp: 80, equipment: {} }],
     xp: 0,
     seenDialogues: [],
     clearedStages: [],

@@ -211,10 +211,10 @@ export interface SaveSnapshot {
   /** 몹 종별 처치 수 — 드랍 순환의 카운터 */
   kills: { monster: string; count: number }[]
   /**
-   * 파티 구성과 남은 체력. 0번이 플레이어.
-   * 최대 체력·능력치는 직업·레벨·특성에서 다시 계산한다 — 밸런스 수정이 저장값에 박히지 않게
+   * 파티 구성과 남은 체력, 착용 장비. 0번이 플레이어.
+   * 최대 체력·능력치는 직업·레벨·특성·장비에서 다시 계산한다 — 밸런스 수정이 저장값에 박히지 않게
    */
-  party: { job: string; hp: number }[]
+  party: { job: string; hp: number; equipment: Partial<Record<EquipSlot, string>> }[]
   /** 레벨은 저장하지 않는다 — 경험치에서 유도한다(단일 진실 원천) */
   xp: number
   seenDialogues: string[]

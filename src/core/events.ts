@@ -1,4 +1,4 @@
-import type { Combatant, DialogueLine, Dir, Pos } from './types'
+import type { Combatant, DialogueLine, Dir, EquipSlot, Pos } from './types'
 
 export type GameEvent =
   | { type: 'mode'; mode: GameMode }
@@ -22,6 +22,16 @@ export type GameEvent =
   | { type: 'battleEnd' }
   | { type: 'battleSummary'; text: string }
   | { type: 'manaSpent'; actor: Combatant; cost: number; left: number }
+  | {
+      type: 'equipChanged'
+      memberName: string
+      isPlayer: boolean
+      slot: EquipSlot
+      /** 새로 입은 것. null이면 벗기만 했다 */
+      itemName: string | null
+      /** 이 슬롯에서 빠져 가방으로 돌아간 것 */
+      removedName: string | null
+    }
   | { type: 'itemGained'; names: string[] }
   | { type: 'chestOpened'; itemNames: string[] }
   | {
