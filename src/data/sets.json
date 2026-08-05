@@ -3,5 +3,20 @@
     "name": "울림 세트",
     "pieces": 2,
     "bonus": { "atk": 2, "def": 2 }
+  },
+  "spell": {
+    "name": "술사의 울림",
+    "pieces": 2,
+    "bonus": { "mp": 14, "def": 2 }
+  },
+  "hunt": {
+    "name": "사냥꾼의 울림",
+    "pieces": 2,
+    "bonus": { "atk": 3, "spd": 2 }
+  },
+  "guard": {
+    "name": "수호의 울림",
+    "pieces": 2,
+    "bonus": { "hp": 24, "def": 3 }
   }
 }

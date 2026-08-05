@@ -46,7 +46,9 @@
       "potion_big",
       "chain_armor",
       "horn_bow",
-      "plate_armor"
+      "plate_armor",
+      "echo_cloak",
+      "echo_plate"
     ]
   },
   "cave_bat": {
@@ -98,7 +100,9 @@
       "potion_big",
       "echo_gloves",
       "flame_staff",
-      "twin_daggers"
+      "twin_daggers",
+      "echo_robe",
+      "echo_daggers"
     ]
   },
   "bell_keeper": {
@@ -122,7 +126,10 @@
       "guide_lantern",
       "healing_bell",
       "war_axe",
-      "silk_robe"
+      "silk_robe",
+      "echo_staff",
+      "echo_bow",
+      "echo_axe"
     ]
   }
 }

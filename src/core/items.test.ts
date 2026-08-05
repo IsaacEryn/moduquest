@@ -84,6 +84,23 @@ describe('아이템 데이터 무결성', () => {
     }
   })
 
+  it('직업마다 채울 수 있는 세트가 있다 — 제 옷을 입으려고 세트를 버리지 않게', () => {
+    for (const job of Object.keys(JOBS)) {
+      // 이 직업이 입을 수 있는 세트 조각을 세트별로 모으고, 슬롯이 겹치지 않아야
+      // 동시에 걸칠 수 있다 — 무기 두 자루로는 세트가 완성되지 않는다
+      const slotsBySet = new Map<string, Set<string>>()
+      for (const item of Object.values(ITEMS)) {
+        if (item.kind !== 'equipment' || !item.set || !item.slot) continue
+        if (item.jobs && !item.jobs.includes(job)) continue
+        const slots = slotsBySet.get(item.set) ?? new Set<string>()
+        slots.add(item.slot)
+        slotsBySet.set(item.set, slots)
+      }
+      const canComplete = [...slotsBySet].some(([sid, slots]) => slots.size >= SETS[sid].pieces)
+      expect(canComplete, `${job}가 채울 수 있는 세트가 없다`).toBe(true)
+    }
+  })
+
   it('모든 장비는 어디선가 손에 들어온다 — 아무도 못 얻는 장비는 없는 것과 같다', () => {
     const reachable = new Set<string>(Object.keys(ECONOMY.shop.stock))
     for (const m of Object.values(MONSTERS)) {

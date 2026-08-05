@@ -430,6 +430,147 @@
       "def": 3
     }
   },
+  "echo_staff": {
+    "name": "울림 지팡이",
+    "description": "울림돌을 물린 지팡이. 주문이 한 박자 멀리 간다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 3,
+    "minLevel": 6,
+    "jobs": [
+      "mage",
+      "healer"
+    ],
+    "stats": {
+      "atk": 4,
+      "mp": 20
+    },
+    "set": "spell",
+    "recolor": {
+      "primary": "#7fd0c8"
+    }
+  },
+  "echo_robe": {
+    "name": "울림 로브",
+    "description": "짜인 실마다 종소리가 배어 있다.",
+    "kind": "equipment",
+    "slot": "armor",
+    "tier": 3,
+    "minLevel": 6,
+    "jobs": [
+      "mage",
+      "healer"
+    ],
+    "stats": {
+      "hp": 14,
+      "mp": 22
+    },
+    "set": "spell",
+    "recolor": {
+      "primary": "#6fb6c8",
+      "secondary": "#4f8fa2"
+    }
+  },
+  "echo_bow": {
+    "name": "울림 활",
+    "description": "시위를 놓으면 화살보다 소리가 먼저 간다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 3,
+    "minLevel": 6,
+    "jobs": [
+      "archer"
+    ],
+    "stats": {
+      "atk": 7,
+      "spd": 2
+    },
+    "set": "hunt",
+    "recolor": {
+      "primary": "#9fd6b0"
+    }
+  },
+  "echo_daggers": {
+    "name": "울림 쌍단검",
+    "description": "두 자루가 서로 울려 손이 더 빨라진다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 3,
+    "minLevel": 6,
+    "jobs": [
+      "rogue"
+    ],
+    "stats": {
+      "atk": 6,
+      "spd": 4
+    },
+    "set": "hunt",
+    "recolor": {
+      "primary": "#a8dcd0"
+    }
+  },
+  "echo_cloak": {
+    "name": "울림 외투",
+    "description": "발소리를 삼키고 몸을 가볍게 한다.",
+    "kind": "equipment",
+    "slot": "armor",
+    "tier": 3,
+    "minLevel": 6,
+    "jobs": [
+      "archer",
+      "rogue"
+    ],
+    "stats": {
+      "hp": 18,
+      "def": 2,
+      "spd": 1
+    },
+    "set": "hunt",
+    "recolor": {
+      "primary": "#5f9c86",
+      "secondary": "#487a68"
+    }
+  },
+  "echo_axe": {
+    "name": "울림 도끼",
+    "description": "내리칠 때마다 땅이 함께 운다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 3,
+    "minLevel": 6,
+    "jobs": [
+      "warrior"
+    ],
+    "stats": {
+      "atk": 9,
+      "spd": -1
+    },
+    "set": "guard",
+    "recolor": {
+      "primary": "#8fb9d0"
+    }
+  },
+  "echo_plate": {
+    "name": "울림 판금",
+    "description": "앞에 선 사람을 위한 갑옷. 무겁고 단단하다.",
+    "kind": "equipment",
+    "slot": "armor",
+    "tier": 3,
+    "minLevel": 6,
+    "jobs": [
+      "warrior"
+    ],
+    "stats": {
+      "hp": 34,
+      "def": 5,
+      "spd": -1
+    },
+    "set": "guard",
+    "recolor": {
+      "primary": "#8aa8bf",
+      "secondary": "#6b8599"
+    }
+  },
   "story_banner": {
     "name": "이야기 깃발",
     "description": "함께 걸어온 길이 수놓여 있다. 든 사람보다 곁의 사람을 북돋운다.",
