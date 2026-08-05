@@ -28,6 +28,7 @@ import { Screens } from './ui/screens'
 import { SlotPanel } from './ui/slotPanel'
 import { StageSelect } from './ui/stageSelect'
 import { StatusPanel } from './ui/statusPanel'
+import { attachSwipe } from './ui/swipe'
 import { TextLog } from './ui/textLog'
 import { TownPanel } from './ui/townPanel'
 import { TraitPanel } from './ui/traitPanel'
@@ -157,6 +158,16 @@ bus.on((e) => {
 createRenderer(game, bus, store.options)
 // 같은 사건을 소리로도 — 방향이 있는 소리는 공간 음향으로 배치한다
 new Sfx(bus, store.options)
+
+// 손가락으로 쓸어도 움직인다 — 지도 위에서 가고 싶은 쪽으로 밀면 된다.
+// 방향 버튼과 키보드는 그대로다. 조작 수단을 바꾸는 게 아니라 하나 더 놓는 것이다
+const gameArea = document.querySelector<HTMLElement>('#game')
+if (gameArea) {
+  attachSwipe(gameArea, {
+    canMove: () => game.mode === 'field' && !document.querySelector('dialog[open]'),
+    onSwipe: (dir) => game.moveField(dir),
+  })
+}
 
 // 물리 키(e.code) 기준 — 한글 IME 상태에서도 W/A/S/D·R이 동작해야 한다.
 // e.key는 code가 비는 합성 이벤트를 위한 보조 경로.
