@@ -1,5 +1,6 @@
 import './style.css'
 import itemsData from './data/items.json'
+import setsData from './data/sets.json'
 import jobs from './data/jobs.json'
 import monsters from './data/monsters.json'
 import party from './data/party.json'
@@ -36,7 +37,8 @@ const data: GameData = {
   // 배열 순서가 진행 순서다
   stages: [stage1, stage2, stage3] as StageData[],
   traits: traits as GameData['traits'],
-  items: itemsData,
+  items: itemsData as GameData['items'],
+  sets: setsData as GameData['sets'],
 }
 
 const bus = new EventBus()

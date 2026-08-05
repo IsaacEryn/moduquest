@@ -205,7 +205,7 @@ export class Screens {
       const names = this.game.party.map((c) => (c.isPlayer ? `${c.name}(나)` : c.name))
       summary.textContent =
         `${names.join(', ')} — 세 곳을 함께 걸어 파티는 ${this.game.partyLevel}레벨이 되었다.`
-      const keepsakes = this.game.inventoryList.filter((i) => !i.usable)
+      const keepsakes = this.game.inventoryList.filter((i) => i.kind === 'keepsake')
       const lines = [summary]
       for (const k of keepsakes) {
         const p = document.createElement('p')

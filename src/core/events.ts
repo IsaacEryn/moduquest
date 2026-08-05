@@ -24,7 +24,15 @@ export type GameEvent =
   | { type: 'manaSpent'; actor: Combatant; cost: number; left: number }
   | { type: 'itemGained'; names: string[] }
   | { type: 'chestOpened'; itemNames: string[] }
-  | { type: 'itemUsed'; name: string; target: Combatant; amount: number }
+  | {
+      type: 'itemUsed'
+      name: string
+      target: Combatant
+      /** 실제 적용량 — 0이면 그 효과는 없었던 것 */
+      healed: number
+      mana: number
+      cooldownCut: number
+    }
   | { type: 'xpGained'; amount: number; total: number; toNext: number | null }
   | { type: 'levelUp'; level: number; unlocked: { jobName: string; skillName: string }[] }
   | { type: 'stageStart'; index: number; total: number; title: string; objective: string }

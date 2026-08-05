@@ -4,6 +4,7 @@ import { Game } from './game'
 import { SAVE_VERSION, progressScore, sanitizeSnapshot } from './save'
 import type { GameData, SaveSnapshot, StageData, TraitsFile } from './types'
 import items from '../data/items.json'
+import sets from '../data/sets.json'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
@@ -18,7 +19,8 @@ const DATA: GameData = {
   monsters: monsters as GameData['monsters'],
   party,
   progression,
-  items,
+  items: items as GameData['items'],
+  sets: sets as GameData['sets'],
   stages: [stage1, stage2, stage3] as StageData[],
   traits: traitsFile as TraitsFile,
 }

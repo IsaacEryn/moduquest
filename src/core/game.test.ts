@@ -3,6 +3,7 @@ import { EventBus, type GameEvent } from './events'
 import { Game, type TurnScheduler } from './game'
 import type { GameData, StageData, TraitsFile } from './types'
 import items from '../data/items.json'
+import sets from '../data/sets.json'
 import jobs from '../data/jobs.json'
 import monsters from '../data/monsters.json'
 import party from '../data/party.json'
@@ -47,7 +48,8 @@ function makeGame() {
     monsters: monsters as GameData['monsters'],
     party,
   progression,
-  items,
+  items: items as GameData['items'],
+  sets: sets as GameData['sets'],
     stages: [stage1, stage2, stage3] as StageData[],
     traits: traitsFile as TraitsFile,
   }
@@ -274,7 +276,7 @@ describe('아이템과 보물상자', () => {
     const gained = events.find((e) => e.type === 'itemGained')
     expect(gained).toMatchObject({ names: ['작은 물약'] })
     expect(game.inventoryList).toEqual([
-      expect.objectContaining({ id: 'potion_small', count: 1, usable: true }),
+      expect.objectContaining({ id: 'potion_small', count: 1, usableInField: true }),
     ])
   })
 
@@ -308,10 +310,71 @@ describe('아이템과 보물상자', () => {
     game.playerAction({ kind: 'item', itemId: 'potion_small', targetId: player.id })
     expect(events.find((e) => e.type === 'itemUsed')).toMatchObject({
       name: '작은 물약',
-      amount: 30,
+      healed: 30,
     })
     expect(player.hp).toBe(player.maxHp - 20)
     expect(game.inventoryList.length).toBe(0) // 다 썼다
+  })
+
+  it('마력·스태미나 물약은 전투에서 각자의 효과를 낸다', () => {
+    const { game, events } = makeGame()
+    const base = game.snapshot()
+    game.restore({
+      ...base,
+      inventory: [
+        { item: 'mana_potion', count: 1 },
+        { item: 'stamina_potion', count: 1 },
+      ],
+    })
+    game.field.pos = { x: 4, y: 7 }
+    game.moveField('north')
+    skipDialogue(game)
+    const player = game.player
+
+    // 마력이 가득이면 마력 물약은 쓰이지 않는다 — 턴도 아이템도 그대로
+    game.playerAction({ kind: 'item', itemId: 'mana_potion', targetId: player.id })
+    expect(events.some((e) => e.type === 'itemUsed')).toBe(false)
+    expect(game.inventoryList.find((i) => i.id === 'mana_potion')?.count).toBe(1)
+    expect(game.battle!.currentActor.isPlayer).toBe(true)
+
+    // 마력을 쓴 뒤에는 돌아온다
+    player.mp -= 10
+    game.playerAction({ kind: 'item', itemId: 'mana_potion', targetId: player.id })
+    expect(events.find((e) => e.type === 'itemUsed')).toMatchObject({
+      name: '마력 물약',
+      mana: 10, // 최대치를 넘지 않는다
+    })
+    expect(player.mp).toBe(player.maxMp)
+  })
+
+  it('스태미나 물약은 기술 대기를 즉시 줄인다 — 바닥은 0', () => {
+    const { game, events, timer } = makeGame()
+    const base = game.snapshot()
+    game.restore({ ...base, inventory: [{ item: 'stamina_potion', count: 2 }] })
+    game.field.pos = { x: 4, y: 7 }
+    game.moveField('north')
+    skipDialogue(game)
+    const player = game.player
+
+    // 줄일 대기가 없으면 쓰이지 않는다
+    game.playerAction({ kind: 'item', itemId: 'stamina_potion', targetId: player.id })
+    expect(events.some((e) => e.type === 'itemUsed')).toBe(false)
+
+    // 스킬을 써서 대기를 만든 뒤 내 차례에 마신다
+    game.playerAction({ kind: 'skill', skillIndex: 0, targetId: game.battle!.enemies[0].id })
+    expect(player.cooldowns[0]).toBe(2)
+    let guard = 0
+    while (game.mode === 'battle' && guard++ < 20 && !game.battle!.currentActor.isPlayer) {
+      timer.flush()
+    }
+    // 라운드가 한 바퀴 돌아 대기 1 — 물약으로 0까지
+    game.playerAction({ kind: 'item', itemId: 'stamina_potion', targetId: player.id })
+    expect(events.find((e) => e.type === 'itemUsed')).toMatchObject({
+      name: '스태미나 물약',
+      cooldownCut: 2,
+    })
+    expect(player.cooldowns.every((c) => c >= 0)).toBe(true)
+    expect(player.cooldowns[0]).toBe(0)
   })
 
   it('필드에서도 물약을 쓴다 — 체력이 가득이면 쓰지 않는다', () => {

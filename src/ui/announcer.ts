@@ -188,9 +188,14 @@ export class Announcer {
       }
       case 'itemUsed': {
         const target = e.target.isPlayer ? '내가' : josa(e.target.name, '이', '가')
-        this.polite(
-          `${josa(e.name, '을', '를')} 썼다. ${target} ${e.amount} 회복. 체력 ${e.target.hp}.`,
-        )
+        const parts: string[] = [`${josa(e.name, '을', '를')} 썼다.`]
+        if (e.healed > 0) parts.push(`${target} ${e.healed} 회복. 체력 ${e.target.hp}.`)
+        if (e.mana > 0) parts.push(`${target} 마력 ${e.mana} 회복. 마력 ${e.target.mp}.`)
+        if (e.cooldownCut > 0) {
+          const who = e.target.isPlayer ? '내' : `${e.target.name}의`
+          parts.push(`${who} 기술 대기가 ${e.cooldownCut} 줄었다.`)
+        }
+        this.polite(parts.join(' '))
         this.caption('[아이템 사용]')
         break
       }

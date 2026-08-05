@@ -15,6 +15,7 @@ import type {
   Dir,
   EncounterData,
   GameData,
+  ItemData,
   JobData,
   PlayerAction,
   SaveSnapshot,
@@ -278,18 +279,26 @@ export class Game {
     name: string
     description: string
     count: number
-    usable: boolean
+    kind: ItemData['kind']
+    /** 마력·기술 대기는 전투 밖에 존재하지 않는다 — 쓸 수 있는 곳이 곧 규칙이다 */
+    usableInField: boolean
+    usableInBattle: boolean
   }[] {
     return [...this.inventory.entries()]
       .filter(([, count]) => count > 0)
       .map(([id, count]) => {
         const item = this.data.items[id]
+        const consumable = item.kind === 'consumable'
         return {
           id,
           name: item.name,
           description: item.description,
           count,
-          usable: (item.heal ?? 0) > 0,
+          kind: item.kind,
+          usableInField: consumable && (item.heal ?? 0) > 0,
+          usableInBattle:
+            consumable &&
+            ((item.heal ?? 0) > 0 || (item.mana ?? 0) > 0 || (item.cooldownCut ?? 0) > 0),
         }
       })
   }
@@ -335,14 +344,15 @@ export class Game {
   useItemInField(itemId: string, targetId: string): boolean {
     if (this.mode !== 'field') return false
     const item = this.data.items[itemId]
-    if (!item?.heal || (this.inventory.get(itemId) ?? 0) <= 0) return false
+    if (item?.kind !== 'consumable' || !item.heal) return false
+    if ((this.inventory.get(itemId) ?? 0) <= 0) return false
     const target = this.party.find((c) => c.id === targetId)
     if (!target || target.hp <= 0) return false
-    const amount = Math.min(item.heal, target.maxHp - target.hp)
-    if (amount <= 0) return false
-    target.hp += amount
+    const healed = Math.min(item.heal, target.maxHp - target.hp)
+    if (healed <= 0) return false
+    target.hp += healed
     this.consumeItem(itemId)
-    this.bus.emit({ type: 'itemUsed', name: item.name, target, amount })
+    this.bus.emit({ type: 'itemUsed', name: item.name, target, healed, mana: 0, cooldownCut: 0 })
     return true
   }
 
@@ -646,8 +656,14 @@ export class Game {
     // 아이템은 인벤토리를 아는 여기서 검증하고, 턴 규칙은 전투가 판정한다
     if (action.kind === 'item') {
       const item = this.data.items[action.itemId]
-      if (!item?.heal || (this.inventory.get(action.itemId) ?? 0) <= 0) return
-      const result = this.battle.playerUseItem(action.targetId, item.heal, item.name)
+      if (item?.kind !== 'consumable') return
+      if ((this.inventory.get(action.itemId) ?? 0) <= 0) return
+      const result = this.battle.playerUseItem(
+        action.targetId,
+        { heal: item.heal, mana: item.mana, cooldownCut: item.cooldownCut },
+        item.name,
+      )
+      // null이면 효과가 없어 쓰지 않은 것 — 아이템도 턴도 소모되지 않는다
       if (result === null) return
       this.consumeItem(action.itemId)
       this.handleStep(result)

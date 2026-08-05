@@ -1,0 +1,7 @@
+{
+  "echo": {
+    "name": "울림 세트",
+    "pieces": 2,
+    "bonus": { "atk": 2, "def": 2 }
+  }
+}

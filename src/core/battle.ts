@@ -136,16 +136,39 @@ export class Battle {
 
   /**
    * 플레이어의 아이템 사용. 아이템이 무엇인지는 코어 밖(Game)이 알고,
-   * 여기는 턴 규칙(내 차례인가, 대상이 살아 있는가)만 책임진다. 턴을 소모한다.
+   * 여기는 턴 규칙(내 차례인가, 대상이 살아 있는가)만 책임진다.
+   * 세 효과가 전부 무의미하면(체력·마력 가득, 줄일 대기 없음) null —
+   * 실수 조작이 턴과 아이템의 손해가 되지 않게 한다.
    */
-  playerUseItem(targetId: string, heal: number, itemName: string): StepResult | null {
+  playerUseItem(
+    targetId: string,
+    effect: { heal?: number; mana?: number; cooldownCut?: number },
+    itemName: string,
+  ): StepResult | null {
     const actor = this.currentActor
     if (!actor.isPlayer || actor.hp <= 0) return null
     const target = this.findAlive(this.allies, targetId)
     if (!target) return null
-    const amount = Math.min(heal, target.maxHp - target.hp)
-    target.hp += amount
-    this.bus.emit({ type: 'itemUsed', name: itemName, target, amount })
+
+    const healed = Math.min(effect.heal ?? 0, target.maxHp - target.hp)
+    const mana = Math.min(effect.mana ?? 0, target.maxMp - target.mp)
+    const wantCut = effect.cooldownCut ?? 0
+    const canCut = wantCut > 0 && target.cooldowns.some((c) => c > 0)
+    if (healed <= 0 && mana <= 0 && !canCut) return null
+
+    target.hp += healed
+    target.mp += mana
+    if (canCut) {
+      target.cooldowns = target.cooldowns.map((c) => Math.max(0, c - wantCut))
+    }
+    this.bus.emit({
+      type: 'itemUsed',
+      name: itemName,
+      target,
+      healed,
+      mana,
+      cooldownCut: canCut ? wantCut : 0,
+    })
     return this.afterAction()
   }
 

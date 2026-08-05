@@ -71,12 +71,49 @@ export interface MonsterData {
   isBoss?: boolean
 }
 
+export type ItemKind = 'consumable' | 'equipment' | 'keepsake'
+export type EquipSlot = 'weapon' | 'armor' | 'shoes' | 'gloves'
+/** 능력치 묶음 — 장비·세트·오라가 같은 모양을 쓴다 */
+export interface StatBlock {
+  hp?: number
+  mp?: number
+  atk?: number
+  def?: number
+  spd?: number
+}
+
+/** 세트 — 같은 세트를 pieces개 이상 착용하면 보너스가 붙는다 */
+export interface SetData {
+  name: string
+  pieces: number
+  bonus: StatBlock
+}
+
 export interface ItemData {
   name: string
+  /** 맛과 이야기만 담는다 — 수치는 필드에서 조립해 두 곳이 어긋나지 않게 */
   description: string
-  /** 사용 시 회복량. 없으면 쓸 수 없는 기념품 */
+  kind: ItemKind
+  // 소모품 효과 — 조합 가능. 체력은 어디서나, 마력·대기 감소는 전투에서만 의미가 있다
   heal?: number
-  keepsake?: boolean
+  mana?: number
+  /** 대상의 모든 기술 남은 대기를 즉시 이만큼 줄인다 (바닥은 0) */
+  cooldownCut?: number
+  // 장비
+  slot?: EquipSlot
+  /** 1 일반 · 2 정련 · 3 울림 */
+  tier?: 1 | 2 | 3
+  stats?: StatBlock
+  /** 오라 — 착용자를 제외한 파티 전원에게 적용. "함께"의 수치화다 */
+  allyStats?: StatBlock
+  /** 이 레벨부터 착용할 수 있다 */
+  minLevel?: number
+  set?: string
+  /**
+   * 착용 시 형상 변화 — 아이템은 색만 주고, 어느 픽셀이 그 슬롯인지는
+   * 스프라이트 쪽(slotKeys)이 선언한다. 직업마다 팔레트 글자가 달라서다.
+   */
+  recolor?: { primary: string; secondary?: string }
 }
 
 export interface ProgressionData {
@@ -204,6 +241,7 @@ export interface GameData {
   traits: TraitsFile
   progression: ProgressionData
   items: Record<string, ItemData>
+  sets: Record<string, SetData>
 }
 
 export type Dir = 'north' | 'south' | 'east' | 'west'
