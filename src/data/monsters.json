@@ -16,6 +16,7 @@
   "goblin": {
     "name": "고블린",
     "sprite": "goblin",
+    "ai": "weakest",
     "hp": 55,
     "atk": 13,
     "def": 6,
@@ -29,6 +30,7 @@
   "boss_golem": {
     "name": "돌 골렘",
     "sprite": "golem",
+    "ai": "breaker",
     "hp": 160,
     "atk": 16,
     "def": 9,
@@ -42,6 +44,7 @@
   "cave_bat": {
     "name": "굴박쥐",
     "sprite": "bat",
+    "ai": "weakest",
     "hp": 38,
     "atk": 12,
     "def": 3,
@@ -56,6 +59,7 @@
   "echo_shard": {
     "name": "울림 조각",
     "sprite": "shard",
+    "ai": "weakest",
     "hp": 36,
     "atk": 9,
     "def": 10,
@@ -69,6 +73,7 @@
   "echo_golem": {
     "name": "울림 골렘",
     "sprite": "golem_echo",
+    "ai": "breaker",
     "hp": 185,
     "atk": 18,
     "def": 10,
@@ -82,6 +87,7 @@
   "bell_keeper": {
     "name": "종지기",
     "sprite": "keeper",
+    "ai": "breaker",
     "hp": 140,
     "atk": 17,
     "def": 8,

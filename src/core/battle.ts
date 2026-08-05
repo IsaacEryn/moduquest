@@ -34,10 +34,14 @@ export class Battle {
         atk: m.atk,
         def: m.def,
         spd: m.spd,
+        mp: 0,
+        maxMp: 0,
+        mpRegen: 0,
         skills: [],
         cooldowns: [],
         defending: false,
         sprite: m.sprite,
+        ai: m.ai,
         isBoss: m.isBoss,
       }
     })
@@ -65,6 +69,8 @@ export class Battle {
       a.cooldowns = a.skills.map(() => 0)
       a.defending = false
       a.hitsSinceDeflect = 0
+      // 마력은 전투 자원이다 — 매 전투를 가득 채우고 시작한다
+      a.mp = a.maxMp
     }
   }
 
@@ -152,6 +158,7 @@ export class Battle {
     const skill = actor.skills[skillIndex]
     if (!skill) return false
     if ((actor.cooldowns[skillIndex] ?? 0) > 0) return false
+    if ((skill.mpCost ?? 0) > actor.mp) return false
 
     switch (skill.kind) {
       case 'damage': {
@@ -190,7 +197,16 @@ export class Battle {
       }
     }
     actor.cooldowns[skillIndex] = Math.max(0, skill.cooldown + (actor.cooldownDelta ?? 0))
+    actor.mp = Math.max(0, actor.mp - (skill.mpCost ?? 0))
+    this.bus.emit({ type: 'manaSpent', actor, cost: skill.mpCost ?? 0, left: actor.mp })
     return true
+  }
+
+  /** 지금 이 스킬을 쓸 수 있는지 — 쿨다운과 마력을 한 곳에서 판정한다 */
+  static canUse(c: Combatant, index: number): boolean {
+    const skill = c.skills[index]
+    if (!skill) return false
+    return (c.cooldowns[index] ?? 0) === 0 && (skill.mpCost ?? 0) <= c.mp
   }
 
   private healTarget(actor: Combatant, target: Combatant, skill: SkillData): void {
@@ -216,39 +232,95 @@ export class Battle {
   }
 
   /**
-   * 동료 NPC 규칙: 치유·도발은 필요할 때만, 공격 스킬은 준비되면 쓴다.
+   * 동료 NPC 규칙. 판단은 전부 결정적이라 같은 상황에서는 늘 같은 선택을 한다.
+   *
+   * - 치유는 상황을 구분한다: 한 명이 위중하면 그 한 명에게 크게,
+   *   여럿이 다쳤으면 전체 치유로. 둘 다 아니면 아껴 둔다
+   * - 전체 공격은 적이 둘 이상일 때만 — 하나 남은 적에게 쓰면 손해다
+   * - 공격 대상은 체력이 가장 낮은 적. 먼저 쓰러뜨려야 맞는 횟수가 준다
+   *
    * 스킬이 여럿이면 배열 앞에서부터 — 우선순위도 데이터다.
    */
   private npcAct(actor: Combatant): void {
     const allies = this.sideOf(actor).filter((c) => c.hp > 0)
     const enemies = this.opponentsOf(actor).filter((c) => c.hp > 0)
+    const focus = this.weakest(enemies)
+    const hurt = allies.filter((a) => a.hp / a.maxHp < 0.6).length
+    const wounded = allies.filter((a) => a.hp / a.maxHp < 0.7).length
+
     for (let i = 0; i < actor.skills.length; i++) {
-      if ((actor.cooldowns[i] ?? 0) > 0) continue
+      if (!Battle.canUse(actor, i)) continue
       const skill = actor.skills[i]
-      const shouldUse =
-        (skill.kind === 'heal' && allies.some((a) => a.hp / a.maxHp < 0.5)) ||
-        (skill.kind === 'taunt' &&
-          allies.some((a) => a !== actor && a.hp / a.maxHp < 0.4)) ||
-        (skill.kind === 'damage' &&
-          (skill.targeting !== 'enemy-all' || enemies.length >= 2))
-      // 대상 id는 단일 적 공격에만 — 치유는 비워 두면 가장 아픈 아군에게 간다
-      const targetId =
-        skill.kind === 'damage' && skill.targeting === 'enemy'
-          ? enemies[0]?.id
-          : undefined
+      let shouldUse: boolean
+      let targetId: string | undefined
+      switch (skill.kind) {
+        case 'heal':
+          // 여럿이 상하면 전체로, 한 명이 크게 상하면 그 한 명에게.
+          // 단일 치유는 대상을 비우면 전투가 비율이 가장 낮은 아군을 고른다
+          shouldUse = skill.targeting === 'ally-all' ? wounded >= 2 : hurt >= 1
+          break
+        case 'taunt':
+          // 동료가 상했을 때, 그리고 보스전에서는 먼저 나선다 — 강한 적이 약한 동료를
+          // 노리는 규칙이므로 탱커가 미리 시선을 가져와야 의미가 있다
+          shouldUse =
+            this.tauntRounds === 0 &&
+            (this.isBossBattle || allies.some((a) => a !== actor && a.hp / a.maxHp < 0.6))
+          break
+        case 'damage':
+          shouldUse = skill.targeting !== 'enemy-all' || enemies.length >= 2
+          if (skill.targeting === 'enemy') targetId = focus?.id
+          break
+      }
       if (shouldUse && this.useSkill(actor, i, targetId)) return
     }
-    const target = enemies[0]
+    if (focus) this.attack(actor, focus)
+  }
+
+  /** 남은 체력이 가장 적은 쪽. 동률이면 앞선 순서 — 결정적이어야 한다 */
+  private weakest(pool: Combatant[]): Combatant | undefined {
+    let best: Combatant | undefined
+    for (const c of pool) if (!best || c.hp < best.hp) best = c
+    return best
+  }
+
+  /**
+   * 몹의 표적 선택. 도발이 걸려 있으면 무엇이든 그쪽으로 — 도발이 규칙 위에 있어야
+   * 탱커가 파티를 지킬 수 있다. 그 밖에는 몹의 등급(ai)이 정한다.
+   */
+  private enemyAct(actor: Combatant): void {
+    if (this.tauntTarget && this.tauntTarget.hp > 0 && this.tauntRounds > 0) {
+      this.attack(actor, this.tauntTarget)
+      return
+    }
+    const alive = this.aliveAllies()
+    let target: Combatant | undefined
+    switch (actor.ai ?? 'front') {
+      case 'weakest':
+        // 비율로 본다 — 체력이 큰 전사보다 반쯤 닳은 마법사가 더 급하다
+        target = this.pick(alive, (c) => c.hp / c.maxHp)
+        break
+      case 'breaker':
+        target = this.pick(alive, (c) => c.def)
+        break
+      case 'front':
+        target = alive[0]
+        break
+    }
     if (target) this.attack(actor, target)
   }
 
-  private enemyAct(actor: Combatant): void {
-    // 도발 중이면 전사, 아니면 배치 순서상 첫 생존 아군
-    const target =
-      this.tauntTarget && this.tauntTarget.hp > 0 && this.tauntRounds > 0
-        ? this.tauntTarget
-        : this.aliveAllies()[0]
-    if (target) this.attack(actor, target)
+  /** 점수가 가장 낮은 하나. 동률이면 앞선 순서 — 결정적이어야 한다 */
+  private pick(pool: Combatant[], score: (c: Combatant) => number): Combatant | undefined {
+    let best: Combatant | undefined
+    let bestScore = Infinity
+    for (const c of pool) {
+      const s = score(c)
+      if (s < bestScore) {
+        best = c
+        bestScore = s
+      }
+    }
+    return best
   }
 
   /**
@@ -316,9 +388,13 @@ export class Battle {
     this.turnIndex += 1
     if (this.turnIndex >= this.order.length) {
       this.turnIndex = 0
-      // 라운드 종료: 쿨다운·도발 지속시간 감소
+      // 라운드 종료: 쿨다운 감소와 마력 회복. 회복량은 고정이라 몇 라운드 뒤에
+      // 무엇을 쓸 수 있는지 미리 셀 수 있다
       for (const c of this.order) {
         c.cooldowns = c.cooldowns.map((v) => (v > 0 ? v - 1 : 0))
+        if (c.maxMp > 0 && c.hp > 0) {
+          c.mp = Math.min(c.maxMp, c.mp + c.mpRegen)
+        }
       }
       if (this.tauntRounds > 0) {
         this.tauntRounds -= 1
@@ -336,7 +412,8 @@ export class Battle {
           const name = c.isPlayer ? '나' : c.name
           if (c.hp <= 0) return `${name} 쓰러짐`
           const deflect = Battle.willDeflect(c) ? ', 다음 피격 흘림' : ''
-          return `${name} 체력 ${c.hp}/${c.maxHp}${deflect}`
+          const mana = c.maxMp > 0 ? `, 마력 ${c.mp}/${c.maxMp}` : ''
+          return `${name} 체력 ${c.hp}/${c.maxHp}${mana}${deflect}`
         })
         .join(', ')
     return `아군: ${side(this.allies)}. 적: ${side(this.enemies)}.`

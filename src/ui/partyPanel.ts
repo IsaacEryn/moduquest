@@ -7,12 +7,14 @@ function describeJob(j: JobData): string {
   const skills = j.skills
     .map((s) => {
       const when = (s.unlockLevel ?? 1) > 1 ? ` (${s.unlockLevel}레벨부터)` : ''
-      return `${s.name}${when} — ${s.description}`
+      const cost = s.mpCost ? ` 마력 ${s.mpCost}` : ''
+      return `${s.name}${when} —${cost} ${s.description}`
     })
     .join(' ')
   return (
     `${j.role}. ${j.playstyle ?? ''} ` +
-    `체력 ${j.hp}, 공격 ${j.atk}, 방어 ${j.def}, 속도 ${j.spd}. 기술: ${skills}`
+    `체력 ${j.hp}, 마력 ${j.mp}(라운드마다 ${j.mpRegen} 회복), ` +
+    `공격 ${j.atk}, 방어 ${j.def}, 속도 ${j.spd}. 기술: ${skills}`
   )
 }
 

@@ -12,6 +12,8 @@ export interface SkillData {
   kind: SkillKind
   targeting: SkillTargeting
   cooldown: number
+  /** 소모 마력. 없으면 0 — 마력을 쓰지 않는 몸 기술이다 */
+  mpCost?: number
   description: string
   /** 이 레벨부터 쓸 수 있다. 없으면 처음부터 */
   unlockLevel?: number
@@ -30,6 +32,10 @@ export interface JobData {
   /** 스프라이트 키 — 생략하면 직업 id를 쓴다 */
   sprite?: string
   hp: number
+  /** 최대 마력. 0이면 마력을 쓰지 않는 직업 */
+  mp: number
+  /** 라운드마다 돌아오는 마력 — 확률이 아니라 정해진 양이다 */
+  mpRegen: number
   atk: number
   def: number
   spd: number
@@ -38,9 +44,19 @@ export interface JobData {
   advantages: Record<string, number>
 }
 
+/**
+ * 몹이 누구를 노리는가. 도발은 어느 쪽이든 덮어쓴다 — 그래야 탱커가 의미를 갖는다.
+ * - front: 배치 순서상 첫 생존 아군. 앞에 보이는 것을 친다
+ * - weakest: 체력 비율이 가장 낮은 아군. 쓰러뜨릴 수 있는 쪽을 노린다
+ * - breaker: 방어가 가장 낮은 아군. 가장 아프게 들어가는 쪽을 고른다
+ */
+export type MonsterAi = 'front' | 'weakest' | 'breaker'
+
 export interface MonsterData {
   name: string
   sprite: string
+  /** 생략하면 front — 하급 몹의 기본값이다 */
+  ai?: MonsterAi
   hp: number
   atk: number
   def: number
@@ -69,7 +85,7 @@ export interface ProgressionData {
   /** 스테이지 진입 시 최소 보장 경험치 — 마이그레이션과 밸런스 검증의 기준선 */
   stageEntryXp: number[]
   /** 직업별 레벨당 성장 */
-  growth: Record<string, { hp: number; atk: number; def: number; spd: number }>
+  growth: Record<string, { hp: number; mp: number; atk: number; def: number; spd: number }>
 }
 
 export interface Pos {
@@ -200,6 +216,10 @@ export interface Combatant {
   isPlayer: boolean
   hp: number
   maxHp: number
+  /** 마력. 전투 자원이라 전투 밖에서는 늘 가득이고 저장하지 않는다 */
+  mp: number
+  maxMp: number
+  mpRegen: number
   atk: number
   def: number
   spd: number
@@ -208,6 +228,8 @@ export interface Combatant {
   cooldowns: number[]
   defending: boolean
   sprite?: string
+  /** 몹의 표적 선택 규칙. 아군에게는 없다 */
+  ai?: MonsterAi
   isBoss?: boolean
   /** 상대 방어력 무시량 */
   pierce?: number

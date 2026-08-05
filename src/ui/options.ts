@@ -7,7 +7,15 @@ export class OptionsPanel {
 
   constructor(
     private store: OptionsStore,
-    private hooks: { onOpen?: () => void; onClose?: () => void } = {},
+    private hooks: {
+      onOpen?: () => void
+      onClose?: () => void
+      /** 지금 나갈 수 있는 상황인지(타이틀에서는 나갈 곳이 없다) */
+      canExit?: () => boolean
+      /** 타이틀로 나가기 — 확인을 거친 뒤에만 불린다 */
+      onExit?: () => void
+      announce?: (text: string) => void
+    } = {},
   ) {
     this.dialog = document.createElement('dialog')
     this.dialog.className = 'options'
@@ -33,7 +41,11 @@ export class OptionsPanel {
         <label for="opt-volume">소리 크기</label>
         <input type="range" id="opt-volume" min="0" max="100" step="10" />
       </div>
-      <button type="button" id="opt-close">닫기</button>
+      <div class="slot-actions">
+        <button type="button" id="opt-close">닫기</button>
+        <button type="button" id="opt-exit" hidden>타이틀로 나가기</button>
+      </div>
+      <p class="slot-confirm" id="opt-exit-confirm" hidden></p>
     `
     this.dialog.setAttribute('aria-labelledby', 'options-title')
     document.body.append(this.dialog)
@@ -50,6 +62,24 @@ export class OptionsPanel {
 
     this.dialog.querySelector('#opt-close')!.addEventListener('click', () => {
       this.close()
+    })
+
+    // 나가기는 한 번 되묻는다 — 진행 중인 판을 실수로 접지 않도록.
+    // 저장은 필드에서 자동으로 되므로 이어서 하기로 돌아올 수 있다는 사실을 함께 알린다
+    const exitBtn = this.dialog.querySelector<HTMLButtonElement>('#opt-exit')!
+    const confirm = this.dialog.querySelector<HTMLElement>('#opt-exit-confirm')!
+    exitBtn.addEventListener('click', () => {
+      if (!this.confirmingExit) {
+        this.confirmingExit = true
+        const text = '타이틀로 나갈까? 지금까지의 진행은 저장 자리에 남는다.'
+        confirm.textContent = text
+        confirm.hidden = false
+        exitBtn.textContent = '정말 나가기'
+        this.hooks.announce?.(text)
+        return
+      }
+      this.close()
+      this.hooks.onExit?.()
     })
     // ESC(cancel) 등 브라우저가 닫는 경로도 같은 정리 루틴을 타게 한다
     this.dialog.addEventListener('close', () => this.afterClose())
@@ -87,11 +117,21 @@ export class OptionsPanel {
   }
 
   private closed = true
+  private confirmingExit = false
 
   open(): void {
     this.closed = false
     this.hooks.onOpen?.()
     this.prevFocus = document.activeElement
+
+    // 열 때마다 확인 단계를 처음으로 되돌린다 — 닫았다 열면 다시 묻는 것이 안전하다
+    this.confirmingExit = false
+    const exitBtn = this.dialog.querySelector<HTMLButtonElement>('#opt-exit')!
+    const confirm = this.dialog.querySelector<HTMLElement>('#opt-exit-confirm')!
+    exitBtn.textContent = '타이틀로 나가기'
+    exitBtn.hidden = !(this.hooks.canExit?.() ?? false)
+    confirm.hidden = true
+    confirm.textContent = ''
     const o = this.store.options
     this.dialog.querySelector<HTMLInputElement>('#opt-captions')!.checked = o.captions
     this.dialog.querySelector<HTMLInputElement>('#opt-lowstim')!.checked = o.lowStim

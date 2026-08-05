@@ -4,6 +4,8 @@
     "role": "탱커",
     "playstyle": "앞에 서서 동료를 지키는 든든한 플레이",
     "hp": 120,
+    "mp": 24,
+    "mpRegen": 4,
     "atk": 14,
     "def": 10,
     "spd": 6,
@@ -14,6 +16,7 @@
         "kind": "taunt",
         "targeting": "self",
         "cooldown": 3,
+        "mpCost": 6,
         "duration": 2,
         "description": "2라운드 동안 적의 공격을 나에게 모은다."
       },
@@ -23,6 +26,7 @@
         "kind": "damage",
         "targeting": "enemy",
         "cooldown": 3,
+        "mpCost": 10,
         "multiplier": 1.8,
         "unlockLevel": 3,
         "description": "무겁게 한 번 내리친다."
@@ -35,6 +39,8 @@
     "role": "딜러",
     "playstyle": "빠르게 치고 빠지는 시원한 플레이",
     "hp": 90,
+    "mp": 28,
+    "mpRegen": 5,
     "atk": 18,
     "def": 6,
     "spd": 12,
@@ -45,6 +51,7 @@
         "kind": "damage",
         "targeting": "enemy",
         "cooldown": 2,
+        "mpCost": 8,
         "multiplier": 2,
         "description": "두 배의 힘으로 공격한다."
       },
@@ -54,6 +61,7 @@
         "kind": "damage",
         "targeting": "enemy",
         "cooldown": 3,
+        "mpCost": 12,
         "multiplier": 1.5,
         "pierce": 99,
         "unlockLevel": 3,
@@ -67,6 +75,8 @@
     "role": "원거리",
     "playstyle": "거리를 두고 정확히 맞히는 차분한 플레이",
     "hp": 85,
+    "mp": 30,
+    "mpRegen": 5,
     "atk": 15,
     "def": 5,
     "spd": 11,
@@ -77,6 +87,7 @@
         "kind": "damage",
         "targeting": "enemy",
         "cooldown": 2,
+        "mpCost": 8,
         "multiplier": 1.5,
         "pierce": 4,
         "description": "상대 방어를 4 무시하고 쏜다."
@@ -87,6 +98,7 @@
         "kind": "damage",
         "targeting": "enemy-all",
         "cooldown": 3,
+        "mpCost": 14,
         "multiplier": 1,
         "unlockLevel": 3,
         "description": "적 모두에게 화살을 쏜다."
@@ -99,28 +111,32 @@
     "role": "광역",
     "playstyle": "판 전체를 한 번에 바꾸는 플레이",
     "hp": 75,
+    "mp": 40,
+    "mpRegen": 6,
     "atk": 16,
     "def": 4,
     "spd": 7,
     "skills": [
       {
-        "id": "flame-wave",
-        "name": "불꽃 파도",
-        "kind": "damage",
-        "targeting": "enemy-all",
-        "cooldown": 3,
-        "multiplier": 0.9,
-        "description": "적 모두를 불꽃으로 덮는다."
-      },
-      {
         "id": "arcane-bolt",
         "name": "마력 화살",
         "kind": "damage",
         "targeting": "enemy",
-        "cooldown": 3,
-        "multiplier": 2.2,
+        "cooldown": 1,
+        "mpCost": 10,
+        "multiplier": 1.6,
+        "description": "모은 마력을 한 곳에 쏜다."
+      },
+      {
+        "id": "flame-wave",
+        "name": "불꽃 파도",
+        "kind": "damage",
+        "targeting": "enemy-all",
+        "cooldown": 2,
+        "mpCost": 16,
+        "multiplier": 1.0,
         "unlockLevel": 3,
-        "description": "모은 마력을 한 곳에 쏟는다."
+        "description": "적 모두를 불꽃으로 덮는다."
       }
     ],
     "advantages": {}
@@ -130,6 +146,8 @@
     "role": "지원",
     "playstyle": "메뉴에서 고르는 차분한 지원 플레이",
     "hp": 80,
+    "mp": 36,
+    "mpRegen": 5,
     "atk": 8,
     "def": 7,
     "spd": 9,
@@ -140,6 +158,7 @@
         "kind": "heal",
         "targeting": "ally",
         "cooldown": 2,
+        "mpCost": 8,
         "healRatio": 0.4,
         "description": "동료의 상처를 치료한다."
       },
@@ -149,6 +168,7 @@
         "kind": "heal",
         "targeting": "ally-all",
         "cooldown": 3,
+        "mpCost": 14,
         "healRatio": 0.25,
         "unlockLevel": 3,
         "description": "파티 모두를 조금씩 치료한다."

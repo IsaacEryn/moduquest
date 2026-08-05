@@ -4,7 +4,7 @@ import { EventBus } from './events'
 import { applyCombat, applyStats, resolveTrait } from './traits'
 import type { Combatant, GameData, StageData, TraitsFile } from './types'
 import jobs from '../data/jobs.json'
-import monsters from '../data/monsters.json'
+import monstersData from '../data/monsters.json'
 import party from '../data/party.json'
 import progression from '../data/progression.json'
 import stage1 from '../data/stages/stage1.json'
@@ -15,6 +15,7 @@ import traitsFile from '../data/traits.json'
 const TRAITS = traitsFile as TraitsFile
 const JOBS = jobs as GameData['jobs']
 const STAGES = [stage1, stage2, stage3] as StageData[]
+const monsters = monstersData as GameData['monsters']
 
 /** 스테이지 진입 시 보장되는 최소 레벨 — 하한만 검증하면 된다. 파밍은 단조 유리하다 */
 function entryLevel(stageIndex: number): number {
@@ -43,6 +44,7 @@ function buildPartyOf(jobIds: string[], traitId: string, level: number): Combata
       def: j.def + (grow?.def ?? 0) * lv,
       spd: j.spd + (grow?.spd ?? 0) * lv,
     }
+    const maxMp = j.mp + (grow?.mp ?? 0) * lv
     const s = isPlayer ? applyStats(base, trait, TRAITS.limits) : base
     const c: Combatant = {
       id: job,
@@ -51,6 +53,9 @@ function buildPartyOf(jobIds: string[], traitId: string, level: number): Combata
       isPlayer,
       hp: s.hp,
       maxHp: s.hp,
+      mp: maxMp,
+      maxMp,
+      mpRegen: j.mpRegen,
       atk: s.atk,
       def: s.def,
       spd: s.spd,
@@ -78,9 +83,10 @@ function simulate(allies: Combatant[], enemyIds: string[]) {
       rounds += 1
       const target = battle.enemies.find((e) => e.hp > 0)
       if (!target) break
+      // 쓸 수 있는지 판정은 코어와 같은 함수로 — 시뮬만 다른 규칙을 쓰면 검증이 아니다
       const idx = player.skills.findIndex(
         (sk, i) =>
-          (player.cooldowns[i] ?? 0) === 0 &&
+          Battle.canUse(player, i) &&
           (sk.targeting === 'enemy' || sk.targeting === 'enemy-all'),
       )
       const action =
@@ -155,30 +161,30 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
       {
         "stage1": {
           "balanced": 7,
+          "firm-stance": 9,
+          "measured-pace": 6,
+          "narrow-focus": 7,
+          "quick-turn": 6,
+          "steady-hand": 7,
+          "swift-step": 9,
+        },
+        "stage2": {
+          "balanced": 7,
           "firm-stance": 8,
           "measured-pace": 6,
           "narrow-focus": 7,
           "quick-turn": 6,
-          "steady-hand": 6,
+          "steady-hand": 7,
           "swift-step": 8,
         },
-        "stage2": {
-          "balanced": 7,
-          "firm-stance": 7,
-          "measured-pace": 6,
-          "narrow-focus": 7,
-          "quick-turn": 6,
-          "steady-hand": 6,
-          "swift-step": 7,
-        },
         "stage3": {
-          "balanced": 5,
-          "firm-stance": 5,
+          "balanced": 6,
+          "firm-stance": 6,
           "measured-pace": 5,
           "narrow-focus": 5,
           "quick-turn": 5,
           "steady-hand": 5,
-          "swift-step": 5,
+          "swift-step": 6,
         },
       }
     `)

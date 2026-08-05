@@ -170,7 +170,10 @@ button:disabled {
 .secondary {
   margin-top: 0.75rem;
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  /* 버튼이 서로 붙으면 눌러야 할 것을 잘못 누른다. 좁은 화면에서 줄바꿈돼도 간격을 지킨다 */
+  gap: 0.375rem;
 }
 
 /* 화면 방향 버튼 — 십자 배치 */

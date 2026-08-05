@@ -89,6 +89,8 @@ export class Game {
         def: j.def + (grow?.def ?? 0) * lv,
         spd: j.spd + (grow?.spd ?? 0) * lv,
       }
+      // 마력은 특성이 건드리지 않는다 — 특성은 몸의 이야기고 마력은 직업의 그릇이다
+      const maxMp = j.mp + (grow?.mp ?? 0) * lv
       const s = isPlayer ? applyStats(base, trait, this.data.traits.limits) : base
       const c: Combatant = {
         id: job,
@@ -97,6 +99,9 @@ export class Game {
         isPlayer,
         hp: s.hp,
         maxHp: s.hp,
+        mp: maxMp,
+        maxMp,
+        mpRegen: j.mpRegen,
         atk: s.atk,
         def: s.def,
         spd: s.spd,
