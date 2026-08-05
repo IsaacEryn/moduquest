@@ -21,6 +21,7 @@ export type GameEvent =
   | { type: 'defeat' }
   | { type: 'battleEnd' }
   | { type: 'battleSummary'; text: string }
+  | { type: 'manaSpent'; actor: Combatant; cost: number; left: number }
   | { type: 'itemGained'; names: string[] }
   | { type: 'chestOpened'; itemNames: string[] }
   | { type: 'itemUsed'; name: string; target: Combatant; amount: number }

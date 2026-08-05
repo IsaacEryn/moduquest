@@ -44,7 +44,7 @@ function fakeScheduler() {
 function makeGame() {
   const data: GameData = {
     jobs: jobs as GameData['jobs'],
-    monsters,
+    monsters: monsters as GameData['monsters'],
     party,
   progression,
   items,

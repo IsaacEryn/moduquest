@@ -30,7 +30,7 @@ import { TraitStore } from './ui/traitStore'
 
 const data: GameData = {
   jobs: jobs as GameData['jobs'],
-  monsters,
+  monsters: monsters as GameData['monsters'],
   party,
   progression,
   // 배열 순서가 진행 순서다
@@ -54,7 +54,13 @@ const game = new Game(
 )
 // 옵션·특성 화면이 열려 있는 동안은 게임도 멈춘다 — "언제든 멈출 수 있다"
 const pauseHooks = { onOpen: () => game.pause(), onClose: () => game.resume() }
-const options = new OptionsPanel(store, pauseHooks)
+const options = new OptionsPanel(store, {
+  ...pauseHooks,
+  // 타이틀에서는 나갈 곳이 없다
+  canExit: () => game.mode !== 'title',
+  onExit: () => game.returnToTitle(),
+  announce: (text) => announcer.polite(text),
+})
 const traitPanel = new TraitPanel(game, traitStore, pauseHooks)
 const battleUI = new BattleUI(game, bus, () => options.open())
 

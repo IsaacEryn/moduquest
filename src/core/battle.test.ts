@@ -5,7 +5,13 @@ import type { Combatant, MonsterData } from './types'
 
 const MONSTERS: Record<string, MonsterData> = {
   slime: { name: '슬라임', sprite: 'slime', hp: 40, atk: 10, def: 4, spd: 5 },
+  goblin: { name: '고블린', sprite: 'goblin', ai: 'weakest', hp: 60, atk: 12, def: 5, spd: 7 },
   golem: { name: '돌 골렘', sprite: 'golem', hp: 160, atk: 16, def: 9, spd: 4, isBoss: true },
+  brute: { name: '망치잡이', sprite: 'golem', ai: 'breaker', hp: 90, atk: 14, def: 6, spd: 3 },
+  boss_golem: {
+    name: '큰 골렘', sprite: 'golem', ai: 'breaker',
+    hp: 160, atk: 16, def: 9, spd: 4, isBoss: true,
+  },
 }
 
 function ally(partial: Partial<Combatant> & { id: string }): Combatant {
@@ -15,6 +21,9 @@ function ally(partial: Partial<Combatant> & { id: string }): Combatant {
     isPlayer: false,
     hp: 100,
     maxHp: 100,
+    mp: 50,
+    maxMp: 50,
+    mpRegen: 5,
     atk: 10,
     def: 5,
     spd: 5,
@@ -248,6 +257,131 @@ describe('NPC·몹 규칙', () => {
     advanceToPlayer(battle)
     // 힐러 치유: 30 + floor(90*0.4)=36 → 66. 이후 골렘이 도적 공격(방어): floor((16-6)/2)=5
     expect(r.hp).toBe(30 + 36 - 5)
+  })
+
+  it('여럿이 다치면 전체 치유를, 한 명만 위중하면 단일 치유를 쓴다', () => {
+    const bigHeal = {
+      id: 'heal-all',
+      name: '모두 치유',
+      kind: 'heal' as const,
+      targeting: 'ally-all' as const,
+      cooldown: 3,
+      healRatio: 0.25,
+      description: '',
+    }
+    // 둘 다 70% 미만이지만 위중(50% 미만)은 아니다 → 전체 치유
+    const r1 = rogue()
+    r1.hp = 55 // 61%
+    const h1 = healer()
+    h1.hp = 50 // 62%
+    h1.skills = [h1.skills[0], bigHeal]
+    h1.cooldowns = [0, 0]
+    const s1 = setup([r1, h1], ['golem'])
+    advanceToPlayer(s1.battle)
+    s1.battle.playerAction({ kind: 'defend' })
+    advanceToPlayer(s1.battle)
+    expect(s1.events.some((e) => e.type === 'healed' && e.target.id === 'healer')).toBe(true)
+
+    // 한 명만 위중하고 나머지는 멀쩡 → 단일 치유가 그 한 명에게
+    const r2 = rogue()
+    r2.hp = 20 // 22%
+    const h2 = healer()
+    h2.skills = [h2.skills[0], bigHeal]
+    h2.cooldowns = [0, 0]
+    const s2 = setup([r2, h2], ['golem'])
+    advanceToPlayer(s2.battle)
+    s2.battle.playerAction({ kind: 'defend' })
+    advanceToPlayer(s2.battle)
+    const heals = s2.events.filter((e) => e.type === 'healed')
+    expect(heals).toHaveLength(1)
+    expect(heals[0]).toMatchObject({ target: { id: 'rogue' } })
+  })
+
+  it('중급 몹은 체력 비율이 낮은 아군을, 상급 몹은 방어가 얇은 아군을 노린다', () => {
+    /** 플레이어가 한 번 방어하고 몹 턴까지 진행시킨 뒤, 몹이 누구를 쳤는지 */
+    const enemyTargets = (allies: Combatant[], enemy: string) => {
+      const s = setup(allies, [enemy])
+      advanceToPlayer(s.battle)
+      s.battle.playerAction({ kind: 'defend' })
+      advanceToPlayer(s.battle)
+      return s.events
+        .filter((e) => e.type === 'attacked' && e.actor.side === 'enemy')
+        .map((e) => (e as { target: Combatant }).target.id)
+    }
+
+    // 전사는 방어가 두껍고 체력이 가득, 도적은 절반이고 방어가 얇다
+    const r1 = rogue()
+    r1.hp = 45 // 50% — 도발이 걸리는 40% 선보다는 위
+    expect(enemyTargets([warrior(), r1], 'goblin')).toEqual(['rogue'])
+
+    // 체력은 둘 다 가득. 방어 6 < 10이라 도적이 표적 (보스가 아니라 도발이 안 걸린다)
+    expect(enemyTargets([warrior(), rogue()], 'brute')).toEqual(['rogue'])
+
+    // 도발은 어떤 등급이든 덮어쓴다 — 그래야 탱커가 파티를 지킬 수 있다.
+    // 전사는 보스전이면 동료가 멀쩡해도 먼저 시선을 가져온다
+    expect(enemyTargets([warrior(), rogue()], 'boss_golem')).toEqual(['warrior'])
+  })
+
+  it('동료는 체력이 가장 낮은 적부터 노린다', () => {
+    const w = warrior()
+    const { battle } = setup([rogue(), w], ['slime', 'slime'])
+    const [a, b] = battle.enemies
+    b.hp = 12 // 두 번째가 더 약하다
+    advanceToPlayer(battle)
+    battle.playerAction({ kind: 'defend' })
+    advanceToPlayer(battle)
+    // 전사(14) − 슬라임 방어(4) = 10 → 두 번째 슬라임에게 갔다
+    expect(b.hp).toBe(2)
+    expect(a.hp).toBe(40)
+  })
+})
+
+describe('마력', () => {
+  it('스킬은 마력을 소모하고, 모자라면 쓸 수 없다', () => {
+    const r = rogue()
+    r.skills[0].mpCost = 20
+    const { battle, events } = setup([r], ['golem'])
+    r.mp = 25 // 전투가 시작될 때 가득 차므로 그 뒤에 상황을 만든다
+    advanceToPlayer(battle)
+
+    expect(Battle.canUse(r, 0)).toBe(true)
+    battle.playerAction({ kind: 'skill', skillIndex: 0, targetId: battle.enemies[0].id })
+    expect(r.mp).toBe(5)
+    expect(events.some((e) => e.type === 'manaSpent' && e.cost === 20 && e.left === 5)).toBe(true)
+
+    // 쿨다운이 풀려도 마력이 모자라면 거부한다
+    r.cooldowns[0] = 0
+    expect(Battle.canUse(r, 0)).toBe(false)
+    advanceToPlayer(battle)
+    const before = battle.enemies[0].hp
+    expect(
+      battle.playerAction({ kind: 'skill', skillIndex: 0, targetId: battle.enemies[0].id }),
+    ).toBeNull()
+    expect(battle.enemies[0].hp).toBe(before) // 아무 일도 없었다
+  })
+
+  it('라운드가 끝나면 정해진 양만큼 돌아온다 — 최대치를 넘지 않는다', () => {
+    const r = rogue()
+    r.maxMp = 30
+    r.mpRegen = 5
+    const { battle } = setup([r], ['slime'])
+    r.mp = 10
+    advanceToPlayer(battle)
+    battle.playerAction({ kind: 'defend' }) // 라운드 한 바퀴
+    advanceToPlayer(battle)
+    expect(r.mp).toBe(15)
+
+    r.mp = 28
+    battle.playerAction({ kind: 'defend' })
+    advanceToPlayer(battle)
+    expect(r.mp).toBe(30) // 33이 아니다
+  })
+
+  it('전투를 시작하면 마력이 가득 찬다', () => {
+    const r = rogue()
+    r.mp = 3
+    setup([r], ['slime'])
+    expect(r.mp).toBe(r.maxMp)
   })
 })
 

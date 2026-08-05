@@ -16,7 +16,7 @@ const TRAITS = traitsFile as TraitsFile
 function makeGame(traitId?: string) {
   const data: GameData = {
     jobs: jobs as GameData['jobs'],
-    monsters,
+    monsters: monsters as GameData['monsters'],
     party,
   progression,
   items,

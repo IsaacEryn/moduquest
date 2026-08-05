@@ -165,6 +165,14 @@ export class Announcer {
       case 'traitChanged':
         this.polite(`특성을 ${josa(e.name, '으로', '로')} 바꿨다. ${e.description}`)
         break
+      case 'manaSpent': {
+        // 내 마력만 말한다 — 동료 것까지 매번 읽으면 전투가 숫자로 뒤덮인다.
+        // 동료 마력은 둘러보기(전황 요약)에 들어 있다
+        if (e.actor.isPlayer && e.cost > 0) {
+          this.polite(`마력 ${e.cost}를 썼다. ${e.left} 남았다.`)
+        }
+        break
+      }
       case 'itemGained': {
         for (const name of e.names) {
           this.polite(`${josa(name, '을', '를')} 얻었다.`)

@@ -33,10 +33,13 @@ export class BattleUI {
         case 'healed':
         case 'downed':
         case 'deflected':
+        case 'manaSpent':
         case 'victory':
           this.renderStatus()
           break
         case 'turnStart':
+          // 라운드가 넘어가면 마력이 조용히 돌아온다 — 턴마다 상태판을 다시 읽는다
+          this.renderStatus()
           if (!e.actor.isPlayer) {
             this.myTurn = false
             this.setMenuDisabled(true)
@@ -104,7 +107,8 @@ export class BattleUI {
         return li
       }
       const deflect = Battle.willDeflect(c) ? ' · 다음 피격 흘림' : ''
-      li.textContent = `${c.name} — 체력 ${c.hp}/${c.maxHp}${deflect}`
+      const mana = c.maxMp > 0 ? ` · 마력 ${c.mp}/${c.maxMp}` : ''
+      li.textContent = `${c.name} — 체력 ${c.hp}/${c.maxHp}${mana}${deflect}`
       return li
     }
     this.allyList.replaceChildren(...this.game.party.map(item))
@@ -144,12 +148,17 @@ export class BattleUI {
 
     const attackBtn = mk('공격', () => this.pickTarget({ kind: 'attack' }))
 
-    // 언락된 스킬을 전부 나열한다 — 순서는 데이터가 정한다
+    // 언락된 스킬을 전부 나열한다 — 순서는 데이터가 정한다.
+    // 못 쓰는 이유(쿨다운인지 마력인지)를 라벨에 밝힌다 — 회색 버튼만으로는 알 수 없다
     player.skills.forEach((skill, i) => {
       const cd = player.cooldowns[i] ?? 0
-      const onCooldown = cd > 0
+      const cost = skill.mpCost ?? 0
+      const shortOfMana = cost > player.mp
+      const blocked = cd > 0 || shortOfMana
+      const costLabel = cost > 0 ? ` · 마력 ${cost}` : ''
+      const reason = cd > 0 ? ` (${cd}라운드 남음)` : shortOfMana ? ' (마력 부족)' : ''
       mk(
-        onCooldown ? `${skill.name} (${cd}라운드 남음)` : skill.name,
+        `${skill.name}${costLabel}${reason}`,
         () => {
           // 자기 대상·전체 대상 스킬은 고를 것이 없으니 바로 실행
           if (skill.targeting === 'self' || skill.targeting.endsWith('-all')) {
@@ -158,7 +167,7 @@ export class BattleUI {
             this.pickTarget({ kind: 'skill', skillIndex: i })
           }
         },
-        onCooldown,
+        blocked,
       )
     })
 

@@ -15,7 +15,7 @@ import traitsFile from '../data/traits.json'
 
 const DATA: GameData = {
   jobs: jobs as GameData['jobs'],
-  monsters,
+  monsters: monsters as GameData['monsters'],
   party,
   progression,
   items,
