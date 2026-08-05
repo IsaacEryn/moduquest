@@ -65,9 +65,13 @@ export interface MonsterData {
   xp?: number
   /**
    * 드랍 순환 목록. N번째 처치는 drops[(N-1) % 길이]를 준다(null = 없음).
-   * 확률처럼 보이지만 셀 수 있는 규칙이다. 보스는 목록의 전부를 준다.
+   * 확률처럼 보이지만 셀 수 있는 규칙이다.
+   * 보스는 다르다: 첫 처치는 firstDrops 전부(고정 보상), 재처치부터 이 순환을 탄다 —
+   * "고급이 더 자주"는 순환에서 고급 칸을 더 많이 배치하는 것으로 번역된다.
    */
   drops?: (string | null)[]
+  /** 보스 전용 — 처음 잡았을 때 반드시 주는 것들 */
+  firstDrops?: string[]
   isBoss?: boolean
 }
 

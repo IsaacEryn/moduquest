@@ -280,6 +280,31 @@ describe('아이템과 보물상자', () => {
     ])
   })
 
+  it('보스는 첫 처치에 고정 보상을, 재처치엔 순환을 준다', () => {
+    const fightBoss = (game: Game, timer: { flush: () => void }) => {
+      game.field.pos = { x: 10, y: 2 }
+      game.moveField('north')
+      skipDialogue(game)
+      for (const e of game.battle!.enemies) e.hp = 1
+      fightOut(game, timer)
+      skipDialogue(game)
+    }
+
+    // 첫 처치 — firstDrops(강철 검)
+    const { game, events, timer } = makeGame()
+    game.startStage(0)
+    skipDialogue(game)
+    fightBoss(game, timer)
+    expect(events.find((e) => e.type === 'itemGained')).toMatchObject({ names: ['강철 검'] })
+
+    // 재처치 — 순환의 첫 칸(강철 장갑). 고급 장비가 칸을 더 많이 차지하는 순환이다
+    events.length = 0
+    game.restartStage()
+    skipDialogue(game)
+    fightBoss(game, timer)
+    expect(events.find((e) => e.type === 'itemGained')).toMatchObject({ names: ['강철 장갑'] })
+  })
+
   it('보물상자는 밟으면 열리고 두 번 열리지 않는다', () => {
     const { game, events } = makeGame()
     game.start()
@@ -287,7 +312,7 @@ describe('아이템과 보물상자', () => {
     game.field.pos = { x: 3, y: 4 }
     game.moveField('west') // (2,4) 상자
     expect(events.find((e) => e.type === 'chestOpened')).toMatchObject({
-      itemNames: ['작은 물약'],
+      itemNames: ['작은 물약', '가죽 갑옷'],
     })
     expect(game.inventoryList[0]).toMatchObject({ id: 'potion_small', count: 1 })
 

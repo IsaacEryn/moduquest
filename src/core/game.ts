@@ -435,7 +435,7 @@ export class Game {
   /**
    * 처치를 세고 이번 승리의 드랍을 모은다.
    * N번째 처치는 drops[(N-1) % 길이] — 확률이 아니라 세는 규칙이다.
-   * 보스는 목록 전부를 준다.
+   * 보스는 첫 처치에 firstDrops를 반드시 주고, 재처치부터 순환을 탄다.
    */
   private collectDrops(monsterIds: string[]): string[] {
     const dropped: string[] = []
@@ -443,12 +443,16 @@ export class Game {
       const m = this.data.monsters[id]
       const count = (this.kills.get(id) ?? 0) + 1
       this.kills.set(id, count)
-      const drops = m?.drops ?? []
-      if (drops.length === 0) continue
+      if (!m) continue
       if (m.isBoss) {
-        for (const d of drops) if (d) dropped.push(d)
-      } else {
-        const d = drops[(count - 1) % drops.length]
+        if (count === 1) {
+          dropped.push(...(m.firstDrops ?? []))
+        } else if ((m.drops?.length ?? 0) > 0) {
+          const d = m.drops![(count - 2) % m.drops!.length]
+          if (d) dropped.push(d)
+        }
+      } else if ((m.drops?.length ?? 0) > 0) {
+        const d = m.drops![(count - 1) % m.drops!.length]
         if (d) dropped.push(d)
       }
     }

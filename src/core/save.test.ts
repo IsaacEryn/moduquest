@@ -98,7 +98,10 @@ describe('저장과 복원', () => {
     a.moveField('west') // (2,4) 보물상자
     const snapshot = a.snapshot()
     expect(snapshot.field.openedChests).toEqual(['t1'])
-    expect(snapshot.inventory).toEqual([{ item: 'potion_small', count: 1 }])
+    expect(snapshot.inventory).toEqual([
+      { item: 'potion_small', count: 1 },
+      { item: 'leather_armor', count: 1 },
+    ])
 
     const b = makeGame()
     b.restore(snapshot)
