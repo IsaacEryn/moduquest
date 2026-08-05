@@ -433,6 +433,11 @@ export class Game {
       return { ok: false, reason: '입을 수 있는 것이 아니다.' }
     }
     if ((this.inventory.get(itemId) ?? 0) <= 0) return { ok: false, reason: '가방에 없다.' }
+    // 전용 장비 — 활을 든 마법사는 없다. 누구 것인지를 이유에 그대로 적는다
+    if (item.jobs && !item.jobs.includes(memberId)) {
+      const names = item.jobs.map((j) => this.data.jobs[j]?.name ?? j).join('·')
+      return { ok: false, reason: `${names} 전용이다.` }
+    }
     if ((item.minLevel ?? 1) > this.partyLevel) {
       return { ok: false, reason: `${item.minLevel}레벨부터 입을 수 있다.` }
     }

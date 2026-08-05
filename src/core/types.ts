@@ -117,6 +117,8 @@ export interface ItemData {
   allyStats?: StatBlock
   /** 이 레벨부터 착용할 수 있다 */
   minLevel?: number
+  /** 이 직업들만 착용한다. 없으면 모두의 것 — 전용 장비는 그 직업다움을 세게 민다 */
+  jobs?: string[]
   set?: string
   /**
    * 착용 시 형상 변화 — 아이템은 색만 주고, 어느 픽셀이 그 슬롯인지는

@@ -79,6 +79,59 @@
       "def": 1
     }
   },
+  "wood_bow": {
+    "name": "나무 활",
+    "description": "시위가 팽팽하다. 궁수의 손에만 길든다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 1,
+    "jobs": [
+      "archer"
+    ],
+    "stats": {
+      "atk": 3
+    },
+    "recolor": {
+      "primary": "#a4763f"
+    }
+  },
+  "wood_staff": {
+    "name": "나무 지팡이",
+    "description": "속이 빈 나무가 마력을 머금는다.",
+    "kind": "equipment",
+    "slot": "weapon",
+    "tier": 1,
+    "jobs": [
+      "mage",
+      "healer"
+    ],
+    "stats": {
+      "atk": 1,
+      "mp": 6
+    },
+    "recolor": {
+      "primary": "#9a7b52"
+    }
+  },
+  "leather_robe": {
+    "name": "가죽 로브",
+    "description": "가볍게 걸치는 술사의 옷. 몸을 막기보다 마력을 돕는다.",
+    "kind": "equipment",
+    "slot": "armor",
+    "tier": 1,
+    "jobs": [
+      "mage",
+      "healer"
+    ],
+    "stats": {
+      "hp": 4,
+      "mp": 8
+    },
+    "recolor": {
+      "primary": "#7b6394",
+      "secondary": "#5d4a72"
+    }
+  },
   "steel_sword": {
     "name": "강철 검",
     "description": "돌 골렘의 몸에서 갈라져 나온 쇳조각을 벼렸다.",

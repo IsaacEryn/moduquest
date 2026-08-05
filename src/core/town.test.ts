@@ -179,6 +179,46 @@ describe('분해', () => {
   })
 })
 
+describe('전용 장비', () => {
+  it('궁수의 활은 다른 직업이 들 수 없고, 이유에 주인을 밝힌다', () => {
+    const { game } = makeGame()
+    atCheckpoint(game)
+    fund(game, 100, 0)
+    game.buy('wood_bow')
+
+    // 기본 파티는 도적·전사·힐러 — 궁수가 없으니 전원 거절
+    for (const job of game.currentPartyJobs) {
+      const r = game.canEquip(job, 'wood_bow')
+      expect(r.ok, job).toBe(false)
+      expect(r.reason).toContain('궁수 전용')
+      expect(game.equip(job, 'wood_bow')).toBe(false)
+    }
+  })
+
+  it('두 직업의 것은 그 둘만 입는다 — 힐러는 로브를 입고 전사는 못 입는다', () => {
+    const { game } = makeGame()
+    atCheckpoint(game)
+    fund(game, 100, 0)
+    game.buy('leather_robe')
+
+    expect(game.canEquip('warrior', 'leather_robe').reason).toContain('마법사·힐러 전용')
+    expect(game.equip('healer', 'leather_robe')).toBe(true)
+    // 로브는 몸을 막기보다 마력을 돕는다
+    const b = game.statBreakdownOf('healer')!
+    expect(b.equip.mp).toBe(8)
+  })
+
+  it('공용 장비는 여전히 모두의 것이다', () => {
+    const { game } = makeGame()
+    atCheckpoint(game)
+    fund(game, 100, 0)
+    game.buy('wood_sword')
+    for (const job of game.currentPartyJobs) {
+      expect(game.canEquip(job, 'wood_sword').ok, job).toBe(true)
+    }
+  })
+})
+
 describe('성장 강화', () => {
   it('올리면 값을 치르고 능력치가 실제로 오른다', () => {
     const { game, events } = makeGame()

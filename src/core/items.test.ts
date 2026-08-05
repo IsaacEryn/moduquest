@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { GameData } from './types'
 import progression from '../data/progression.json'
 import items from '../data/items.json'
+import jobsData from '../data/jobs.json'
 import monstersData from '../data/monsters.json'
 import sets from '../data/sets.json'
 import stage1 from '../data/stages/stage1.json'
@@ -11,6 +12,7 @@ import stage3 from '../data/stages/stage3.json'
 const ITEMS = items as GameData['items']
 const SETS = sets as GameData['sets']
 const MONSTERS = monstersData as GameData['monsters']
+const JOBS = jobsData as GameData['jobs']
 const MAX_LEVEL = progression.xpTable.length
 const STAGES = [stage1, stage2, stage3]
 
@@ -56,6 +58,16 @@ describe('아이템 데이터 무결성', () => {
       if (item.set) expect(SETS[item.set], `${id}의 세트 ${item.set}`).toBeDefined()
       // 최고 레벨보다 높은 조건은 영원히 입을 수 없는 장비다
       expect(item.minLevel ?? 1, `${id}의 레벨 조건`).toBeLessThanOrEqual(MAX_LEVEL)
+    }
+  })
+
+  it('전용 장비의 직업은 전부 실재한다', () => {
+    for (const [id, item] of Object.entries(ITEMS)) {
+      for (const job of item.jobs ?? []) {
+        expect(JOBS[job], `${id}의 전용 직업 ${job}`).toBeDefined()
+      }
+      // 빈 배열은 아무도 못 입는 장비다 — 실수를 데이터에서 막는다
+      if (item.jobs) expect(item.jobs.length, `${id}의 전용 직업 수`).toBeGreaterThan(0)
     }
   })
 
