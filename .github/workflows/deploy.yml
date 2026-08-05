@@ -39,7 +39,12 @@ jobs:
             exit 1
           fi
       - run: npm test
+      # 함께 하기의 서버 주소는 저장소가 아니라 Secrets에 있다.
+      # 값이 비어 있어도 빌드는 성공하고, 게임은 혼자 하기만 열어 둔다
       - run: npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: dist

@@ -13,8 +13,11 @@ import traits from './data/traits.json'
 import { Music } from './audio/music'
 import { Sfx } from './audio/sfx'
 import { EventBus } from './core/events'
-import { Game } from './core/game'
+import { Game, type TurnScheduler } from './core/game'
 import type { Dir, GameData, StageData } from './core/types'
+import { createGamePort } from './net/gamePort'
+import type { PartySession, SessionHooks } from './net/session'
+import type { CoopPanel } from './ui/coopPanel'
 import { createRenderer } from './render/scenes'
 import { Announcer } from './ui/announcer'
 import { BagPanel } from './ui/bagPanel'
@@ -53,32 +56,63 @@ const data: GameData = {
 /** 지금 쓰고 있는 자리. 새로 시작하거나 이어서 할 때 정해진다 */
 let activeSlot: number | null = null
 
+/** 함께 하기 세션. 없으면 모든 것이 지금까지의 솔로 그대로다 */
+let activeSession: PartySession | null = null
+/** 게스트가 출발 조건으로 받은 지도 순환 번호 — 세션 중에만 값이 있다 */
+let sessionLayoutKey: number | null = null
+
 const bus = new EventBus()
 const store = new OptionsStore(bus)
 const traitStore = new TraitStore()
+
+// 턴 타이머의 시계. 함께 하기가 시작되면 네트워크 시계로 갈아끼운다 —
+// 겉모습은 같아서 게임 코어는 무엇이 꽂혀 있는지 모른다
+const realScheduler: TurnScheduler = {
+  schedule: (fn, ms) => window.setTimeout(fn, ms),
+  cancel: (handle) => window.clearTimeout(handle as number),
+}
+const swappable = {
+  inner: realScheduler,
+  schedule: (fn: () => void, ms: number) => swappable.inner.schedule(fn, ms),
+  cancel: (handle: unknown) => swappable.inner.cancel(handle),
+}
+
 const game = new Game(
   data,
   bus,
-  {
-    schedule: (fn, ms) => window.setTimeout(fn, ms),
-    cancel: (handle) => window.clearTimeout(handle as number),
-  },
+  swappable,
   traitStore.get(),
   () => Date.now(),
-  // 지도 순환의 자리 번호 — 자리마다 다른 지도로 시작한다
-  () => activeSlot ?? 0,
+  // 지도 순환의 자리 번호 — 자리마다 다른 지도로 시작한다.
+  // 함께 하기 중에는 방장이 알려준 번호가 우선이다
+  () => sessionLayoutKey ?? activeSlot ?? 0,
 )
-// 옵션·특성 화면이 열려 있는 동안은 게임도 멈춘다 — "언제든 멈출 수 있다"
-const pauseHooks = { onOpen: () => game.pause(), onClose: () => game.resume() }
+
+// UI가 잡는 게임 손잡이. 솔로에서는 게임 그 자체이고,
+// 함께 하기 중에는 변이 호출만 시퀀서 제안으로 우회된다
+const port = createGamePort(game, () => activeSession)
+
+// 옵션·특성 화면이 열려 있는 동안은 게임도 멈춘다 — "언제든 멈출 수 있다".
+// 함께 하기 중에는 port가 멈춤을 무시한다 — 락스텝은 모두의 시간이다
+const pauseHooks = { onOpen: () => port.pause(), onClose: () => port.resume() }
 const options = new OptionsPanel(store, {
   ...pauseHooks,
   // 타이틀에서는 나갈 곳이 없다
   canExit: () => game.mode !== 'title',
-  onExit: () => game.returnToTitle(),
+  onExit: () => {
+    // 함께 하기 중의 "타이틀로"는 모험단을 떠나는 일이다 —
+    // 방장은 전원을 매듭짓고, 동료는 혼자 조용히 나온다
+    if (activeSession) {
+      if (activeSession.isHost) activeSession.finish()
+      else activeSession.leave()
+      return
+    }
+    game.returnToTitle()
+  },
   announce: (text) => announcer.polite(text),
 })
-const traitPanel = new TraitPanel(game, traitStore, pauseHooks)
-const battleUI = new BattleUI(game, bus, () => options.open())
+const traitPanel = new TraitPanel(port, traitStore, pauseHooks)
+const battleUI = new BattleUI(port, bus, () => options.open())
 
 // 낭독과 같은 문장이 텍스트 기록 창에도 쌓인다 — 글만으로 게임을 따라가는 렌즈
 const textLog = new TextLog()
@@ -95,8 +129,14 @@ const saves = new LocalSaveRepository(data)
 const partyPanel = new PartyPanel(game, {
   ...pauseHooks,
   onConfirm: (jobs) => {
-    game.setParty(jobs)
     const names = jobs.map((j) => data.jobs[j]?.name ?? j)
+    // 함께 하기 중이면 출발 조건만 나눈다 — 전원이 같은 조건에서 함께 시작한다
+    if (activeSession && !activeSession.started) {
+      announcer.polite(`파티를 정했다. ${names.join(', ')} — 함께 출발한다.`)
+      activeSession.startNew(jobs)
+      return
+    }
+    game.setParty(jobs)
     announcer.polite(`파티를 정했다. 나는 ${names[0]}, 동료는 ${names[1]}와 ${names[2]}.`)
     game.start()
   },
@@ -113,23 +153,27 @@ const slotPanel = new SlotPanel(game, saves, {
     const snapshot = await saves.load(slot)
     if (!snapshot) return
     activeSlot = slot
+    if (activeSession && !activeSession.started) {
+      activeSession.startRestore(snapshot)
+      return
+    }
     game.restore(snapshot)
   },
 })
 const stageSelect = new StageSelect(game, {
   ...pauseHooks,
-  onPick: (index) => game.startStage(index),
+  onPick: (index) => port.startStage(index),
 })
-const bagPanel = new BagPanel(game, pauseHooks)
+const bagPanel = new BagPanel(port, pauseHooks)
 const helpPanel = new HelpPanel(pauseHooks)
-const statusPanel = new StatusPanel(game, pauseHooks)
-const townPanel = new TownPanel(game, pauseHooks)
+const statusPanel = new StatusPanel(port, pauseHooks)
+const townPanel = new TownPanel(port, pauseHooks)
 // 필드 상단 상시 현황 — 창을 열지 않아도 체력과 지갑이 보인다
 const fieldHud = new FieldHud(game, bus)
 // 획득·레벨업 토스트 — 시각 전용, 낭독은 Announcer가 이미 한다
 new Toasts(bus)
 const screens = new Screens(
-  game,
+  port,
   bus,
   battleUI,
   () => options.open(),
@@ -142,7 +186,77 @@ const screens = new Screens(
   () => townPanel.open(),
   fieldHud,
   () => store.options.lowStim,
+  () => void openCoop(),
 )
+
+// --- 함께 하기 — 문을 두드릴 때에만 코드를 불러온다. 솔로는 서버로 요청 0건 ---
+
+let coopPanel: CoopPanel | null = null
+
+const sessionHooks: SessionHooks = {
+  announce: (t) => announcer.polite(t),
+  alert: (t) => announcer.assertive(t),
+  onRosterChanged: () => coopPanel?.refreshRoster(),
+  onStarted: () => coopPanel?.onStarted(),
+  onEnded: (reason) => {
+    activeSession = null
+    sessionLayoutKey = null
+    // 좌석과 시점을 솔로 기준으로 되돌린다 — 다음 판이 혼자여도 어색함이 없다
+    game.setSeatController(1, 'npc')
+    game.setSeatController(2, 'npc')
+    game.localSeat = 0
+    game.moveTokenSeat = 0
+    if (game.mode !== 'title') game.returnToTitle()
+    game.setTrait(traitStore.get() ?? '')
+    announcer.polite(reason)
+  },
+  setLayoutKey: (key) => {
+    sessionLayoutKey = key
+  },
+  getLayoutKey: () => activeSlot ?? 0,
+  installScheduler: (s) => {
+    swappable.inner = s
+  },
+  restoreScheduler: () => {
+    swappable.inner = realScheduler
+  },
+}
+
+async function openCoop(): Promise<void> {
+  if (!coopPanel) {
+    const [{ CoopPanel }, { PartySession }] = await Promise.all([
+      import('./ui/coopPanel'),
+      import('./net/session'),
+    ])
+    coopPanel = new CoopPanel({
+      ...pauseHooks,
+      announce: (t) => announcer.polite(t),
+      createSession: async (me) => {
+        activeSession = await PartySession.host(game, data, bus, sessionHooks, me)
+        return activeSession
+      },
+      joinSession: async (code, me) => {
+        activeSession = await PartySession.join(code, game, data, bus, sessionHooks, me)
+        return activeSession
+      },
+      currentSession: () => activeSession,
+      hostStartNew: () => void slotPanel.open('new'),
+      hostStartContinue: () => void slotPanel.open('continue'),
+      setGuestSlot: (slot) => {
+        activeSlot = slot
+      },
+      describeSlots: async () => {
+        const slots = await saves.list()
+        return slots.map((s) =>
+          s.empty
+            ? `${s.slot + 1}번 자리 — 비어 있다`
+            : `${s.slot + 1}번 자리 — 기록이 있다 (덮어쓰며 저장된다)`,
+        )
+      },
+    })
+  }
+  await coopPanel.open()
+}
 
 /**
  * 필드에서 상황이 바뀔 때마다 지금 자리에 저장한다 — 저장 버튼을 따로 두지 않는다.
@@ -187,7 +301,7 @@ const gameArea = document.querySelector<HTMLElement>('#game')
 if (gameArea) {
   attachSwipe(gameArea, {
     canMove: () => game.mode === 'field' && !document.querySelector('dialog[open]'),
-    onSwipe: (dir) => game.moveField(dir),
+    onSwipe: (dir) => port.moveField(dir),
   })
 }
 
@@ -248,7 +362,7 @@ document.addEventListener('keydown', (e) => {
       DIR_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]
     if (dir) {
       e.preventDefault()
-      game.moveField(dir)
+      port.moveField(dir)
       return
     }
     if (isSummaryKey(e)) game.fieldSummary()

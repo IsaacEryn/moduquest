@@ -31,6 +31,7 @@ export class Screens {
     private openTown: () => void,
     private hud: { el: HTMLElement; refresh: () => void },
     private getLowStim: () => boolean,
+    private openCoop: () => void,
   ) {
     bus.on((e) => {
       // 저자극을 켜고 끄면 타이틀 스프라이트의 색이 함께 바뀌어야 한다
@@ -111,6 +112,10 @@ export class Screens {
     cont.type = 'button'
     cont.textContent = '이어서 하기'
     cont.addEventListener('click', () => this.openSlots('continue'))
+    const coop = document.createElement('button')
+    coop.type = 'button'
+    coop.textContent = '함께 하기'
+    coop.addEventListener('click', () => this.openCoop())
     const traits = document.createElement('button')
     traits.type = 'button'
     traits.textContent = '특성 고르기'
@@ -123,8 +128,8 @@ export class Screens {
     opts.type = 'button'
     opts.textContent = '옵션'
     opts.addEventListener('click', () => this.openOptions())
-    if (this.hasSaves) actions.append(start, cont, traits, help, opts)
-    else actions.append(start, traits, help, opts)
+    if (this.hasSaves) actions.append(start, cont, coop, traits, help, opts)
+    else actions.append(start, coop, traits, help, opts)
     this.ui.append(s)
     // 이어서 할 게 있으면 그쪽이 첫 포커스다
     ;(this.hasSaves ? cont : start).focus()

@@ -931,3 +931,63 @@ details > summary::marker {
     right: var(--sp-3);
   }
 }
+
+/* --- 함께 하기 — 로그인·로비 --- */
+
+.coop .form-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  margin: var(--sp-3) 0;
+}
+
+.coop input,
+.coop select {
+  font: inherit;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-sm);
+  padding: var(--sp-2) var(--sp-3);
+}
+
+.coop input:focus-visible,
+.coop select:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* 폼 오류는 색만으로 말하지 않는다 — 문장이 곧 정보다 */
+.coop .form-error {
+  margin: var(--sp-2) 0 0;
+  color: #f2b8b5;
+  min-height: 1.2em;
+}
+
+.coop .link-like {
+  background: none;
+  border: none;
+  padding: var(--sp-2) 0;
+  color: var(--text-dim);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.coop-code {
+  font-size: var(--fs-lg, 1.15rem);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+.coop-roster {
+  list-style: none;
+  margin: var(--sp-3) 0;
+  padding: 0;
+}
+
+.coop-roster li {
+  margin: var(--sp-2) 0;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+}

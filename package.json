@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.112.1",
     "phaser": "^4.0.0"
   },
   "devDependencies": {

@@ -1,4 +1,4 @@
-import type { Dir, EquipSlot, PlayerAction, SaveSnapshot, UpgradeStat } from '../core/types'
+import type { Dir, EquipSlot, PlayerAction, UpgradeStat } from '../core/types'
 
 /**
  * 함께 하기의 언어. 화면들이 주고받는 것은 상태가 아니라 **명령**이다 —
@@ -47,12 +47,36 @@ export interface Envelope {
   cmd: NetCommand
 }
 
+/** 자리 하나의 사실 — 누가 앉아 있고 지금 사람인가 */
+export interface SeatInfo {
+  seat: Seat
+  userId: string
+  nickname: string
+  controller: 'human' | 'npc'
+}
+
+/** 로비·이탈·합류 때 호스트가 알리는 자리 배치 */
+export interface SeatsPayload {
+  v: 1
+  seats: SeatInfo[]
+  moveTokenSeat: Seat
+  started: boolean
+}
+
+/**
+ * 모험의 출발점. 상태를 옮기는 게 아니라 **출발 조건**을 옮긴다 —
+ * 전원이 같은 조건에서 같은 명령을 재생하면 같은 세계가 된다.
+ */
+export type SeedPayload =
+  | { v: 1; kind: 'new'; jobs: string[]; traitId: string; layoutKey: number }
+  | { v: 1; kind: 'restore'; snapshot: unknown } // 스냅샷은 sanitizeSnapshot이 최종 판정
+
 /** 합류·재접속·어긋남 복구 — 순간의 세계 전체 */
 export interface SyncPayload {
   v: 1
   seq: number
-  snapshot: SaveSnapshot
-  seats: { seat: Seat; userId: string; nickname: string; controller: 'human' | 'npc' }[]
+  snapshot: unknown // 받는 쪽에서 sanitizeSnapshot 필수
+  seats: SeatInfo[]
   moveTokenSeat: Seat
   layoutKey: number
 }
@@ -170,6 +194,65 @@ export function isEnvelope(v: unknown): v is Envelope {
     isInt(e.seq, 0, Number.MAX_SAFE_INTEGER) &&
     isSeat(e.seat) &&
     isNetCommand(e.cmd)
+  )
+}
+
+function isSeatInfo(v: unknown): v is SeatInfo {
+  if (!v || typeof v !== 'object') return false
+  const s = v as Record<string, unknown>
+  return (
+    isSeat(s.seat) &&
+    typeof s.userId === 'string' &&
+    s.userId.length <= 64 &&
+    typeof s.nickname === 'string' &&
+    s.nickname.length <= 12 &&
+    (s.controller === 'human' || s.controller === 'npc')
+  )
+}
+
+export function isSeatsPayload(v: unknown): v is SeatsPayload {
+  if (!v || typeof v !== 'object') return false
+  const p = v as Record<string, unknown>
+  return (
+    p.v === 1 &&
+    Array.isArray(p.seats) &&
+    p.seats.length <= 3 &&
+    p.seats.every(isSeatInfo) &&
+    isSeat(p.moveTokenSeat) &&
+    typeof p.started === 'boolean'
+  )
+}
+
+export function isSeedPayload(v: unknown): v is SeedPayload {
+  if (!v || typeof v !== 'object') return false
+  const p = v as Record<string, unknown>
+  if (p.v !== 1) return false
+  if (p.kind === 'new') {
+    return (
+      Array.isArray(p.jobs) &&
+      p.jobs.length === 3 &&
+      p.jobs.every((j) => isId(j)) &&
+      isId(p.traitId) &&
+      isInt(p.layoutKey, 0, 99)
+    )
+  }
+  if (p.kind === 'restore') return p.snapshot !== undefined && p.snapshot !== null
+  return false
+}
+
+export function isSyncPayload(v: unknown): v is SyncPayload {
+  if (!v || typeof v !== 'object') return false
+  const p = v as Record<string, unknown>
+  return (
+    p.v === 1 &&
+    isInt(p.seq, 0, Number.MAX_SAFE_INTEGER) &&
+    p.snapshot !== undefined &&
+    p.snapshot !== null &&
+    Array.isArray(p.seats) &&
+    p.seats.length <= 3 &&
+    p.seats.every(isSeatInfo) &&
+    isSeat(p.moveTokenSeat) &&
+    isInt(p.layoutKey, 0, 99)
   )
 }
 
