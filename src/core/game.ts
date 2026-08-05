@@ -319,6 +319,29 @@ export class Game {
     return this.data.items[id]
   }
 
+  /**
+   * 파티원의 형상 변형 상태 — 렌더러가 텍스처 키를 만들 결정적 문자열과
+   * 슬롯별 색을 준다. 리컬러가 없으면 null(기본 텍스처를 그대로 쓴다).
+   */
+  equipVariantOf(memberId: string): {
+    variant: string
+    recolors: Partial<Record<EquipSlot, { primary: string; secondary?: string }>>
+  } | null {
+    const eq = this.equipment.get(memberId)
+    if (!eq) return null
+    const recolors: Partial<Record<EquipSlot, { primary: string; secondary?: string }>> = {}
+    const parts: string[] = []
+    for (const slot of EQUIP_SLOTS) {
+      const id = eq[slot]
+      const item = id ? this.data.items[id] : undefined
+      if (!item?.recolor) continue
+      recolors[slot] = item.recolor
+      parts.push(id as string)
+    }
+    if (parts.length === 0) return null
+    return { variant: parts.join('+'), recolors }
+  }
+
   setData(id: string) {
     return this.data.sets[id]
   }

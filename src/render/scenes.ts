@@ -1,6 +1,6 @@
 import Phaser from 'phaser'
 import type { EventBus } from '../core/events'
-import type { Game } from '../core/game'
+import { EQUIP_SLOTS, type Game } from '../core/game'
 import type { Combatant, Pos } from '../core/types'
 import type { Options } from '../ui/optionsStore'
 import { SPRITES, drawSprite, drawTile } from './sprites'
@@ -73,7 +73,34 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
   }
 
   const texKey = (name: string) => name + (options.lowStim ? '-low' : '')
-  const spriteOf = (c: { sprite?: string; id: string }) => texKey(c.sprite ?? c.id)
+
+  /**
+   * 장비 형상까지 반영한 텍스처 키를 돌려주고, 없으면 그 자리에서 만든다.
+   * 키는 `직업(-low)~장비id+장비id` — 장비 조합이 같으면 항상 같은 키다.
+   * 몹은 파티에 없으므로 variant가 null이라 기본 키를 그대로 쓴다.
+   */
+  const spriteOf = (scene: Phaser.Scene, c: { sprite?: string; id: string }) => {
+    const base = c.sprite ?? c.id
+    const v = game.equipVariantOf(c.id)
+    if (!v) return texKey(base)
+    const key = `${texKey(base)}~${v.variant}`
+    if (!scene.textures.exists(key)) {
+      const def = SPRITES[base]
+      if (!def) return texKey(base)
+      const palette = { ...def.palette }
+      for (const slot of EQUIP_SLOTS) {
+        const rc = v.recolors[slot]
+        const keys = def.slotKeys?.[slot]
+        if (!rc || !keys) continue
+        for (const k of keys.primary) if (palette[k]) palette[k] = rc.primary
+        for (const k of keys.secondary ?? []) {
+          if (palette[k]) palette[k] = rc.secondary ?? rc.primary
+        }
+      }
+      scene.textures.addCanvas(key, drawSprite({ ...def, palette }, 2, options.lowStim))
+    }
+    return key
+  }
 
   class FieldScene extends Phaser.Scene {
     private player!: Phaser.GameObjects.Image
@@ -110,6 +137,8 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
         }
         // 연 상자는 사라져야 한다 — 이동 트윈 대신 전체를 다시 그린다
         if (e.type === 'chestOpened' && this.scene.isActive()) this.redraw()
+        // 입고 벗으면 형상이 바뀐다 — 전투는 매번 새로 그리므로 필드만 챙기면 된다
+        if (e.type === 'equipChanged' && this.scene.isActive()) this.redraw()
         if ((e.type === 'mode' && e.mode === 'field') || e.type === 'optionsChanged') {
           if (this.scene.isActive()) this.redraw()
         }
@@ -169,7 +198,7 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       }
 
       const pp = px(game.field.pos)
-      this.player = this.add.image(pp.x, pp.y, spriteOf(game.player)).setDepth(2)
+      this.player = this.add.image(pp.x, pp.y, spriteOf(this, game.player)).setDepth(2)
       this.idle(this.player, pp.y)
     }
 
@@ -235,7 +264,7 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
     }
 
     private spawn(c: Combatant, x: number, y: number) {
-      const img = this.add.image(x, y, spriteOf(c))
+      const img = this.add.image(x, y, spriteOf(this, c))
       if (c.isBoss) img.setScale(1.3)
       this.figures.set(c.id, img)
       this.homeY.set(c.id, y)

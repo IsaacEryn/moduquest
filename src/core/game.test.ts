@@ -508,6 +508,34 @@ describe('장비', () => {
     expect(game.player.spd).toBe(12 + 2 + 3)
   })
 
+  it('형상 변형 문자열은 장비 조합이 같으면 항상 같다', () => {
+    const { game } = makeGame()
+    const base = game.snapshot()
+    game.restore({
+      ...base,
+      xp: 70,
+      inventory: [
+        { item: 'wood_sword', count: 1 },
+        { item: 'chain_armor', count: 1 },
+        { item: 'cloth_gloves', count: 1 },
+      ],
+    })
+    expect(game.equipVariantOf('rogue')).toBeNull() // 아무것도 안 입었다
+
+    // 갑옷 → 무기 순서로 입어도 variant는 슬롯 고정 순서를 따른다
+    game.equip('rogue', 'chain_armor')
+    game.equip('rogue', 'wood_sword')
+    const v = game.equipVariantOf('rogue')!
+    expect(v.variant).toBe('wood_sword+chain_armor')
+    expect(v.recolors.weapon?.primary).toBeDefined()
+
+    // 리컬러 없는 장비만으로는 변형이 없다
+    game.unequip('rogue', 'weapon')
+    game.unequip('rogue', 'armor')
+    game.equip('rogue', 'cloth_gloves')
+    expect(game.equipVariantOf('rogue')).toBeNull()
+  })
+
   it('파티에서 빠지는 직업의 장비는 가방으로 돌아온다', () => {
     const { game } = makeGame()
     // 타이틀에서 장비를 채운 뒤 구성을 바꾼다
