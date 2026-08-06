@@ -17,7 +17,11 @@ export interface GridEntry {
 }
 
 export interface GridAction {
-  label: string
+  /**
+   * 버튼에 적힐 말. 고른 물건에 따라 달라져야 할 때가 있다 —
+   * 같은 자리가 어떤 물건에는 "입기"이고 이미 입은 물건에는 "해제"다
+   */
+  label: string | ((entry: GridEntry) => string)
   /** 못 누르는 버튼도 이유를 달고 남는다 */
   can?: (entry: GridEntry) => { ok: boolean; reason?: string }
   run: (entry: GridEntry) => void
@@ -261,9 +265,10 @@ export class ItemGrid {
     actions.className = 'detail-actions'
     for (const action of this.opts.actions) {
       const can = action.can?.(entry) ?? { ok: true }
+      const label = typeof action.label === 'function' ? action.label(entry) : action.label
       const b = document.createElement('button')
       b.type = 'button'
-      b.textContent = can.ok || !can.reason ? action.label : `${action.label} (${can.reason})`
+      b.textContent = can.ok || !can.reason ? label : `${label} (${can.reason})`
       b.disabled = !can.ok
       b.addEventListener('click', () => action.run(entry))
       actions.append(b)

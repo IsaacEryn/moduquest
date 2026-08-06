@@ -607,24 +607,49 @@ dialog.options.town section:first-of-type h3 {
   font-size: 0.92em;
 }
 
+/*
+  착용 칸 목록 — 무엇을 입고 있는지만 말한다.
+  갈아입는 일은 창 아래 장비 격자 한 곳에서 하므로 여기에는 버튼이 없다.
+*/
 .status-slots {
   list-style: none;
-  margin: 0.25rem 0 0;
+  margin: var(--sp-3) 0 0;
   padding: 0;
+  border-top: 1px solid var(--line);
 }
 
-.status-slots li {
+.slot-line {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.375rem;
-  margin: 0.25rem 0;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
 }
 
-/* 칸이 좁아지므로 긴 장비 이름이 넘치지 않게 */
-.status-slots li > span {
-  flex: 1 1 100%;
+.slot-name {
+  flex: 0 0 2.6rem;
+  color: var(--text-dim);
+}
+
+.slot-value {
+  flex: 1;
   overflow-wrap: anywhere;
+}
+
+.slot-value.is-empty {
+  color: var(--text-dim);
+}
+
+/* 가진 장비를 한 곳에 모은 자리 */
+.status-gear {
+  margin-top: var(--sp-5);
+}
+
+.status-equipment h3 {
+  margin: 0 0 var(--sp-3);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--panel-border);
 }
 
 .status-picker {

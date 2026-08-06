@@ -17,8 +17,6 @@ export class StatusPanel {
   private dialog: HTMLDialogElement
   private prevFocus: Element | null = null
   private closed = true
-  /** 바꾸기 목록이 열려 있는 슬롯 — 다시 그려도 유지한다 */
-  private openPicker: { member: string; slot: EquipSlot } | null = null
   /**
    * 좁은 화면에서 보고 있는 파티원. 넓은 화면에서는 셋을 나란히 놓으므로 쓰지 않는다.
    * 폭 기준은 style.css의 첫 단 나눔과 같은 34rem이다 — 두 곳이 어긋나면
@@ -40,6 +38,7 @@ export class StatusPanel {
       <p class="status-level"></p>
       <div class="status-tabs" role="tablist" aria-label="파티원 고르기" hidden></div>
       <div class="status-members"></div>
+      <div class="status-gear"></div>
       <div class="slot-actions">
         <button type="button" id="status-close">닫기</button>
       </div>
@@ -98,6 +97,11 @@ export class StatusPanel {
       wrap.append(section)
     }
     this.renderTabs(tabbed)
+
+    // 장비는 파티원 칸 아래 한 곳에 모은다 — 어느 칸 안에서 목록이 펼쳐지면
+    // 그 칸만 길어져 나란히 선 세 단이 어긋난다
+    const gear = this.dialog.querySelector('.status-gear')!
+    gear.replaceChildren(this.renderEquipment())
   }
 
   private renderTabs(tabbed: boolean): void {
@@ -136,7 +140,6 @@ export class StatusPanel {
   }
 
   private selectMember(memberId: string): void {
-    if (this.activeMember !== memberId) this.openPicker = null
     this.activeMember = memberId
     this.render()
     this.dialog.querySelector<HTMLElement>(`#status-tab-${memberId}`)?.focus()
@@ -211,100 +214,123 @@ export class StatusPanel {
     const slots = document.createElement('ul')
     slots.className = 'status-slots'
     for (const slot of EQUIP_SLOTS) {
-      slots.append(this.renderSlot(memberId, slot, eq[slot]))
+      slots.append(this.renderSlot(slot, eq[slot]))
     }
     section.append(slots)
     return section
   }
 
-  private renderSlot(memberId: string, slot: EquipSlot, itemId?: string): HTMLElement {
+  /**
+   * 착용 칸 한 줄. 예전에는 칸마다 "바꾸기" 버튼이 붙어 파티원 셋이면 버튼이 열둘이었고,
+   * 하나를 누르면 그 칸 안에서 목록이 펼쳐져 세 단의 높이가 서로 어긋났다.
+   * 지금은 무엇을 입고 있는지만 보여 주고, 갈아입는 일은 아래 장비 격자 한 곳에서 한다.
+   */
+  private renderSlot(slot: EquipSlot, itemId?: string): HTMLElement {
     const g = this.game
     const li = document.createElement('li')
+    li.className = 'slot-line'
+
+    const name = document.createElement('span')
+    name.className = 'slot-name'
+    name.textContent = SLOT_KO[slot]
+
+    const value = document.createElement('span')
+    value.className = 'slot-value'
     const item = itemId ? g.itemData(itemId) : undefined
-    const label = document.createElement('span')
-    label.textContent = item
-      ? `${SLOT_KO[slot]}: ${item.name}${describeItem(item) ? ` (${describeItem(item)})` : ''}`
-      : `${SLOT_KO[slot]}: 비어 있음`
-    li.append(label)
-
-    const change = document.createElement('button')
-    change.type = 'button'
-    change.textContent = '바꾸기'
-    change.addEventListener('click', () => {
-      this.openPicker =
-        this.openPicker?.member === memberId && this.openPicker.slot === slot
-          ? null
-          : { member: memberId, slot }
-      this.render()
-    })
-    li.append(change)
-
     if (item) {
-      const off = document.createElement('button')
-      off.type = 'button'
-      off.textContent = '해제'
-      off.addEventListener('click', () => {
-        if (g.unequip(memberId, slot)) {
-          this.openPicker = null
-          this.render()
-        }
-      })
-      li.append(off)
+      value.textContent = item.name
+      const effect = describeItem(item)
+      if (effect) value.title = effect
+    } else {
+      value.textContent = '비어 있음'
+      value.classList.add('is-empty')
     }
 
-    if (this.openPicker?.member === memberId && this.openPicker.slot === slot) {
-      li.append(this.renderPicker(memberId, slot))
-    }
+    li.append(name, value)
     return li
   }
 
   /** 이 슬롯에 입을 수 있는 후보 — 못 입는 것도 이유와 함께 보인다 */
-  private renderPicker(memberId: string, slot: EquipSlot): HTMLElement {
+  /**
+   * 파티가 가진 장비를 한 자리에 모아 보여 준다.
+   *
+   * 가방에 있는 것과 누군가 입고 있는 것을 같은 격자에 놓고, 입고 있는 칸에는
+   * 누가 입었는지 이름을 붙인다. "무엇이 있나"와 "누가 뭘 입었나"를 한눈에
+   * 보고 싶다는 요구가 여기서 만난다.
+   *
+   * 고른 물건 아래에는 파티원 수만큼 버튼이 선다. 이미 입은 사람 자리는 "해제"가
+   * 되고, 못 입는 사람 자리는 이유를 달고 잠긴다 — 직업 전용 장비가 누구 것인지
+   * 눌러 보지 않아도 읽힌다.
+   */
+  private renderEquipment(): HTMLElement {
     const g = this.game
-    const box = document.createElement('div')
-    box.className = 'status-picker'
+    const box = document.createElement('section')
+    box.className = 'status-equipment'
+    const h = document.createElement('h3')
+    h.textContent = '장비'
+    box.append(h)
 
-    const candidates = g.inventoryList.filter(
-      (i) => i.kind === 'equipment' && g.itemData(i.id)?.slot === slot,
-    )
-    if (candidates.length === 0) {
+    // 누가 무엇을 입고 있는지 먼저 모은다 — 같은 물건을 둘이 입었을 수도 있다
+    const wornBy = new Map<string, { member: string; name: string; slot: EquipSlot }[]>()
+    for (const member of g.party) {
+      const eq = g.equipmentOf(member.id)
+      for (const slot of EQUIP_SLOTS) {
+        const id = eq[slot]
+        if (!id) continue
+        const list = wornBy.get(id) ?? []
+        list.push({ member: member.id, name: member.isPlayer ? '나' : member.name, slot })
+        wornBy.set(id, list)
+      }
+    }
+
+    const bag = g.inventoryList.filter((row) => row.kind === 'equipment')
+    const ids = new Set<string>([...bag.map((r) => r.id), ...wornBy.keys()])
+
+    const entries = [...ids].map((id) => {
+      const worn = wornBy.get(id) ?? []
+      const inBag = bag.find((r) => r.id === id)?.count ?? 0
+      return {
+        id,
+        item: g.itemData(id)!,
+        count: inBag + worn.length,
+        tag: worn.length ? worn.map((w) => w.name).join('·') : undefined,
+      }
+    })
+
+    if (entries.length === 0) {
       const p = document.createElement('p')
       p.className = 'status-note'
-      p.textContent = '가방에 이 자리에 맞는 장비가 없다.'
+      p.textContent = '아직 장비가 없다. 몹과 보물상자에서 얻는다.'
       box.append(p)
       return box
     }
 
-    // 입을 것을 고르는 자리도 가방과 같은 격자다 — 같은 물건이 창마다
-    // 다르게 보이면 어디서 무엇을 봤는지 기억해야 할 것이 늘어난다
     const grid = new ItemGrid({
-      label: `${SLOT_KO[slot]} 후보`,
+      label: '가진 장비',
       lowStim: this.lowStim,
-      actions: [
-        {
-          label: '입기',
-          can: (e) => g.canEquip(memberId, e.id),
-          run: (e) => {
-            if (g.equip(memberId, e.id)) {
-              this.openPicker = null
-              this.render()
-            }
-          },
+      emptyText: '아직 장비가 없다.',
+      actions: g.party.map((member) => ({
+        label: (e) => {
+          const mine = wornBy.get(e.id)?.some((w) => w.member === member.id)
+          const who = member.isPlayer ? '내가' : member.name
+          return mine ? `${who} 해제` : `${who} 입기`
         },
-      ],
+        can: (e) => {
+          const worn = wornBy.get(e.id)?.find((w) => w.member === member.id)
+          if (worn) return { ok: true }
+          // 가방에 없으면 남이 입고 있는 것뿐이다 — 벗겨 오지는 않는다
+          const inBag = bag.find((r) => r.id === e.id)
+          if (!inBag) return { ok: false, reason: '가방에 없다' }
+          return g.canEquip(member.id, e.id)
+        },
+        run: (e) => {
+          const worn = wornBy.get(e.id)?.find((w) => w.member === member.id)
+          const done = worn ? g.unequip(member.id, worn.slot) : g.equip(member.id, e.id)
+          if (done) this.render()
+        },
+      })),
     })
-    grid.setEntries(
-      candidates.map((cand) => {
-        const item = g.itemData(cand.id)!
-        const check = g.canEquip(memberId, cand.id)
-        return {
-          id: cand.id,
-          item,
-          count: cand.count,
-          disabledReason: check.ok ? undefined : (check.reason ?? '지금은 못 입는다'),
-        }
-      }),
-    )
+    grid.setEntries(entries)
     box.append(grid.el)
     return box
   }
@@ -313,7 +339,6 @@ export class StatusPanel {
     this.closed = false
     this.hooks.onOpen?.()
     this.prevFocus = document.activeElement
-    this.openPicker = null
     this.render()
     this.dialog.showModal()
     this.dialog.querySelector<HTMLElement>('#status-close')?.focus()
