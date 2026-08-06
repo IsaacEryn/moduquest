@@ -1,8 +1,18 @@
-import { currentProfile, saveNickname, signIn, signOut, signUp, validNickname, type Profile } from '../net/auth'
+import {
+  checkNickname,
+  currentProfile,
+  resendConfirmation,
+  saveNickname,
+  signIn,
+  signOut,
+  signUp,
+  NICKNAME_MAX,
+  type Profile,
+} from '../net/auth'
 import type { PartySession } from '../net/session'
 import { hasSupabaseConfig } from '../net/supabaseClient'
 
-type View = 'auth' | 'home' | 'room'
+type View = 'auth' | 'confirm' | 'home' | 'room'
 
 /**
  * 함께 하기의 문. 로그인(가입) → 모험단 만들기/참가 → 로비까지 한 창에서.
@@ -128,8 +138,61 @@ export class CoopPanel {
   private render(): void {
     this.body.replaceChildren()
     if (this.view === 'auth') this.renderAuth()
+    else if (this.view === 'confirm') this.renderConfirm()
     else if (this.view === 'home') this.renderHome()
     else this.renderRoom()
+  }
+
+  /** 가입 직후 — 아직 로그인이 아니다. 메일함으로 가야 한다 */
+  private pendingEmail = ''
+
+  private renderConfirm(): void {
+    const intro = document.createElement('p')
+    intro.className = 'intro'
+    intro.textContent = `${this.pendingEmail}로 확인 메일을 보냈다. 메일함의 링크를 누르면 계정이 열린다.`
+
+    const note = document.createElement('p')
+    note.className = 'intro'
+    note.textContent =
+      '메일이 보이지 않으면 스팸함도 확인해 보자. 이미 가입된 이메일이면 메일이 오지 않는다 — 그때는 로그인하면 된다.'
+
+    const status = document.createElement('p')
+    status.className = 'form-error'
+    status.setAttribute('role', 'alert')
+
+    const resend = document.createElement('button')
+    resend.type = 'button'
+    resend.textContent = '확인 메일 다시 보내기'
+    resend.addEventListener('click', () => {
+      if (this.busy) return
+      this.busy = true
+      resend.disabled = true
+      status.textContent = ''
+      resendConfirmation(this.pendingEmail)
+        .then(() => {
+          status.textContent = '확인 메일을 다시 보냈다.'
+          this.hooks.announce(status.textContent)
+        })
+        .catch((err: Error) => {
+          status.textContent = err.message
+          this.hooks.announce(err.message)
+        })
+        .finally(() => {
+          this.busy = false
+          resend.disabled = false
+        })
+    })
+
+    const toLogin = document.createElement('button')
+    toLogin.type = 'button'
+    toLogin.textContent = '확인했다 — 로그인하기'
+    toLogin.addEventListener('click', () => {
+      this.view = 'auth'
+      this.render()
+    })
+
+    this.body.append(intro, note, status, toLogin, resend)
+    toLogin.focus()
   }
 
   private field(
@@ -188,8 +251,8 @@ export class CoopPanel {
     )
     let nick: HTMLInputElement | null = null
     if (signup) {
-      nick = this.field(form, 'coop-nick', '닉네임 (12자까지)', 'text', 'nickname')
-      nick.maxLength = 12
+      nick = this.field(form, 'coop-nick', `닉네임 (${NICKNAME_MAX}자까지)`, 'text', 'nickname')
+      nick.maxLength = NICKNAME_MAX
     }
     const setError = this.errorLine(form)
 
@@ -198,38 +261,60 @@ export class CoopPanel {
     submit.textContent = signup ? '가입하고 시작' : '로그인'
     form.append(submit)
 
+    // 가입과 로그인은 같은 무게의 갈림길이다 — 한쪽만 링크처럼 두면
+    // 마우스로도 키보드로도 눌러야 할 곳이 덜 또렷해진다
     const toggle = document.createElement('button')
     toggle.type = 'button'
-    toggle.className = 'link-like'
+    toggle.className = 'alt-action'
     toggle.textContent = signup ? '이미 계정이 있다 — 로그인' : '계정이 없다 — 가입하기'
     toggle.addEventListener('click', () => this.renderAuth(!signup))
+
+    const finish = (profile: Profile) => {
+      this.profile = profile
+      this.hooks.announce(`${profile.nickname}로 로그인했다.`)
+      this.view = 'home'
+      this.render()
+    }
 
     form.addEventListener('submit', (e) => {
       e.preventDefault()
       if (this.busy) return
       const nickname = nick?.value.trim() ?? ''
-      if (signup && !validNickname(nickname)) {
-        setError('닉네임은 1자에서 12자까지다.')
-        return
+      if (signup) {
+        const check = checkNickname(nickname)
+        if (!check.ok) {
+          setError(check.reason ?? '쓸 수 없는 닉네임이다.')
+          nick?.focus()
+          return
+        }
       }
       this.busy = true
       submit.disabled = true
       setError('')
+
+      const address = email.value.trim()
       const task = signup
-        ? signUp(email.value.trim(), pw.value, nickname)
-        : signIn(email.value.trim(), pw.value)
+        ? signUp(address, pw.value, nickname).then(async (result) => {
+            if (result.kind === 'confirm') {
+              this.pendingEmail = result.email
+              this.view = 'confirm'
+              this.render()
+              this.hooks.announce('확인 메일을 보냈다. 메일함의 링크를 누르면 계정이 열린다.')
+              return
+            }
+            finish(result.profile)
+          })
+        : signIn(address, pw.value).then(async (profile) => {
+            // 트리거가 없던 시절의 계정이면 이름이 비어 있다 — 여기서 채운다
+            if (!profile.nickname) {
+              const fallback = '모험가'
+              await saveNickname(profile.userId, fallback)
+              profile = { ...profile, nickname: fallback }
+            }
+            finish(profile)
+          })
+
       task
-        .then(async (profile) => {
-          if (!profile.nickname) {
-            const n = nickname || '모험가'
-            await saveNickname(profile.userId, n)
-            profile = { ...profile, nickname: n }
-          }
-          this.profile = profile
-          this.hooks.announce(`${profile.nickname}로 로그인했다.`)
-          this.view = 'home'
-          this.render()
-        })
         .catch((err: Error) => setError(err.message))
         .finally(() => {
           this.busy = false

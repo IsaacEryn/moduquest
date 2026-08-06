@@ -432,6 +432,21 @@ void slotPanel.hasAny().then((has) => {
   screens.showTitle()
 })
 
+/**
+ * 확인 메일의 링크를 눌러 돌아온 참이면 함께 하기를 바로 연다.
+ *
+ * 서버 코드는 함께 하기를 누를 때에만 불려 오므로, 그냥 두면 링크를 누르고
+ * 돌아온 사람이 아무 일도 일어나지 않는 타이틀을 마주한다. 열어 주는 것이
+ * 곧 "확인됐다"는 대답이다. 표는 서버가 주소에 남기는 두 가지 모양을 모두 본다
+ */
+function returnedFromEmailLink(): boolean {
+  return (
+    /(access_token|refresh_token|type=signup|type=recovery)/.test(window.location.hash) ||
+    /[?&]code=/.test(window.location.search)
+  )
+}
+if (returnedFromEmailLink()) void openCoop()
+
 if (import.meta.env.DEV) {
   ;(window as unknown as Record<string, unknown>).__game = game
   ;(window as unknown as Record<string, unknown>).__music = music

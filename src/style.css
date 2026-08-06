@@ -980,6 +980,19 @@ details > summary::marker {
   cursor: pointer;
 }
 
+/*
+  가입과 로그인은 같은 무게의 갈림길이라 둘 다 버튼이다.
+  지금 하려던 일(제출)과 구분되도록 테두리만 남기고 채우지 않는다 —
+  색이 아니라 채움의 유무로 갈라야 대비 설정에서도 구분이 살아남는다.
+*/
+.coop .alt-action {
+  display: block;
+  width: 100%;
+  margin-top: var(--sp-3);
+  background: transparent;
+  border: 1px solid var(--panel-border);
+}
+
 .coop-code {
   font-size: var(--fs-lg, 1.15rem);
   font-weight: 700;
