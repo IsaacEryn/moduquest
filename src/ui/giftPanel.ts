@@ -44,7 +44,9 @@ export class GiftPanel {
         <div class="gift-in"></div></section>
       <section aria-labelledby="gift-out-h"><h3 id="gift-out-h">보내기</h3>
         <div class="gift-out"></div></section>
-      <button type="button" id="gift-close">닫기</button>
+      <div class="slot-actions">
+        <button type="button" id="gift-close">닫기</button>
+      </div>
     `
     document.body.append(this.dialog)
     this.body = this.dialog

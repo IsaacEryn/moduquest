@@ -57,7 +57,9 @@ export class CoopPanel {
     this.dialog.innerHTML = `
       <h2 id="coop-title">함께 하기</h2>
       <div class="coop-body"></div>
-      <button type="button" id="coop-close">닫기</button>
+      <div class="slot-actions">
+        <button type="button" id="coop-close">닫기</button>
+      </div>
     `
     document.body.append(this.dialog)
     this.body = this.dialog.querySelector('.coop-body')!
