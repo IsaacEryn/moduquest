@@ -228,7 +228,7 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       }
 
       const pp = px(game.field.pos)
-      this.player = this.add.image(pp.x, pp.y, spriteOf(this, game.player)).setDepth(2)
+      this.player = this.add.image(pp.x, pp.y, spriteOf(this, game.localMember)).setDepth(2)
       this.idle(this.player, pp.y)
     }
 

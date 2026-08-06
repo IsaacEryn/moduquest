@@ -108,10 +108,12 @@ export class Announcer {
         let text = `${toward(DIR_KO[e.dir])} 한 칸.`
         if (e.ahead) text += ` 앞에 ${e.ahead}.`
         this.polite(text)
+        this.caption('[발소리]')
         break
       }
       case 'blocked':
         this.polite(`${josa(DIR_KO[e.dir], '은', '는')} 벽이다. 갈 수 없다.`)
+        this.caption('[막힘]')
         break
       case 'fieldSummary':
       case 'battleSummary':
@@ -139,6 +141,7 @@ export class Announcer {
         } else {
           this.polite(`${josa(e.actor.name, '이', '가')} 행동을 고르는 중.`)
         }
+        this.caption('[차례 알림]')
         break
       case 'seatControlChanged':
         // 솔로에서는 나지 않는 이벤트 — 함께 하기의 합류와 이탈만 말한다
@@ -189,6 +192,7 @@ export class Announcer {
       }
       case 'defended':
         this.polite(`${josa(this.who(e.actor), '은', '는')} 방어 자세를 잡았다.`)
+        this.caption('[방어]')
         break
       case 'deflected': {
         const target = this.isMine(e.target) ? '나는' : josa(e.target.name, '은', '는')
@@ -251,6 +255,7 @@ export class Announcer {
       }
       case 'goldGained': {
         this.polite(`동전 ${e.amount}냥을 얻었다. 모두 ${e.total}냥.`)
+        this.caption('[동전 소리]')
         break
       }
       case 'bought': {
@@ -315,6 +320,7 @@ export class Announcer {
         } else {
           this.polite(`${josa(e.target.name, '이', '가')} 쓰러졌다.`)
         }
+        this.caption('[쓰러짐]')
         break
       }
       case 'victory': {
@@ -327,6 +333,7 @@ export class Announcer {
       }
       case 'defeat':
         this.assertive('파티가 쓰러졌다. 모두 회복하고 다시 시작한다.')
+        this.caption('[패배]')
         break
       case 'stageClear':
         this.assertive(

@@ -125,6 +125,12 @@ export class TraitPanel {
       ? '이득과 대가가 함께 붙은 플레이 스타일이다. 어떤 특성을 골라도 낭독·키보드·저자극 모드는 그대로 동작한다.'
       : `${reason} 지금 특성은 ${this.game.trait.name}이다.`
     this.dialog.showModal()
+    // 다른 패널과 같은 규칙으로 첫 조작 지점에 포커스를 둔다 — 브라우저 기본 동작에
+    // 기대면 패널마다 다르게 동작하고, 그 차이가 낭독으로 먼저 드러난다
+    const first = this.dialog.querySelector<HTMLElement>(
+      ok ? 'input:not(:disabled)' : 'button',
+    )
+    first?.focus()
   }
 
   close(): void {

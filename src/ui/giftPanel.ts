@@ -86,6 +86,12 @@ export class GiftPanel {
     }
 
     // 받을 자리 — 저장 기록이 있어야 담을 곳이 있다
+    // 목록을 먼저 만든다 — 아래 비동기 콜백이 이 변수를 읽는다.
+    // 선언보다 뒤에 있던 시절에는 마이크로태스크 순서 덕에 겨우 동작했고,
+    // await 한 줄만 늘어도 TDZ 오류가 났을 자리다
+    const list = document.createElement('ul')
+    list.className = 'coop-roster'
+
     const row = document.createElement('p')
     row.className = 'form-row'
     const label = document.createElement('label')
@@ -108,9 +114,6 @@ export class GiftPanel {
     })
     row.append(label, select)
     box.append(row)
-
-    const list = document.createElement('ul')
-    list.className = 'coop-roster'
     for (const g of gifts) {
       const item = this.data.items[g.itemId]
       const li = document.createElement('li')

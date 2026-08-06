@@ -126,7 +126,8 @@ const announcer = new Announcer(
   () => game.localSeat,
 )
 
-const saves = new LocalSaveRepository(data)
+// 저장이 막히면 반드시 알린다 — 저장 버튼이 없는 게임이라 조용한 실패가 곧 손실이다
+const saves = new LocalSaveRepository(data, (reason) => announcer.assertive(reason))
 const partyPanel = new PartyPanel(game, {
   ...pauseHooks,
   onConfirm: (jobs) => {
@@ -166,7 +167,7 @@ const stageSelect = new StageSelect(game, {
   onPick: (index) => port.startStage(index),
 })
 const bagPanel = new BagPanel(port, pauseHooks)
-const helpPanel = new HelpPanel(pauseHooks)
+const helpPanel = new HelpPanel(data, pauseHooks)
 const statusPanel = new StatusPanel(port, pauseHooks)
 const townPanel = new TownPanel(port, pauseHooks)
 // 필드 상단 상시 현황 — 창을 열지 않아도 체력과 지갑이 보인다
@@ -260,7 +261,12 @@ async function openCoop(): Promise<void> {
           const panel = new GiftPanel(data, saves, {
             announce: (t) => announcer.polite(t),
             myFriendCode: () => me.friendCode,
+            // 선물함을 닫으면 함께 하기 화면으로 돌아온다 — 어디서 왔는지를 잃지 않는다
+            onClose: () => void openCoop(),
           })
+          // 창을 겹쳐 열지 않는다 — 배경이 두 겹으로 어두워지고, 어디로 돌아가는지가
+          // 화면으로도 낭독으로도 흐려진다
+          coopPanel?.close()
           await panel.open()
         })()
       },
@@ -338,29 +344,40 @@ if (gameArea) {
 
 // 물리 키(e.code) 기준 — 한글 IME 상태에서도 W/A/S/D·R이 동작해야 한다.
 // e.key는 code가 비는 합성 이벤트를 위한 보조 경로.
-const DIR_CODES: Record<string, Dir> = {
+const ARROW_CODES: Record<string, Dir> = {
   ArrowUp: 'north',
   ArrowDown: 'south',
   ArrowLeft: 'west',
   ArrowRight: 'east',
+}
+
+const ARROW_KEYS: Record<string, Dir> = { ...ARROW_CODES }
+
+const LETTER_CODES: Record<string, Dir> = {
   KeyW: 'north',
   KeyS: 'south',
   KeyA: 'west',
   KeyD: 'east',
 }
 
-const DIR_KEYS: Record<string, Dir> = {
-  ArrowUp: 'north',
-  ArrowDown: 'south',
-  ArrowLeft: 'west',
-  ArrowRight: 'east',
+const LETTER_KEYS: Record<string, Dir> = {
   w: 'north',
   s: 'south',
   a: 'west',
   d: 'east',
 }
 
+/**
+ * 글자 하나짜리 단축키는 옵션에서 끌 수 있다(WCAG 2.1.4). 화살표 키와 화면의
+ * 방향 버튼은 이 설정과 무관하게 언제나 동작하므로 꺼도 잃는 조작이 없다 —
+ * 음성 입력으로 말하다가 캐릭터가 움직이는 일을 막기 위한 문이다.
+ */
+function letterKeysOn(): boolean {
+  return store.options.letterKeys
+}
+
 function isSummaryKey(e: KeyboardEvent): boolean {
+  if (!letterKeysOn()) return false
   return e.code === 'KeyR' || e.key.toLowerCase() === 'r'
 }
 
@@ -388,9 +405,13 @@ document.addEventListener('keydown', (e) => {
   }
 
   if (game.mode === 'field') {
+    // 화살표는 글자 키가 아니므로 언제나 산다. W·A·S·D만 옵션을 따른다
+    const arrow = ARROW_CODES[e.code] ?? ARROW_KEYS[e.key]
     const dir =
-      DIR_CODES[e.code] ??
-      DIR_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key]
+      arrow ??
+      (letterKeysOn()
+        ? (LETTER_CODES[e.code] ?? LETTER_KEYS[e.key.length === 1 ? e.key.toLowerCase() : e.key])
+        : undefined)
     if (dir) {
       e.preventDefault()
       port.moveField(dir)

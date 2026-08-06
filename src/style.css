@@ -23,6 +23,13 @@
   --bg: #101418;
   --panel: #1c232b;
   --panel-border: #3a4653;
+  /*
+   * 누를 수 있는 것의 테두리는 장식이 아니라 정보다 — 저시력 사용자가 어두운 패널
+   * 위에서 버튼의 경계를 찾을 수 있어야 한다(WCAG 1.4.11 비텍스트 대비 3:1).
+   * 이 값은 버튼 바탕(--btn-bg) 대비 3.04:1, 패널 대비 3.86:1, 바탕 대비 4.50:1이다.
+   * 패널·대화상자 같은 테두리는 경계가 곧 조작 대상은 아니므로 --panel-border 그대로 둔다.
+   */
+  --control-border: #707f8d;
   --text: #f2f5f7;
   --text-dim: #b7c2cc;
   --accent: #7fd08a;
@@ -225,7 +232,7 @@ button {
   font: inherit;
   color: var(--text);
   background: var(--btn-bg);
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   padding: 0.5rem 1rem;
   cursor: pointer;
@@ -467,7 +474,7 @@ dialog.options .row {
 .party-groups fieldset {
   flex: 1;
   min-width: 10rem;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--control-border);
   border-radius: 6px;
   padding: 0.5rem 0.75rem;
 }
@@ -946,7 +953,7 @@ details > summary::marker {
   font: inherit;
   color: var(--text);
   background: var(--bg);
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--control-border);
   border-radius: var(--r-sm);
   padding: var(--sp-2) var(--sp-3);
 }

@@ -170,7 +170,7 @@ export class BattleUI {
     this.menu.setAttribute('aria-label', '행동 선택')
     this.menu.replaceChildren()
 
-    const player = this.game.player
+    const player = this.game.localMember
     const mk = (label: string, onClick: () => void, disabled = false) => {
       const b = document.createElement('button')
       b.type = 'button'
@@ -250,7 +250,7 @@ export class BattleUI {
     this.menu.setAttribute('aria-label', '대상 선택')
     this.menu.replaceChildren()
 
-    const player = this.game.player
+    const player = this.game.localMember
     const targetAllies =
       action.kind === 'item' ||
       (action.kind === 'skill' && player.skills[action.skillIndex]?.targeting === 'ally')

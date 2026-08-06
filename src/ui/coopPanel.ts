@@ -16,6 +16,11 @@ export class CoopPanel {
   private view: View = 'auth'
   private profile: Profile | null = null
   private busy = false
+  /**
+   * 게스트가 고른 저장 자리. 로비를 다시 그려도 고른 값이 남아야 하고,
+   * 고르지 않았으면 반드시 null이어야 한다 — 이 값이 곧 자동저장의 목적지다
+   */
+  private guestSlot: number | null = null
 
   constructor(
     private hooks: {
@@ -285,6 +290,8 @@ export class CoopPanel {
       this.hooks
         .joinSession(code.value, { userId: me.userId, nickname: me.nickname })
         .then(() => {
+          // 새 모험단이다 — 지난 판의 저장 자리를 물려받지 않는다
+          this.guestSlot = null
           this.view = 'room'
           this.render()
           this.hooks.announce('모험단에 들어왔다. 방장이 출발하기를 기다린다.')
@@ -314,7 +321,7 @@ export class CoopPanel {
       })
     })
 
-    this.body.append(makeBtn, joinForm, out)
+    this.body.append(makeBtn, joinForm, gifts, out)
     makeBtn.focus()
   }
 
@@ -389,6 +396,11 @@ export class CoopPanel {
       none.value = ''
       none.textContent = '저장하지 않는다'
       select.append(none)
+      // 화면에 보이는 것이 곧 실제 설정이게 한다. 예전에는 change에서만 전달해서,
+      // 손대지 않으면 직전 솔로 플레이의 자리가 그대로 남아 "저장하지 않는다"고
+      // 적혀 있는 채로 그 자리를 덮어썼다. 로스터가 바뀌어 이 화면을 다시 그려도
+      // 고른 값은 패널이 기억한다
+      this.hooks.setGuestSlot(this.guestSlot)
       void this.hooks.describeSlots().then((descs) => {
         descs.forEach((d, i) => {
           const o = document.createElement('option')
@@ -396,9 +408,12 @@ export class CoopPanel {
           o.textContent = d
           select.append(o)
         })
+        // 자리 목록이 채워진 뒤에야 고른 값을 되살릴 수 있다
+        select.value = this.guestSlot === null ? '' : String(this.guestSlot)
       })
       select.addEventListener('change', () => {
         const v = select.value === '' ? null : Number(select.value)
+        this.guestSlot = v
         this.hooks.setGuestSlot(v)
         this.hooks.announce(
           v === null ? '이번 모험은 저장하지 않는다.' : `${v + 1}번 자리에 저장하며 간다.`,

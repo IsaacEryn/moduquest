@@ -8,6 +8,8 @@ import type { BattleUI } from './battleUI'
 export class Screens {
   private ui = document.querySelector<HTMLDivElement>('#ui')!
   private dialogueLine: HTMLParagraphElement | null = null
+  /** 대사 넘김 버튼 — 마지막 줄에서는 무엇이 기다리는지 이름을 바꿔 말한다 */
+  private dialogueNext: HTMLButtonElement | null = null
   private dialoguePortrait: HTMLDivElement | null = null
 
   /** 타이틀에 "이어서 하기"를 보일지 — 저장된 기록이 있을 때만 */
@@ -53,6 +55,9 @@ export class Screens {
         speaker.className = 'speaker'
         speaker.textContent = e.line.speaker
         this.dialogueLine.append(speaker, e.line.text)
+        // 마지막 줄인지는 이벤트가 이미 알고 있다. 끝까지 "다음"이라고만 하면
+        // 다음 줄이 있는 줄 알고 눌렀다가 화면이 통째로 바뀐다 — 예측 가능성의 문제다
+        if (this.dialogueNext) this.dialogueNext.textContent = e.last ? '계속하기' : '다음'
         this.updatePortrait(e.line.speaker)
       }
     })
@@ -67,6 +72,7 @@ export class Screens {
     this.onAreaChanged = null
     this.onSeatsChanged = null
     this.dialogueLine = null
+    this.dialogueNext = null
     this.dialoguePortrait = null
     this.ui.replaceChildren()
   }
@@ -165,6 +171,7 @@ export class Screens {
     s.append(wrap, next)
     this.ui.append(s)
     this.dialogueLine = line
+    this.dialogueNext = next
     this.dialoguePortrait = portrait
     next.focus()
   }
@@ -194,6 +201,11 @@ export class Screens {
     s.className = 'panel'
     s.id = 'field-region'
     s.tabIndex = 0
+    // role=application은 값을 치르고 얻는 것이다. 브라우즈 모드가 방향키를 가로채면
+    // 이동이 아예 막히므로 붙였지만, 대신 이 영역 안에서 헤딩 이동·요소 목록 같은
+    // 표준 탐색이 함께 막힌다(마을·상태·가방 버튼까지). 지금은 이동을 지키는 쪽을
+    // 골랐고, 좁힐 수 있는지는 NVDA·센스리더 실기 확인이 끝나야 판단할 수 있다 —
+    // 코드만 보고 떼면 방향키를 잃는 사용자가 생긴다.
     s.setAttribute('role', 'application')
     s.setAttribute(
       'aria-label',
