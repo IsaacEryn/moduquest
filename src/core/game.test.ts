@@ -653,3 +653,120 @@ describe('둘러보기는 현황판과 같은 수를 말한다', () => {
     }
   })
 })
+
+/**
+ * 타이틀로 나갔다가 새로 시작하면 정말로 새로 시작해야 한다.
+ *
+ * Game은 화면이 살아 있는 동안 하나뿐인 객체다. 그래서 "새 모험"이 진행도를 지우지
+ * 않으면, 저장을 다 지우고 새로 시작해도 지난 판의 레벨·장비·지갑이 그대로 따라온다.
+ * 지운 사람은 지웠다고 믿기 때문에 이 어긋남은 조용히 지나간다.
+ */
+describe('새로 시작하면 지난 판이 따라오지 않는다', () => {
+  /** 한참 걸어 온 상태 — 이어서 하기가 지나는 길 그대로 만든다 */
+  function playedAWhile() {
+    const { game, events } = makeGame()
+    game.start()
+    skipDialogue(game)
+    const snap = game.snapshot()
+    game.restore({
+      ...snap,
+      xp: 200,
+      gold: 500,
+      materials: 30,
+      inventory: [{ item: 'potion_small', count: 3 }],
+      kills: [{ monster: 'slime', count: 5 }],
+      party: snap.party.map((p, i) =>
+        i === 0 ? { ...p, equipment: { weapon: 'wood_sword' } } : p,
+      ),
+      upgrades: [{ job: snap.party[0].job, stat: 'hp', level: 2 }],
+      clearedStages: ['stage1'],
+      seenDialogues: ['intro'],
+    })
+    skipDialogue(game)
+    return { game, events }
+  }
+
+  it('한참 걸어 온 상태가 실제로 만들어진다', () => {
+    const { game } = playedAWhile()
+    expect(game.partyLevel).toBeGreaterThan(1)
+    expect(game.currentGold).toBe(500)
+    expect(game.equipmentOf(game.party[0].id).weapon).toBe('wood_sword')
+  })
+
+  it('레벨·지갑·가방·장비·강화가 전부 처음으로 돌아간다', () => {
+    const { game } = playedAWhile()
+    const grownId = game.party[0].id
+
+    game.returnToTitle()
+    game.start()
+    skipDialogue(game)
+
+    expect(game.currentXp).toBe(0)
+    expect(game.partyLevel).toBe(1)
+    expect(game.currentGold).toBe(0)
+    expect(game.currentMaterials).toBe(0)
+    expect(game.inventoryList).toEqual([])
+    expect(game.equipmentOf(grownId)).toEqual({})
+    expect(game.upgradeLevelOf(grownId, 'hp')).toBe(0)
+  })
+
+  it('처치 수와 클리어 기록, 본 대사도 함께 지워진다', () => {
+    const { game } = playedAWhile()
+    game.returnToTitle()
+    game.start()
+    skipDialogue(game)
+    const snap = game.snapshot()
+    expect(game.clearedStageIds).toEqual([])
+    expect(snap.kills).toEqual([]) // 드랍 순환이 지난 판에서 이어지면 안 된다
+    expect(snap.seenDialogues).toEqual([])
+  })
+
+  it('타이틀을 거치지 않고 곧장 새로 시작해도 마찬가지다', () => {
+    const { game } = playedAWhile()
+    game.start() // 함께 하기의 출발 조건이 지나는 길
+    skipDialogue(game)
+    expect(game.currentGold).toBe(0)
+    expect(game.partyLevel).toBe(1)
+  })
+
+  it('스테이지를 골라 들어가는 것은 지우지 않는다 — 그건 이어서 가는 길이다', () => {
+    const { game } = playedAWhile()
+    const gold = game.currentGold
+    const weapon = game.equipmentOf(game.party[0].id).weapon
+    game.startStage(1)
+    skipDialogue(game)
+    expect(game.currentGold).toBe(gold)
+    expect(game.equipmentOf(game.party[0].id).weapon).toBe(weapon)
+  })
+
+  it('지도 순환은 지우지 않는다 — 다시 시작하면 다른 지도여야 한다', () => {
+    // 변형이 둘인 스테이지로 확인한다. 순환 자리까지 지워 버리면 새 판마다
+    // 같은 지도를 걷게 되고, "무작위가 아니라 순서다"의 순서가 사라진다
+    const { game } = makeGame()
+    game.startStage(1)
+    skipDialogue(game)
+    const first = game.snapshot().variants.find((v) => v.stage === game.stage.id)?.variant
+
+    game.returnToTitle()
+    game.start()
+    skipDialogue(game)
+    game.startStage(1)
+    skipDialogue(game)
+    const second = game.snapshot().variants.find((v) => v.stage === game.stage.id)?.variant
+
+    expect(game.stage.variantCount).toBeGreaterThan(1)
+    expect(second).not.toBe(first)
+  })
+
+  it('이어서 하기는 여전히 기록을 그대로 되살린다', () => {
+    const { game } = playedAWhile()
+    const saved = game.snapshot()
+    game.returnToTitle()
+    game.start() // 새로 시작해 전부 지운 뒤
+    skipDialogue(game)
+    expect(game.currentGold).toBe(0)
+    game.restore(saved) // 다시 불러오면 돌아와야 한다
+    expect(game.currentGold).toBe(500)
+    expect(game.partyLevel).toBeGreaterThan(1)
+  })
+})

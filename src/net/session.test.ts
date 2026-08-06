@@ -378,3 +378,46 @@ describe('함께 하기 — 뒷정리', () => {
     expect(h.bus.listenerCount).toBeLessThan(before)
   })
 })
+
+/**
+ * 같은 결함이 함께 하기에서는 다른 얼굴로 나타났다. 방장의 Game은 화면이 살아 있는
+ * 동안 하나뿐이라, 혼자 한 판 걷고 나서 모험단을 열면 방장만 지난 판의 레벨과 지갑을
+ * 안고 출발했다. 동료는 처음부터라 첫 걸음부터 다른 세계였다.
+ *
+ * 체크섬이 잡아 주기는 하지만, 그건 어긋난 뒤에 되맞추는 일이다. 애초에 어긋나지
+ * 않는 편이 낫다.
+ */
+describe('함께 하기 — 새 모험은 모두에게 처음이다', () => {
+  it('방장이 혼자 걷던 판이 있어도 전원이 같은 지점에서 출발한다', async () => {
+    const wire = new FakeWire()
+    const h = makeSide()
+    const g = makeSide()
+
+    // 방장은 혼자 한참 걷다가 타이틀로 나온 참이다 — 모험단은 타이틀에서만 연다
+    h.game.start()
+    const snap = h.game.snapshot()
+    h.game.restore({ ...snap, xp: 200, gold: 500, materials: 30 })
+    expect(h.game.partyLevel).toBeGreaterThan(1)
+    h.game.returnToTitle()
+
+    const host = await PartySession.host(
+      h.game, DATA, h.bus, h.hooks,
+      { userId: 'host-1', nickname: '방장' }, wire.open,
+    )
+    const guest = await PartySession.join(
+      host.code, g.game, DATA, g.bus, g.hooks,
+      { userId: 'guest-1', nickname: '동료' }, wire.open,
+    )
+    host.startNew(['warrior', 'healer', 'archer'])
+
+    expect(h.game.partyLevel).toBe(1)
+    expect(h.game.currentGold).toBe(0)
+    expect(h.game.partyLevel).toBe(g.game.partyLevel)
+    expect(h.game.currentGold).toBe(g.game.currentGold)
+    // 세계가 실제로 같은지 — 어긋남 감지가 쓰는 바로 그 잣대로 본다
+    expect(worldChecksum(h.game.snapshot(), h.game.liveFingerprint())).toBe(
+      worldChecksum(g.game.snapshot(), g.game.liveFingerprint()),
+    )
+    expect(guest.started).toBe(true)
+  })
+})

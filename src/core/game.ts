@@ -1109,7 +1109,30 @@ export class Game {
 
   // --- 흐름 ---
 
+  /**
+   * 새 모험. 첫 스테이지로 가기 전에 지난 판의 자취를 남김없이 지운다.
+   *
+   * Game은 화면이 살아 있는 동안 하나뿐인 객체다. 예전에는 여기서 startStage(0)만
+   * 불렀는데, 그러면 타이틀로 나갔다가 저장을 다 지우고 새로 시작해도 지난 판의
+   * 레벨·장비·지갑·처치 수가 그대로 따라왔다. 지운 사람은 지웠다고 믿기 때문에
+   * 그 어긋남은 조용히 지나간다.
+   *
+   * 지우는 것은 "새 모험"이라는 뜻이 있는 이 길뿐이다. 스테이지를 골라 들어가는
+   * startStage는 이어서 가는 길이라 장비와 지갑을 그대로 둔다.
+   */
   start(): void {
+    this.xp = 0
+    this.gold = 0
+    this.materials = 0
+    this.inventory.clear()
+    this.equipment.clear()
+    this.upgrades.clear()
+    this.kills.clear()
+    this.clearedStages.clear()
+    this.seenDialogues.clear()
+    // variantOf는 일부러 남긴다. 그것은 진행도가 아니라 지도 순환의 자리 표시라서,
+    // 지우면 "다시 시작하면 다른 지도가 나온다"는 규칙이 무너지고 새 판마다 같은
+    // 지도를 걷게 된다. 같은 기록을 불러왔을 때 같은 지도인 것은 복원이 따로 지킨다.
     this.startStage(0)
   }
 
