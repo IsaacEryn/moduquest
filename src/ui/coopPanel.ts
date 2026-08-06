@@ -9,6 +9,7 @@ import {
   NICKNAME_MAX,
   type Profile,
 } from '../net/auth'
+import { captchaEnabled, mountCaptcha, type CaptchaWidget } from '../net/captcha'
 import type { PartySession } from '../net/session'
 import { hasSupabaseConfig } from '../net/supabaseClient'
 
@@ -26,6 +27,8 @@ export class CoopPanel {
   private view: View = 'auth'
   private profile: Profile | null = null
   private busy = false
+  /** 지금 화면에 떠 있는 자동 가입 방지 상자 */
+  private captcha: CaptchaWidget | null = null
   /**
    * 게스트가 고른 저장 자리. 로비를 다시 그려도 고른 값이 남아야 하고,
    * 고르지 않았으면 반드시 null이어야 한다 — 이 값이 곧 자동저장의 목적지다
@@ -122,6 +125,8 @@ export class CoopPanel {
   private afterClose(): void {
     if (this.closed) return
     this.closed = true
+    this.captcha?.destroy()
+    this.captcha = null
     if (this.prevFocus instanceof HTMLElement && this.prevFocus.isConnected) {
       this.prevFocus.focus()
     }
@@ -170,7 +175,7 @@ export class CoopPanel {
       this.busy = true
       resend.disabled = true
       status.textContent = ''
-      resendConfirmation(this.pendingEmail)
+      resendConfirmation(this.pendingEmail, this.captcha?.token() ?? undefined)
         .then(() => {
           status.textContent = '확인 메일을 다시 보냈다.'
           this.hooks.announce(status.textContent)
@@ -193,7 +198,12 @@ export class CoopPanel {
       this.render()
     })
 
-    this.body.append(intro, note, status, toLogin, resend)
+    const row = document.createElement('div')
+    row.className = 'coop-row'
+    resend.className = 'alt-action'
+    row.append(toLogin, resend)
+
+    this.body.append(intro, note, status, row)
     toLogin.focus()
   }
 
@@ -256,6 +266,18 @@ export class CoopPanel {
       nick = this.field(form, 'coop-nick', `닉네임 (${NICKNAME_MAX}자까지)`, 'text', 'nickname')
       nick.maxLength = NICKNAME_MAX
     }
+    // 자동 가입 방지. 열쇠가 없으면 상자 자체가 안 생기고 가입은 그대로 된다
+    const captchaBox = document.createElement('div')
+    captchaBox.className = 'captcha-box'
+    form.append(captchaBox)
+    this.captcha?.destroy()
+    this.captcha = null
+    if (captchaEnabled()) {
+      void mountCaptcha(captchaBox).then((w) => {
+        this.captcha = w
+      })
+    }
+
     const setError = this.errorLine(form)
 
     // 지금 하려는 일과 반대편으로 가는 길을 나란히 둔다.
@@ -282,6 +304,24 @@ export class CoopPanel {
     actions.append(submit, toggle)
     form.append(actions)
 
+    if (signup) {
+      // 무엇에 동의하는지는 누르기 전에 읽을 수 있어야 한다
+      const agree = document.createElement('p')
+      agree.className = 'agree-note'
+      const terms = document.createElement('a')
+      terms.href = 'terms.html'
+      terms.target = '_blank'
+      terms.rel = 'noopener'
+      terms.textContent = '이용약관'
+      const privacy = document.createElement('a')
+      privacy.href = 'privacy.html'
+      privacy.target = '_blank'
+      privacy.rel = 'noopener'
+      privacy.textContent = '개인정보처리방침'
+      agree.append('가입하면 ', terms, '과 ', privacy, '에 동의하는 것으로 봅니다. 새 창에서 열립니다.')
+      form.append(agree)
+    }
+
     const finish = (profile: Profile) => {
       this.profile = profile
       this.hooks.announce(`${profile.nickname}로 로그인했다.`)
@@ -306,8 +346,9 @@ export class CoopPanel {
       setError('')
 
       const address = email.value.trim()
+      const ticket = this.captcha?.token() ?? undefined
       const task = signup
-        ? signUp(address, pw.value, nickname).then(async (result) => {
+        ? signUp(address, pw.value, nickname, ticket).then(async (result) => {
             if (result.kind === 'confirm') {
               this.pendingEmail = result.email
               this.view = 'confirm'
@@ -317,7 +358,7 @@ export class CoopPanel {
             }
             finish(result.profile)
           })
-        : signIn(address, pw.value).then(async (profile) => {
+        : signIn(address, pw.value, ticket).then(async (profile) => {
             // 트리거가 없던 시절의 계정이면 이름이 비어 있다 — 여기서 채운다
             if (!profile.nickname) {
               const fallback = '모험가'
@@ -332,6 +373,8 @@ export class CoopPanel {
         .finally(() => {
           this.busy = false
           submit.disabled = false
+          // 표는 한 번 쓰면 버려진다 — 다시 누를 때를 위해 새로 받아 둔다
+          this.captcha?.reset()
         })
     })
 
@@ -408,7 +451,7 @@ export class CoopPanel {
 
     const out = document.createElement('button')
     out.type = 'button'
-    out.className = 'link-like'
+    out.className = 'alt-action'
     out.textContent = '로그아웃'
     out.addEventListener('click', () => {
       void signOut().then(() => {
@@ -419,7 +462,17 @@ export class CoopPanel {
       })
     })
 
-    this.body.append(makeBtn, joinForm, gifts, out)
+    // 만들기와 참가하기는 서로 다른 길이라 사이에 선을 긋는다.
+    // 선물함·로그아웃은 모험과 무관한 일이라 맨 아래 한 줄로 묶는다
+    const divider = document.createElement('p')
+    divider.className = 'coop-divider'
+    divider.textContent = '또는'
+
+    const footer = document.createElement('div')
+    footer.className = 'coop-row'
+    footer.append(gifts, out)
+
+    this.body.append(makeBtn, divider, joinForm, footer)
     makeBtn.focus()
   }
 
@@ -460,7 +513,11 @@ export class CoopPanel {
       roster.append(li)
     }
 
-    this.body.append(codeLine, copy, roster)
+    // 코드 줄과 복사 버튼은 한 몸이라 붙여 둔다
+    const codeRow = document.createElement('div')
+    codeRow.className = 'coop-code-row'
+    codeRow.append(codeLine, copy)
+    this.body.append(codeRow, roster)
 
     if (session.isHost) {
       const startNew = document.createElement('button')
@@ -475,7 +532,11 @@ export class CoopPanel {
       note.className = 'intro'
       note.textContent =
         '혼자여도 출발할 수 있다. 동료는 모험 중에도 초대 코드로 합류한다.'
-      this.body.append(startNew, startCont, note)
+      const startRow = document.createElement('div')
+      startRow.className = 'coop-row'
+      startCont.className = 'alt-action'
+      startRow.append(startNew, startCont)
+      this.body.append(startRow, note)
       startNew.focus()
     } else {
       const wait = document.createElement('p')
@@ -527,7 +588,11 @@ export class CoopPanel {
         this.view = 'home'
         this.render()
       })
-      this.body.append(wait, row, leaveBtn)
+      const leaveRow = document.createElement('div')
+      leaveRow.className = 'coop-row'
+      leaveBtn.className = 'alt-action'
+      leaveRow.append(leaveBtn)
+      this.body.append(wait, row, leaveRow)
       leaveBtn.focus()
     }
   }

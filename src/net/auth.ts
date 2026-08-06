@@ -40,6 +40,9 @@ function friendly(message: string): string {
   if (m.includes('email rate limit') || m.includes('over_email_send_rate_limit')) {
     return '확인 메일 발송이 한도를 넘었다. 잠시 뒤에 다시 시도하자.'
   }
+  if (m.includes('captcha')) {
+    return '자동 가입 방지 확인에 실패했다. 잠시 뒤에 다시 시도하자.'
+  }
   if (m.includes('rate limit') || m.includes('too many')) return '시도가 너무 잦다. 잠시 뒤에 다시.'
   if (m.includes('row-level security') || m.includes('42501')) {
     return '프로필을 만들 권한이 없다. 서버 설정을 확인해야 한다.'
@@ -61,6 +64,7 @@ export async function signUp(
   email: string,
   password: string,
   nickname: string,
+  captchaToken?: string,
 ): Promise<SignUpResult> {
   const check = checkNickname(nickname)
   if (!check.ok) throw new Error(check.reason ?? '쓸 수 없는 닉네임이다.')
@@ -72,6 +76,7 @@ export async function signUp(
     options: {
       data: { nickname: nickname.trim() },
       emailRedirectTo: redirectTarget(),
+      captchaToken,
     },
   })
   if (error) throw new Error(friendly(error.message))
@@ -88,18 +93,26 @@ export async function signUp(
 }
 
 /** 확인 메일 다시 보내기 — 첫 메일이 스팸함에 갇히는 일은 흔하다 */
-export async function resendConfirmation(email: string): Promise<void> {
+export async function resendConfirmation(email: string, captchaToken?: string): Promise<void> {
   const { error } = await supabase().auth.resend({
     type: 'signup',
     email,
-    options: { emailRedirectTo: redirectTarget() },
+    options: { emailRedirectTo: redirectTarget(), captchaToken },
   })
   if (error) throw new Error(friendly(error.message))
 }
 
-export async function signIn(email: string, password: string): Promise<Profile> {
+export async function signIn(
+  email: string,
+  password: string,
+  captchaToken?: string,
+): Promise<Profile> {
   const sb = supabase()
-  const { data, error } = await sb.auth.signInWithPassword({ email, password })
+  const { data, error } = await sb.auth.signInWithPassword({
+    email,
+    password,
+    options: { captchaToken },
+  })
   if (error) throw new Error(friendly(error.message))
   const profile = await currentProfile()
   if (profile) return profile

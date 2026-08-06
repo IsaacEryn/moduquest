@@ -1,0 +1,147 @@
+/*
+  약관·방침 문서용 스타일.
+  게임과 같은 색을 쓰되 읽기가 우선이라 글줄 길이를 좁히고 여백을 넉넉히 뒀다.
+  스크립트가 없는 문서라 CSP도 게임보다 좁게 걸어 둔다.
+*/
+
+:root {
+  --bg: #101418;
+  --panel: #1c232b;
+  --panel-border: #3a4653;
+  --text: #f2f5f7;
+  --text-dim: #b7c2cc;
+  --accent: #7fd08a;
+  --notice: #ffd166;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 2rem 1.25rem 4rem;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Pretendard', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  line-height: 1.75;
+  /* 글줄이 너무 길면 다음 줄을 찾기 어렵다 */
+  font-size: 1rem;
+}
+
+main {
+  max-width: 44rem;
+  margin: 0 auto;
+}
+
+a {
+  color: var(--accent);
+}
+
+a:focus-visible,
+:focus-visible {
+  outline: 3px solid var(--notice);
+  outline-offset: 2px;
+}
+
+h1 {
+  font-size: 1.6rem;
+  margin: 0 0 0.25rem;
+}
+
+.updated {
+  margin: 0 0 1.5rem;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin: 2.25rem 0 0.5rem;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--panel-border);
+}
+
+h3 {
+  font-size: 1rem;
+  margin: 1.25rem 0 0.35rem;
+}
+
+p,
+li {
+  margin: 0 0 0.6rem;
+}
+
+ul,
+ol {
+  padding-left: 1.3rem;
+}
+
+/* 시험 운영 안내 — 가장 먼저 읽혀야 하는 내용이라 눈에 띄게 두되,
+   색만으로 말하지 않도록 제목 글자를 함께 넣는다 */
+.notice {
+  margin: 0 0 2rem;
+  padding: 1rem 1.25rem;
+  background: var(--panel);
+  border: 1px solid var(--notice);
+  border-left-width: 4px;
+  border-radius: 6px;
+}
+
+.notice h2 {
+  margin: 0 0 0.5rem;
+  border: 0;
+  padding: 0;
+  font-size: 1.05rem;
+  color: var(--notice);
+}
+
+.notice p:last-child {
+  margin-bottom: 0;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.5rem 0 1rem;
+  font-size: 0.95rem;
+}
+
+caption {
+  text-align: left;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  padding-bottom: 0.4rem;
+}
+
+th,
+td {
+  border: 1px solid var(--panel-border);
+  padding: 0.5rem 0.7rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--panel);
+  font-weight: 700;
+}
+
+/* 좁은 화면에서 표가 넘치면 표만 가로로 흐르게 한다 — 문서 전체가 밀리면 안 된다 */
+.table-scroll {
+  overflow-x: auto;
+}
+
+footer {
+  margin-top: 3rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--panel-border);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.back {
+  display: inline-block;
+  margin-bottom: 1.5rem;
+}

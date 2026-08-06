@@ -4,12 +4,13 @@
     <meta charset="UTF-8" />
     <!--
       바깥으로 나가는 통로를 전부 막아 둔다. 그림과 소리를 코드로 만들기 때문에
-      외부에서 받아올 것이 없고, 나중에 계정 저장이 붙을 자리만 connect-src로 열어 둔다.
+      외부에서 받아올 것이 없다. 계정·실시간 채널이 쓰는 주소와, 자동 가입 방지
+      상자를 띄우는 Cloudflare만 예외로 열어 둔다 — 그 둘은 함께 하기를 눌러야 불려 온다.
       파서가 이 지점을 지나야 적용되므로 charset 바로 다음에 있어야 한다.
     -->
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src 'none'"
+      content="default-src 'none'; script-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://challenges.cloudflare.com; worker-src 'self' blob:; base-uri 'none'; form-action 'none'; object-src 'none'; frame-src https://challenges.cloudflare.com"
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>모두의 원정대</title>

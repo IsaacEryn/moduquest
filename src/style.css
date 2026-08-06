@@ -977,15 +977,6 @@ details > summary::marker {
   min-height: 1.2em;
 }
 
-.coop .link-like {
-  background: none;
-  border: none;
-  padding: var(--sp-2) 0;
-  color: var(--text-dim);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
 /*
   가입과 로그인은 같은 무게의 갈림길이라 둘 다 버튼이다.
   폭을 반씩 나눠 가져 글자 수가 달라도 줄이 흐트러지지 않는다.
@@ -1167,4 +1158,88 @@ details > summary::marker {
   }
   .item-grid { flex: 1 1 60%; max-height: 20rem; }
   .item-detail { flex: 1 1 40%; }
+}
+
+/* 자동 가입 방지 상자 — 열쇠가 없으면 아예 안 그려지므로 빈 자리도 남지 않는다 */
+.coop .captcha-box:not(:empty) {
+  margin-top: var(--sp-4);
+}
+
+/* 무엇에 동의하는지 알리는 줄. 버튼 아래에 조용히 둔다 */
+.coop .agree-note {
+  margin: var(--sp-4) 0 0;
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+}
+
+.coop .agree-note a {
+  color: var(--accent);
+}
+
+/*
+  함께 하기 창의 버튼 배치.
+  예전에는 버튼을 그냥 나란히 붙여 놔서 어떤 것은 글자 폭만큼, 어떤 것은
+  밑줄 친 글씨로 떠 있어 줄이 어긋났다. 홀로 서는 버튼은 가로를 채우고,
+  짝을 이루는 버튼은 폭을 반씩 나눠 갖게 한다.
+*/
+.coop .coop-body > button {
+  display: block;
+  width: 100%;
+}
+
+.coop .coop-row {
+  display: flex;
+  gap: var(--sp-3);
+  margin-top: var(--sp-4);
+}
+
+.coop .coop-row button {
+  flex: 1;
+  /* 줄 안에서는 위 규칙(가로 채우기)이 아니라 균등 분할을 따른다 */
+  width: auto;
+}
+
+/* 초대 코드와 복사 버튼은 한 몸 */
+.coop .coop-code-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--sp-4);
+}
+
+.coop .coop-code-row .coop-code {
+  margin: 0;
+  flex: 1;
+}
+
+.coop .coop-code-row button {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+/* 참가하기 버튼도 입력칸 폭에 맞춘다 */
+.coop form > button[type='submit'] {
+  display: block;
+  width: 100%;
+  margin-top: var(--sp-3);
+}
+
+/* "또는" — 두 갈래를 가르는 선. 글자를 가운데 두고 양옆으로 선을 뺀다 */
+.coop .coop-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: var(--sp-5) 0 var(--sp-4);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+.coop .coop-divider::before,
+.coop .coop-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--line);
 }
