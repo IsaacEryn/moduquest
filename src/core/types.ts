@@ -162,6 +162,18 @@ export interface ProgressionData {
   stageEntryXp: number[]
   /** 직업별 레벨당 성장 */
   growth: Record<string, { hp: number; mp: number; atk: number; def: number; spd: number }>
+  /**
+   * 승리했을 때 돌아오는 최대 체력의 비율. 쓰러졌던 동료도 이만큼 안고 일어난다.
+   * 밸런스 수치는 코드가 아니라 데이터가 쥔다는 원칙에 이것도 포함된다.
+   */
+  victoryHealRatio: number
+  /**
+   * NPC·몹 턴 사이 간격(ms). 낭독이 따라올 시간을 주는 값이라 밸런스이자 접근성이다 —
+   * 여기 있어야 화면을 고치지 않고도 조절할 수 있다.
+   */
+  turnDelayMs: number
+  /** 가방 한 칸에 담기는 개수 상한. 저장 검증도 같은 수를 읽는다 */
+  itemStackMax: number
 }
 
 export interface Pos {

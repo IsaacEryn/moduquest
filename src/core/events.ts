@@ -87,8 +87,20 @@ export type Listener = (e: GameEvent) => void
 export class EventBus {
   private listeners: Listener[] = []
 
-  on(fn: Listener): void {
+  /** 구독한다. 돌려받는 함수를 부르면 구독이 끊긴다 — 수명이 있는 구독자를 위해 */
+  on(fn: Listener): () => void {
     this.listeners.push(fn)
+    return () => this.off(fn)
+  }
+
+  off(fn: Listener): void {
+    const i = this.listeners.indexOf(fn)
+    if (i >= 0) this.listeners.splice(i, 1)
+  }
+
+  /** 구독자 수 — 수명이 있는 구독자가 실제로 반납했는지 시험이 본다 */
+  get listenerCount(): number {
+    return this.listeners.length
   }
 
   emit(e: GameEvent): void {

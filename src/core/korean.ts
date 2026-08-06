@@ -15,6 +15,29 @@ export function hasFinalConsonant(word: string): boolean {
   return code >= 0xac00 && code <= 0xd7a3 && (code - 0xac00) % 28 > 0
 }
 
+/**
+ * 우리말 수사는 홀로 설 때와 단위 앞에 설 때가 다르다 — "넷"이지만 "네 가지"다.
+ * 열까지만 적고 그 밖은 숫자 그대로 읽는 편이 덜 어색하다.
+ */
+const NATIVE = ['영', '하나', '둘', '셋', '넷', '다섯', '여섯', '일곱', '여덟', '아홉', '열']
+/** 단위 앞에 서는 꼴 — 하나→한, 셋→세, 넷→네 */
+const ATTR = ['영', '한', '두', '세', '네', '다섯', '여섯', '일곱', '여덟', '아홉', '열']
+
+/** 홀로 서는 수 — "물약은 넷이다" */
+export function countWord(n: number): string {
+  return NATIVE[n] ?? String(n)
+}
+
+/** 단위 앞에 서는 수 — "네 가지", "열 개" */
+export function attrWord(n: number): string {
+  return ATTR[n] ?? String(n)
+}
+
+/** 차례를 세는 말 — "첫 번째", "세 번째". 첫만 예외다 */
+export function ordinalWord(n: number): string {
+  return n === 1 ? '첫' : attrWord(n)
+}
+
 /** 을/를, 이/가, 은/는처럼 받침만 보면 되는 조사 */
 export function josa(word: string, withFinal: string, withoutFinal: string): string {
   return `${word}${hasFinalConsonant(word) ? withFinal : withoutFinal}`

@@ -57,3 +57,12 @@ export function fnv1a(text: string): number {
 export function snapshotChecksum(s: SaveSnapshot): number {
   return fnv1a(canonicalSnapshot(s))
 }
+
+/**
+ * 세계 전체의 체크섬. 저장 스냅샷은 진행도만 담으므로 전투·길잡이·자리 조작자·
+ * 대사 위치는 빠져 있다. 그것들까지 견줘야 "같은 세계를 보고 있다"가 참이 된다 —
+ * live는 Game.liveFingerprint()가 만든다.
+ */
+export function worldChecksum(s: SaveSnapshot, live: string): number {
+  return fnv1a(`${canonicalSnapshot(s)}##${live}`)
+}

@@ -68,8 +68,9 @@ export interface SeatsPayload {
  * 전원이 같은 조건에서 같은 명령을 재생하면 같은 세계가 된다.
  */
 export type SeedPayload =
-  | { v: 1; kind: 'new'; jobs: string[]; traitId: string; layoutKey: number }
-  | { v: 1; kind: 'restore'; snapshot: unknown } // 스냅샷은 sanitizeSnapshot이 최종 판정
+  | { v: 1; kind: 'new'; jobs: string[]; traitId: string; layoutKey: number; seats: SeatInfo[] }
+  // 스냅샷은 sanitizeSnapshot이 최종 판정
+  | { v: 1; kind: 'restore'; snapshot: unknown; seats: SeatInfo[] }
 
 /** 합류·재접속·어긋남 복구 — 순간의 세계 전체 */
 export interface SyncPayload {
@@ -91,6 +92,24 @@ export interface ChecksumPayload {
   v: 1
   seq: number
   hash: number
+}
+
+// --- 발신자 표식 ---
+
+/**
+ * 모든 브로드캐스트는 보낸 사람의 userId를 달고 다닌다. 받는 쪽은 이 값이
+ * 모험단 명부에 있는 사람인지, 그 사건을 낼 자격이 있는 자리인지를 본다.
+ *
+ * **이것은 서명이 아니다.** Supabase Broadcast는 발신자를 서버가 찍어 주지 않으므로,
+ * 같은 채널에 들어온 사람은 남의 userId를 적을 수 있다. 그래서 이 검사가 막는 것은
+ * 명부 밖 사람(자리를 못 받은 참가자, 이미 나간 사람)과 자리 착각이지, 초대한 사람의
+ * 악의는 아니다. 신뢰 경계는 "코드를 알려준 사람들"이고, 그 바깥은 채널 인가(RLS)가 맡는다.
+ * 진짜 자리별 인증은 서버 권위(엣지 함수 중계)가 생겨야 성립한다.
+ */
+export function senderOf(v: unknown): string | null {
+  if (!v || typeof v !== 'object') return null
+  const from = (v as { from?: unknown }).from
+  return typeof from === 'string' && from.length > 0 && from.length <= 64 ? from : null
 }
 
 // --- 런타임 타입 가드 — 원격에서 온 것은 전부 여기를 지나야 한다 ---
@@ -210,6 +229,14 @@ function isSeatInfo(v: unknown): v is SeatInfo {
   )
 }
 
+/** 자리 목록의 상식 — 한 자리에 한 사람, 한 사람이 두 자리에 앉지 않는다 */
+function seatsAreDistinct(seats: SeatInfo[]): boolean {
+  return (
+    new Set(seats.map((s) => s.seat)).size === seats.length &&
+    new Set(seats.map((s) => s.userId)).size === seats.length
+  )
+}
+
 export function isSeatsPayload(v: unknown): v is SeatsPayload {
   if (!v || typeof v !== 'object') return false
   const p = v as Record<string, unknown>
@@ -218,6 +245,7 @@ export function isSeatsPayload(v: unknown): v is SeatsPayload {
     Array.isArray(p.seats) &&
     p.seats.length <= 3 &&
     p.seats.every(isSeatInfo) &&
+    seatsAreDistinct(p.seats) &&
     isSeat(p.moveTokenSeat) &&
     typeof p.started === 'boolean'
   )
@@ -227,6 +255,10 @@ export function isSeedPayload(v: unknown): v is SeedPayload {
   if (!v || typeof v !== 'object') return false
   const p = v as Record<string, unknown>
   if (p.v !== 1) return false
+  // 자리 배치를 출발 조건에 함께 싣는다 — 각 화면이 저마다의 명부로 파티를 만들면
+  // 사람 자리와 AI 자리가 갈려 첫 전투부터 다른 세계가 된다
+  if (!Array.isArray(p.seats) || p.seats.length > 3) return false
+  if (!p.seats.every(isSeatInfo) || !seatsAreDistinct(p.seats)) return false
   if (p.kind === 'new') {
     return (
       Array.isArray(p.jobs) &&
@@ -251,6 +283,7 @@ export function isSyncPayload(v: unknown): v is SyncPayload {
     Array.isArray(p.seats) &&
     p.seats.length <= 3 &&
     p.seats.every(isSeatInfo) &&
+    seatsAreDistinct(p.seats) &&
     isSeat(p.moveTokenSeat) &&
     isInt(p.layoutKey, 0, 99)
   )
@@ -268,13 +301,25 @@ export function isChecksum(v: unknown): v is ChecksumPayload {
   return c.v === 1 && isInt(c.seq, 0, Number.MAX_SAFE_INTEGER) && isInt(c.hash, 0, 0xffffffff)
 }
 
-/** 초대 코드 — 헷갈리는 글자(0/O, 1/I/L)를 뺀 32자, 8자리(40비트) */
+/** 초대 코드 — 헷갈리는 글자(0/O, 1/I/L)를 뺀 31자, 8자리(약 39.6비트) */
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
 
+/**
+ * 나머지 연산만 쓰면 256이 31로 나누어떨어지지 않아 앞 여덟 글자가 12.5% 더 자주
+ * 나온다. 남는 구간(248 이상)의 바이트는 버리고 다시 뽑는다 — 코드의 엔트로피를
+ * 광고한 만큼 실제로 갖게 하는 값싼 방법이다.
+ */
 export function makePartyCode(randomValues: (len: number) => Uint8Array): string {
-  const bytes = randomValues(8)
+  const n = CODE_ALPHABET.length
+  const limit = 256 - (256 % n)
   let code = ''
-  for (let i = 0; i < 8; i++) code += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length]
+  while (code.length < 8) {
+    for (const b of randomValues(8)) {
+      if (b >= limit) continue
+      code += CODE_ALPHABET[b % n]
+      if (code.length === 8) break
+    }
+  }
   return code
 }
 

@@ -127,6 +127,46 @@ describe('시퀀서 — 모두가 같은 순서를 걷는다', () => {
   })
 })
 
+describe('시퀀서 — 적용이 던져도 순서는 멈추지 않는다', () => {
+  function guestWithFailure(failAt: number) {
+    const applied: number[] = []
+    const failures: number[] = []
+    const guest = new Sequencer({
+      isHost: () => false,
+      mySeat: () => 1,
+      apply: (env) => {
+        if (env.seq === failAt) throw new Error('적용 실패')
+        applied.push(env.seq)
+      },
+      send: () => {},
+      onApplyError: (env) => failures.push(env.seq),
+    })
+    return { guest, applied, failures }
+  }
+
+  it('던진 봉투는 알리고, 다음 봉투는 그대로 적용한다', () => {
+    const { guest, applied, failures } = guestWithFailure(2)
+    for (const seq of [1, 2, 3]) guest.onApply({ v: 1, seq, seat: 0, cmd: MOVE })
+    expect(applied).toEqual([1, 3]) // 2번은 실패했지만 3번은 갇히지 않았다
+    expect(failures).toEqual([2])
+    expect(guest.appliedSeq).toBe(3)
+  })
+
+  it('버퍼에 쥐고 있던 것도 실패 뒤에 이어서 소화한다', () => {
+    const { guest, applied, failures } = guestWithFailure(1)
+    guest.onApply({ v: 1, seq: 2, seat: 0, cmd: MOVE }) // 먼저 온 것
+    guest.onApply({ v: 1, seq: 1, seat: 0, cmd: MOVE }) // 구멍이 메워졌다 — 이게 던진다
+    expect(failures).toEqual([1])
+    expect(applied).toEqual([2])
+  })
+
+  it('먼 미래의 번호는 버퍼에 쌓지 않는다 — 창 밖은 순서가 아니라 잡음이다', () => {
+    const { guest } = guestWithFailure(-1)
+    guest.onApply({ v: 1, seq: 1_000_000, seat: 0, cmd: MOVE })
+    expect(guest.hasGap).toBe(false)
+  })
+})
+
 describe('시퀀서 — 부정한 것은 조용히 버린다', () => {
   it('좌석이 확인되지 않은 발신자의 제안은 버린다', () => {
     const { sequencers, applied } = makeParty()
@@ -173,13 +213,15 @@ describe('시퀀서 — 부정한 것은 조용히 버린다', () => {
 
   it('한 좌석의 폭주는 초당 상한에서 잘린다', () => {
     const { sequencers, applied, advance } = makeParty()
-    for (let i = 0; i < 20; i++) {
+    // 상한은 사람 손이 넘길 수 없는 선에 있다 — 예전의 초당 5건은 방향키를
+    // 누르고 있기만 해도(키 리피트) 정상 조작을 말없이 잘랐다
+    for (let i = 0; i < 50; i++) {
       sequencers[0].onPropose({ v: 1, seat: 1, nonce: `n${i}`, cmd: MOVE }, 1)
     }
-    expect(applied[0]).toHaveLength(5) // 기본 상한 5건
+    expect(applied[0]).toHaveLength(20)
     advance(1100) // 1초가 지나면 다시 받는다
     sequencers[0].onPropose({ v: 1, seat: 1, nonce: 'later', cmd: MOVE }, 1)
-    expect(applied[0]).toHaveLength(6)
+    expect(applied[0]).toHaveLength(21)
   })
 })
 

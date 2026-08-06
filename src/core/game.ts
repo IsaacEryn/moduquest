@@ -40,11 +40,11 @@ export const UPGRADE_STAT_KO: Record<UpgradeStat, string> = {
   spd: '속도',
 }
 
-/** 한 칸에 담기는 개수 상한. 저장 검증도 같은 수를 쓴다 */
-export const ITEM_STACK_MAX = 99
-
-/** NPC·몹 턴 사이 간격(ms). 낭독이 따라올 시간을 준다. */
-const TURN_DELAY = 900
+/**
+ * 예전에는 여기에 숫자가 있었다. 가방 상한·턴 간격·승리 회복 비율은 전부
+ * progression.json으로 옮겼다 — "밸런스 수치는 코드가 아니라 데이터"라는 원칙에
+ * 예외를 두면 그 예외가 저장 검증과 어긋나기 시작한다(실제로 어긋났다).
+ */
 
 /**
  * 턴 진행 타이머의 추상화. 코어는 실행 환경(브라우저·테스트·향후 원격 턴)을
@@ -311,10 +311,20 @@ export class Game {
     return this.traitId
   }
 
+  /**
+   * 사람이 앉은 첫 자리. 솔로에서는 곧 나 자신이다.
+   * 함께 하기에서는 자리가 여럿이므로 "내" 파티원을 원하면 localMember를 쓸 것 —
+   * 이 게터는 언제나 앞자리부터 찾기 때문에 화면마다 같은 사람을 가리킨다.
+   * 아무도 사람이 아닌 순간(자리 조작자가 전부 npc로 넘어간 찰나)에도 던지지 않는다.
+   * 던지면 그 예외가 렌더러와 확정 명령 적용까지 무너뜨린다.
+   */
   get player(): Combatant {
-    const p = this.party.find((c) => c.isPlayer)
-    if (!p) throw new Error('파티에 플레이어가 없다 — party.json을 확인할 것')
-    return p
+    return this.party.find((c) => c.isPlayer) ?? this.party[0]
+  }
+
+  /** 이 화면 앞에 앉은 사람의 파티원 — 행동 메뉴와 걸어 다니는 모습의 기준 */
+  get localMember(): Combatant {
+    return this.party[this.localSeat] ?? this.party[0]
   }
 
   /** 지금 레벨에서 쓸 수 있는 스킬만 */
@@ -601,8 +611,9 @@ export class Game {
       return { ok: false, reason: '상점에 없는 물건이다.' }
     }
     if (this.gold < price) return { ok: false, reason: `동전이 ${price - this.gold}냥 모자라다.` }
-    if ((this.inventory.get(itemId) ?? 0) >= ITEM_STACK_MAX) {
-      return { ok: false, reason: `가방에 ${ITEM_STACK_MAX}개까지만 넣을 수 있다.` }
+    const stackMax = this.data.progression.itemStackMax
+    if ((this.inventory.get(itemId) ?? 0) >= stackMax) {
+      return { ok: false, reason: `가방에 ${stackMax}개까지만 넣을 수 있다.` }
     }
     return { ok: true }
   }
@@ -1076,6 +1087,26 @@ export class Game {
     return [...this.clearedStages]
   }
 
+  /**
+   * 저장에 담기지 않는 지금의 상태를 결정적 문자열로. 함께 하기의 어긋남 감지가
+   * 스냅샷과 함께 이것을 본다 — 전투·길잡이·자리 조작자·대사 위치는 저장 대상이
+   * 아니어서, 스냅샷만 견주면 두 화면이 다른 전투를 하고 있어도 알 수 없었다.
+   *
+   * localSeat은 일부러 넣지 않는다. 그것은 세계가 아니라 보는 사람의 자리라
+   * 화면마다 다른 것이 정상이다.
+   */
+  liveFingerprint(): string {
+    return [
+      this.mode,
+      `token${this.moveTokenSeat}`,
+      `seats${this.seatControllers.join(',')}`,
+      // 대사 위치는 대사 중일 때에만 뜻이 있다. 아무 때나 넣으면 다 읽고 남은
+      // 찌꺼기와 복원 직후의 빈 상태가 달라 보여 헛된 되돌리기를 부른다
+      this.mode === 'dialogue' ? `dialogue${this.dialogueIndex}` : '-',
+      this.battle ? this.battle.fingerprint() : 'nobattle',
+    ].join('#')
+  }
+
   // --- 흐름 ---
 
   start(): void {
@@ -1126,6 +1157,10 @@ export class Game {
     if (this.dialogueIndex < this.dialogueQueue.length) {
       this.emitDialogueLine()
     } else {
+      // 다 읽은 대사는 남겨 두지 않는다 — 남기면 "대사를 마친 화면"과
+      // "기록에서 막 복원된 화면"의 상태가 달라 보여 어긋남 감지가 오작동한다
+      this.dialogueQueue = []
+      this.dialogueIndex = 0
       const after = this.afterDialogue
       this.afterDialogue = null
       after?.()
@@ -1188,6 +1223,7 @@ export class Game {
         encounter.monsters,
         this.data.monsters,
         this.bus,
+        this.data.progression.victoryHealRatio,
       )
       // 화면(전투 UI)이 먼저 준비돼야 시작 안내가 로그·낭독에 실린다
       this.setMode('battle')
@@ -1260,7 +1296,10 @@ export class Game {
       case 'continue':
         // 다음 턴으로 — 낭독이 따라오도록 간격을 두고 진행
         this.clearTurnTimer()
-        this.turnTimer = this.scheduler.schedule(() => this.stepBattle(), TURN_DELAY)
+        this.turnTimer = this.scheduler.schedule(
+          () => this.stepBattle(),
+          this.data.progression.turnDelayMs,
+        )
         return
       default: {
         const never: never = result
@@ -1295,7 +1334,10 @@ export class Game {
     this.paused = false
     if (this.pausedMidTurn) {
       this.pausedMidTurn = false
-      this.turnTimer = this.scheduler.schedule(() => this.stepBattle(), TURN_DELAY)
+      this.turnTimer = this.scheduler.schedule(
+        () => this.stepBattle(),
+        this.data.progression.turnDelayMs,
+      )
     }
   }
 

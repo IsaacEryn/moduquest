@@ -20,6 +20,15 @@ import {
  *
  * 채널·시계는 주입받는다 — 이 파일은 순수 로직이라 node 테스트가 그대로 돈다.
  */
+/**
+ * 미래 봉투를 쥐고 기다리는 창의 크기. 이보다 먼 번호는 순서가 아니라 잡음이거나
+ * 공격이다 — 무한정 쌓으면 메모리가 자란다.
+ */
+const BUFFER_WINDOW = 64
+
+/** 호스트가 재전송용으로 들고 있는 봉투 수. 잃은 사람이 여기까지는 따라잡는다 */
+const RESEND_HISTORY = 256
+
 export class Sequencer {
   /** 마지막으로 적용한 확정 번호 */
   private lastSeq: number
@@ -31,6 +40,11 @@ export class Sequencer {
   private seenNonces: string[] = []
   /** 호스트 전용: 좌석별 최근 제안 시각 — 폭주 방지 */
   private recent = new Map<Seat, number[]>()
+  /**
+   * 호스트 전용: 발급한 봉투의 최근 기록. 봉투를 잃은 화면이 이 기록에서 따라잡는다 —
+   * 스냅샷 재동기화와 달리 전투 중에도 쓸 수 있는 유일한 복구 수단이다.
+   */
+  private history: Envelope[] = []
 
   constructor(
     private opts: {
@@ -42,6 +56,11 @@ export class Sequencer {
       send: (event: 'propose' | 'apply', payload: unknown) => void
       /** 구멍이 생겼다 — 세션이 동기화 요청을 판단한다 */
       onGap?: () => void
+      /**
+       * 적용이 던졌다. 번호는 이미 소비됐으므로 이 화면의 세계는 갈렸다 —
+       * 세션이 강제 재동기화를 걸어야 한다. 조용히 지나가면 안 되는 유일한 자리다.
+       */
+      onApplyError?: (env: Envelope, err: unknown) => void
       now?: () => number
       /** 좌석당 초당 제안 상한 */
       rateLimit?: number
@@ -61,6 +80,18 @@ export class Sequencer {
     this.lastSeq = seq
     this.nextSeq = seq + 1
     this.buffered.clear()
+  }
+
+  /**
+   * 호스트: haveSeq 다음 번호부터의 봉투들. 기록에 남아 있지 않으면 null —
+   * 그때는 스냅샷 재동기화 말고는 길이 없다.
+   */
+  since(haveSeq: number): Envelope[] | null {
+    if (!this.opts.isHost()) return null
+    if (haveSeq >= this.lastSeq) return []
+    const oldest = this.history[0]
+    if (!oldest || oldest.seq > haveSeq + 1) return null
+    return this.history.filter((e) => e.seq > haveSeq)
   }
 
   /** 내 명령 — 게스트는 제안으로 보내고, 호스트는 바로 확정 발급한다 */
@@ -88,9 +119,11 @@ export class Sequencer {
     if (this.seenNonces.includes(raw.nonce)) return
     this.seenNonces.push(raw.nonce)
     if (this.seenNonces.length > 64) this.seenNonces.shift()
-    // 폭주 방지 — 좌석당 초당 상한
+    // 폭주 방지 — 좌석당 초당 상한.
+    // 5였을 때는 방향키를 누르고 있기만 해도(키 리피트) 정상 조작이 말없이 잘렸다.
+    // 사람 손이 넘길 수 없는 선까지 올려, 잘리는 것이 실수가 아니라 폭주이게 한다
     const now = this.opts.now?.() ?? 0
-    const limit = this.opts.rateLimit ?? 5
+    const limit = this.opts.rateLimit ?? 20
     const times = (this.recent.get(raw.seat) ?? []).filter((t) => now - t < 1000)
     if (times.length >= limit) return
     times.push(now)
@@ -102,6 +135,8 @@ export class Sequencer {
   /** 호스트: 번호를 붙여 전원에게 확정 발송 + 자신도 같은 경로로 적용 */
   private issue(seat: Seat, cmd: NetCommand): void {
     const env: Envelope = { v: 1, seq: this.nextSeq++, seat, cmd }
+    this.history.push(env)
+    if (this.history.length > RESEND_HISTORY) this.history.shift()
     this.opts.send('apply', env)
     this.onApply(env)
   }
@@ -111,8 +146,8 @@ export class Sequencer {
     if (!isEnvelope(raw)) return
     if (raw.seq <= this.lastSeq) return // 이미 지난 것
     if (raw.seq > this.lastSeq + 1) {
-      // 구멍 — 먼저 온 것을 쥐고 기다린다
-      this.buffered.set(raw.seq, raw)
+      // 구멍 — 먼저 온 것을 쥐고 기다린다. 창 밖의 먼 번호는 순서가 아니라 잡음이다
+      if (raw.seq <= this.lastSeq + BUFFER_WINDOW) this.buffered.set(raw.seq, raw)
       this.opts.onGap?.()
       return
     }
@@ -130,8 +165,17 @@ export class Sequencer {
     return this.buffered.size > 0
   }
 
+  /**
+   * 번호를 소비하고 적용한다. 적용이 던져도 번호는 되돌리지 않는다 —
+   * 되돌리면 반쯤 적용된 명령을 한 번 더 적용하게 되고, 그건 갈린 세계보다 나쁘다.
+   * 대신 갈렸다는 사실을 반드시 위로 알린다. 조용히 지나가는 것만은 막아야 한다.
+   */
   private applyNow(env: Envelope): void {
     this.lastSeq = env.seq
-    this.opts.apply(env)
+    try {
+      this.opts.apply(env)
+    } catch (err) {
+      this.opts.onApplyError?.(env, err)
+    }
   }
 }

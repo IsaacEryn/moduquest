@@ -202,7 +202,10 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     ? [...new Set(rawField.openedChests.filter((id): id is string => chestIds.has(id as string)))]
     : []
 
-  // 인벤토리·처치 수: 실재하는 id만, 개수는 상한을 둔다
+  // 인벤토리·처치 수: 실재하는 id만, 개수는 상한을 둔다.
+  // 상한은 게임 규칙과 같은 곳(데이터)에서 읽는다 — 예전에는 여기에 99를 따로 적어
+  // 두어, 규칙을 바꾸면 검증만 옛 수를 붙들고 있었다
+  const stackMax = data.progression.itemStackMax
   const itemIds = new Set(Object.keys(data.items))
   const seenItems = new Set<string>()
   const inventory = (Array.isArray(r.inventory) ? r.inventory : [])
@@ -212,7 +215,7 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
       seenItems.add(item)
       return true
     })
-    .map((e) => ({ item: e.item, count: clampInt(e.count, 1, 99, 1) }))
+    .map((e) => ({ item: e.item, count: clampInt(e.count, 1, stackMax, 1) }))
 
   const monsterIds = new Set(Object.keys(data.monsters))
   const seenMonsters = new Set<string>()
@@ -274,7 +277,7 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
   // 무효 자리에서 밀려난 장비를 가방에 합류시킨다 — 파티 검증이 끝난 뒤에야 목록이 완성된다
   for (const id of returned) {
     const row = inventory.find((e) => e.item === id)
-    if (row) row.count = Math.min(99, row.count + 1)
+    if (row) row.count = Math.min(stackMax, row.count + 1)
     else inventory.push({ item: id, count: 1 })
   }
 

@@ -1,10 +1,10 @@
-import type { RealtimeChannel } from '@supabase/supabase-js'
-import type { EventBus } from '../core/events'
+import type { EventBus, Listener } from '../core/events'
 import type { Game, TurnScheduler } from '../core/game'
 import { sanitizeSnapshot } from '../core/save'
 import type { GameData } from '../core/types'
 import { applyEnvelope } from './apply'
-import { snapshotChecksum } from './checksum'
+import { openSupabaseChannel, type OpenChannel, type PartyChannel } from './channel'
+import { worldChecksum } from './checksum'
 import { NetScheduler } from './netScheduler'
 import {
   isChecksum,
@@ -14,6 +14,7 @@ import {
   isSyncPayload,
   isSyncRequest,
   makePartyCode,
+  senderOf,
   type NetCommand,
   type Seat,
   type SeatInfo,
@@ -21,7 +22,6 @@ import {
   type SyncPayload,
 } from './protocol'
 import { Sequencer } from './sequencer'
-import { supabase } from './supabaseClient'
 
 /** 낭독·화면·저장을 세션 바깥(main)이 잇는 갈고리 */
 export interface SessionHooks {
@@ -46,6 +46,8 @@ export interface SessionHooks {
 const GAP_SYNC_MS = 3000
 /** 참가 코드에 응답이 없으면 포기하는 시간 */
 const JOIN_TIMEOUT_MS = 8000
+/** 동기화 요청 재시도 상한 — 이만큼 청해도 안 오면 사용자에게 알린다 */
+const GAP_RETRY_MAX = 4
 
 /**
  * 함께 하기 한 판의 수명. 채널 하나, 자리 셋.
@@ -67,17 +69,27 @@ export class PartySession {
 
   private sequencer: Sequencer
   private scheduler: NetScheduler
-  private channel: RealtimeChannel
-  private gapTimer: number | null = null
+  private channel: PartyChannel
+  private gapTimer: ReturnType<typeof setTimeout> | null = null
+  /** 동기화를 몇 번 청했는가 — 한 번 보내고 마는 대신 물러서며 다시 청한다 */
+  private gapTries = 0
   /** 재접속·늦은 합류 대기열 — 필드로 돌아오는 순간 스냅샷을 보낸다 */
   private pendingSync = false
+  /** 버스 구독을 끊는 손잡이 — 세션은 수명이 있으므로 반드시 반납한다 */
+  private unsubscribeBus: () => void
 
   private constructor(
     private game: Game,
     private data: GameData,
     private bus: EventBus,
     private hooks: SessionHooks,
-    opts: { code: string; isHost: boolean; userId: string; nickname: string },
+    opts: {
+      code: string
+      isHost: boolean
+      userId: string
+      nickname: string
+      openChannel: OpenChannel
+    },
   ) {
     this.code = opts.code
     this.isHost = opts.isHost
@@ -86,8 +98,8 @@ export class PartySession {
 
     this.scheduler = new NetScheduler({
       isHost: () => this.isHost,
-      realSchedule: (fn, ms) => window.setTimeout(fn, ms),
-      realCancel: (h) => window.clearTimeout(h as number),
+      realSchedule: (fn, ms) => setTimeout(fn, ms),
+      realCancel: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
       sendTick: () => this.sequencer.propose({ kind: 'tick' }),
     })
     this.sequencer = new Sequencer({
@@ -102,25 +114,29 @@ export class PartySession {
       },
       send: (event, payload) => this.broadcast(event, payload),
       onGap: () => this.armGapTimer(),
+      onApplyError: (env, err) => this.onApplyFailed(env.seq, err),
       now: () => Date.now(),
     })
 
-    this.channel = supabase().channel(`party:${this.code}`, {
-      config: {
-        private: true,
-        broadcast: { self: false },
-        presence: { key: this.userId },
-      },
-    })
+    this.channel = opts.openChannel(`party:${this.code}`, this.userId)
 
     // 게임 상태가 매듭지어지는 순간마다 어긋남을 검사한다
-    this.bus.on((e) => {
-      if (this.ended || !this.started) return
-      if (e.type === 'battleEnd' || e.type === 'areaChanged' || e.type === 'stageStart') {
-        this.exchangeChecksum()
-        if (this.isHost && this.pendingSync && this.game.canSave) this.flushSync()
-      }
-    })
+    this.unsubscribeBus = this.bus.on(this.onGameEvent)
+  }
+
+  private onGameEvent: Listener = (e) => {
+    if (this.ended || !this.started) return
+    // 매듭이 지어지는 순간마다 견준다. 전투 시작도 매듭이다 —
+    // 전투가 갈린 채로 여러 턴을 가면 되돌릴 것이 그만큼 커진다
+    if (
+      e.type === 'battleStart' ||
+      e.type === 'battleEnd' ||
+      e.type === 'areaChanged' ||
+      e.type === 'stageStart'
+    ) {
+      this.exchangeChecksum()
+      if (this.isHost && this.pendingSync && this.game.canSave) this.flushSync()
+    }
   }
 
   // --- 만들기와 참가 ---
@@ -131,9 +147,15 @@ export class PartySession {
     bus: EventBus,
     hooks: SessionHooks,
     me: { userId: string; nickname: string },
+    openChannel: OpenChannel = openSupabaseChannel,
   ): Promise<PartySession> {
     const code = makePartyCode((len) => crypto.getRandomValues(new Uint8Array(len)))
-    const s = new PartySession(game, data, bus, hooks, { code, isHost: true, ...me })
+    const s = new PartySession(game, data, bus, hooks, {
+      code,
+      isHost: true,
+      openChannel,
+      ...me,
+    })
     s.seats = [{ seat: 0, userId: me.userId, nickname: me.nickname, controller: 'human' }]
     s.game.localSeat = 0
     await s.subscribe()
@@ -147,27 +169,33 @@ export class PartySession {
     bus: EventBus,
     hooks: SessionHooks,
     me: { userId: string; nickname: string },
+    openChannel: OpenChannel = openSupabaseChannel,
   ): Promise<PartySession> {
     const normalized = code.trim().toUpperCase()
     if (!isPartyCode(normalized)) throw new Error('초대 코드는 8글자다. 다시 확인하자.')
     const s = new PartySession(game, data, bus, hooks, {
       code: normalized,
       isHost: false,
+      openChannel,
       ...me,
     })
-    await s.subscribe()
-    // 호스트가 자리를 주기를 기다린다 — 응답이 없으면 그 코드의 모험단은 없다
-    await new Promise<void>((resolve, reject) => {
-      const timer = window.setTimeout(() => {
-        s.leave()
+    // 기다림을 먼저 걸어 둔다 — 구독이 끝나기 전에 자리가 배정되면
+    // (호스트가 가깝거나 시험이 즉시 답하면) 깨울 손잡이가 없어 8초를 헛기다린다
+    const seated = new Promise<void>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        // 조용히 정리한다 — 여기서 leave()를 부르면 "나왔다" 낭독이
+        // "코드를 다시 확인하자" 안내와 겹쳐 나간다
+        s.teardown()
         reject(new Error('그 코드의 모험단을 찾지 못했다. 코드를 다시 확인하자.'))
       }, JOIN_TIMEOUT_MS)
       s.onSeated = () => {
-        window.clearTimeout(timer)
+        clearTimeout(timer)
         s.onSeated = null
         resolve()
       }
     })
+    await s.subscribe()
+    await seated
     return s
   }
 
@@ -175,32 +203,68 @@ export class PartySession {
   private onSeated: (() => void) | null = null
 
   private async subscribe(): Promise<void> {
-    this.channel
-      .on('broadcast', { event: 'propose' }, ({ payload }) => this.receivePropose(payload))
-      .on('broadcast', { event: 'apply' }, ({ payload }) => this.sequencer.onApply(payload))
-      .on('broadcast', { event: 'seats' }, ({ payload }) => this.receiveSeats(payload))
-      .on('broadcast', { event: 'seed' }, ({ payload }) => this.receiveSeed(payload))
-      .on('broadcast', { event: 'sync' }, ({ payload }) => this.receiveSync(payload))
-      .on('broadcast', { event: 'sync_req' }, ({ payload }) => this.receiveSyncReq(payload))
-      .on('broadcast', { event: 'checksum' }, ({ payload }) => this.receiveChecksum(payload))
-      .on('presence', { event: 'join' }, ({ key }) => this.presenceJoined(key))
-      .on('presence', { event: 'leave' }, ({ key }) => this.presenceLeft(key))
-
-    await new Promise<void>((resolve, reject) => {
-      this.channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          void this.channel.track({ nickname: this.nickname })
-          resolve()
-        } else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
-          reject(new Error('모험단 채널에 들어가지 못했다. 연결을 확인하자.'))
-        }
-      })
+    // 호스트 권위 사건은 0번 자리에서 온 것만, 나머지는 명부에 있는 사람 것만 받는다
+    this.channel.onBroadcast('propose', (p) => this.receivePropose(p))
+    this.channel.onBroadcast('apply', (p) => {
+      if (this.fromHost(p)) this.sequencer.onApply(p)
     })
+    this.channel.onBroadcast('seats', (p) => {
+      if (this.fromHost(p)) this.receiveSeats(p)
+    })
+    this.channel.onBroadcast('seed', (p) => {
+      if (this.fromHost(p)) this.receiveSeed(p)
+    })
+    this.channel.onBroadcast('sync', (p) => {
+      if (this.fromHost(p)) this.receiveSync(p)
+    })
+    this.channel.onBroadcast('sync_req', (p) => {
+      if (this.seatOfSender(p) !== null) this.receiveSyncReq(p)
+    })
+    this.channel.onBroadcast('checksum', (p) => this.receiveChecksum(p, this.seatOfSender(p)))
+    this.channel.onPresence('join', (key) => this.presenceJoined(key))
+    this.channel.onPresence('leave', (key) => this.presenceLeft(key))
+
+    await this.channel.subscribe()
+    this.channel.track({ nickname: this.nickname })
+  }
+
+  // --- 발신자 검사 ---
+  //
+  // Supabase Broadcast는 발신자를 서버가 찍어 주지 않는다. 그래서 여기서 하는 일은
+  // "명부에 있는, 지금 채널에 있는 사람인가"를 보는 것이지 서명 검증이 아니다.
+  // 막을 수 있는 것: 자리를 못 받은 참가자, 이미 나간 사람, 자리 착각.
+  // 막을 수 없는 것: 초대받은 사람이 다른 자리 사람의 userId를 적는 일 —
+  // 그건 서버 권위(엣지 함수 중계)가 생겨야 닫힌다. senderOf의 주석에 적어 두었다.
+
+  /** 지금 채널에 실재하는 사람인가 — 나간 사람의 뒤늦은 메시지를 막는다 */
+  private isPresent(userId: string): boolean {
+    return userId === this.userId || this.channel.presenceOf(userId) !== null
+  }
+
+  /** 보낸 사람이 앉은 자리. 명부 밖이면 null — 좌석은 주장이 아니라 명부가 정한다 */
+  private seatOfSender(raw: unknown): Seat | null {
+    const from = senderOf(raw)
+    if (from === null || from === this.userId || !this.isPresent(from)) return null
+    return this.seats.find((s) => s.userId === from)?.seat ?? null
+  }
+
+  /** 호스트 권위 사건인가 — 0번 자리에 앉은 사람이 보낸 것만 */
+  private fromHost(raw: unknown): boolean {
+    if (this.isHost || this.ended) return false
+    const from = senderOf(raw)
+    if (from === null || !this.isPresent(from)) return false
+    const known = this.seats.find((s) => s.seat === 0)
+    if (known) return known.userId === from
+    // 아직 명부가 없다 — 스스로 0번 자리라고 밝히는 메시지(seats·seed·sync)만 받는다.
+    // 명부를 갖기 전에도 아무나 방장 행세를 하지는 못한다
+    const claimed = (raw as { seats?: SeatInfo[] }).seats?.find((s) => s.seat === 0)
+    return claimed?.userId === from
   }
 
   private broadcast(event: string, payload: unknown): void {
     if (this.ended) return
-    void this.channel.send({ type: 'broadcast', event, payload })
+    // 모든 메시지에 보낸 사람을 적는다 — 받는 쪽 검사의 근거다
+    this.channel.send(event, { ...(payload as object), from: this.userId })
   }
 
   // --- 자리 관리 (호스트 권위) ---
@@ -240,8 +304,7 @@ export class PartySession {
 
   /** presence의 닉네임을 로스터에 옮겨 적는다 */
   private refreshNickname(seat: SeatInfo): void {
-    const state = this.channel.presenceState<{ nickname: string }>()
-    const entry = state[seat.userId]?.[0]
+    const entry = this.channel.presenceOf(seat.userId)
     if (entry && typeof entry.nickname === 'string') {
       seat.nickname = entry.nickname.slice(0, 12)
     }
@@ -311,6 +374,7 @@ export class PartySession {
       jobs,
       traitId: this.game.currentTraitId,
       layoutKey: this.layoutKey(),
+      seats: this.seats,
     }
     this.broadcast('seed', seed)
     this.applySeed(seed)
@@ -319,7 +383,7 @@ export class PartySession {
   /** 저장된 기록에서 — 스냅샷이 곧 출발 조건이다 */
   startRestore(snapshot: unknown): void {
     if (!this.isHost || this.started) return
-    const seed: SeedPayload = { v: 1, kind: 'restore', snapshot }
+    const seed: SeedPayload = { v: 1, kind: 'restore', snapshot, seats: this.seats }
     this.broadcast('seed', seed)
     this.applySeed(seed)
   }
@@ -335,7 +399,14 @@ export class PartySession {
   }
 
   private applySeed(seed: SeedPayload): void {
-    // 자리 조작자를 먼저 앉힌다 — 파티를 만들 때 사람 자리가 표시되어야 한다
+    // 자리 배치는 출발 조건이 정한다 — 각자의 명부를 근거로 삼으면 화면마다
+    // 사람 자리가 갈리고, isPlayer는 체크섬에도 없어서 그 어긋남은 탐지되지 않는다
+    this.seats = seed.seats
+    const mine = seed.seats.find((s) => s.userId === this.userId)
+    if (mine) {
+      this.mySeat = mine.seat
+      this.game.localSeat = mine.seat
+    }
     for (const s of this.seats) this.game.setSeatController(s.seat, s.controller)
     if (seed.kind === 'restore') {
       const snap = sanitizeSnapshot(seed.snapshot, this.data)
@@ -363,6 +434,11 @@ export class PartySession {
 
   // --- 명령 (락스텝) ---
 
+  /** 지금까지 적용한 확정 번호 — 두 화면이 같은 지점에 있는지 보는 창 */
+  get appliedSeq(): number {
+    return this.sequencer.appliedSeq
+  }
+
   /** UI의 변이 호출이 이 문으로 들어온다 — gamePort가 잇는다 */
   propose(cmd: NetCommand): void {
     if (this.ended || !this.started) return
@@ -371,57 +447,118 @@ export class PartySession {
 
   private receivePropose(raw: unknown): void {
     if (!this.isHost || this.ended) return
-    // 주장한 좌석이 실제로 사람이 앉은 자리인지 — 로스터가 판정의 근거다
-    const claimed = (raw as { seat?: unknown } | null)?.seat
-    const seated = this.seats.some(
-      (s) => s.seat === claimed && s.controller === 'human' && s.userId !== this.userId,
-    )
-    this.sequencer.onPropose(raw, seated ? (claimed as Seat) : null)
+    // 자리는 보낸 사람이 정하는 것이 아니라 명부가 정한다. 예전에는 페이로드가
+    // 주장한 좌석이 "사람이 앉은 자리"이기만 하면 통과해서, 2번 자리 사람이
+    // 1번 좌석을 적어 보내면 그 사람의 조작권을 가져갈 수 있었다
+    const seat = this.seatOfSender(raw)
+    if (seat === null) return
+    const info = this.seats.find((s) => s.seat === seat)
+    if (info?.controller !== 'human') return
+    this.sequencer.onPropose(raw, seat)
   }
 
   // --- 어긋남 감지와 복구 ---
 
+  /** 지금 이 화면의 세계를 한 수로 — 저장에 담기지 않는 것까지 포함한다 */
+  private worldHash(): number {
+    return worldChecksum(this.game.snapshot(), this.game.liveFingerprint())
+  }
+
   private exchangeChecksum(): void {
-    if (!this.game.canSave) return
-    const hash = snapshotChecksum(this.game.snapshot())
+    // 전투 중에도 견준다. 저장은 못 해도 어긋남은 알아야 한다 —
+    // 전투가 갈린 채로 계속 가는 것이 이 게임에서 가장 나쁜 어긋남이다
     if (!this.isHost) {
-      this.broadcast('checksum', { v: 1, seq: this.sequencer.appliedSeq, hash })
+      this.broadcast('checksum', { v: 1, seq: this.sequencer.appliedSeq, hash: this.worldHash() })
     }
   }
 
-  private receiveChecksum(raw: unknown): void {
-    if (!this.isHost || this.ended || !isChecksum(raw)) return
-    if (!this.game.canSave) return
-    const mine = snapshotChecksum(this.game.snapshot())
-    if (mine !== raw.hash) {
-      // 세계가 갈렸다 — 호스트의 스냅샷이 기준이다
-      this.flushSync()
-    }
-  }
-
-  private armGapTimer(): void {
-    if (this.gapTimer !== null || this.isHost) return
-    this.gapTimer = window.setTimeout(() => {
-      this.gapTimer = null
-      if (this.sequencer.hasGap) {
-        this.broadcast('sync_req', {
-          v: 1,
-          userId: this.userId,
-          haveSeq: this.sequencer.appliedSeq,
-        })
-      }
-    }, GAP_SYNC_MS)
-  }
-
-  private receiveSyncReq(raw: unknown): void {
-    if (!this.isHost || this.ended || !isSyncRequest(raw)) return
+  /**
+   * 같은 순간의 세계끼리만 비교한다. 예전에는 게스트가 seq 100에서 낸 해시를
+   * 호스트가 받는 시점(이미 103쯤)의 자기 해시와 견줘서, 멀쩡한 파티가 걸음
+   * 한 번 차이로 어긋났다고 판정되고 전원이 되돌려지는 일이 상시 일어났다.
+   */
+  private receiveChecksum(raw: unknown, from: Seat | null): void {
+    if (!this.isHost || this.ended || from === null || !isChecksum(raw)) return
+    if (raw.seq !== this.sequencer.appliedSeq) return // 다른 순간이라 비교할 수 없다
+    if (this.worldHash() === raw.hash) return
+    // 세계가 갈렸다 — 호스트의 스냅샷이 기준이다.
+    // 전투 중이면 지금은 되돌릴 수 없으니 필드로 나오는 첫 순간에 맞춘다
     if (this.game.canSave) this.flushSync()
     else this.pendingSync = true
   }
 
-  /** 호스트의 지금 세계를 전원 기준으로 — 필드에서만 가능하다 */
+  /**
+   * 구멍을 메워 달라고 청한다. 한 번 보내고 마는 대신 물러서며 다시 청한다 —
+   * 예전에는 그 한 번이 유실되면(트래픽이 멈추면 재무장도 안 된다) 영영 멈춰 있었다.
+   */
+  private armGapTimer(): void {
+    if (this.gapTimer !== null || this.isHost || this.ended) return
+    const wait = GAP_SYNC_MS * 2 ** Math.min(this.gapTries, 3)
+    this.gapTimer = setTimeout(() => {
+      this.gapTimer = null
+      if (!this.sequencer.hasGap || this.ended) {
+        this.gapTries = 0
+        return
+      }
+      this.gapTries += 1
+      this.broadcast('sync_req', {
+        v: 1,
+        userId: this.userId,
+        haveSeq: this.sequencer.appliedSeq,
+      })
+      if (this.gapTries >= GAP_RETRY_MAX) {
+        // 조용한 정지가 최악이다 — 기다리는 이유를 말해 준다
+        this.hooks.alert('함께 하기 연결이 불안정하다. 세계를 다시 맞추는 중이다.')
+      }
+      this.armGapTimer()
+    }, wait)
+  }
+
+  /**
+   * 봉투를 잃은 화면에 잃은 것만 되쏜다. 스냅샷 재동기화와 달리 전투 중에도 되므로,
+   * 전투에서 어긋나면 양쪽이 영원히 기다리던 길이 여기서 막힌다.
+   */
+  private receiveSyncReq(raw: unknown): void {
+    if (!this.isHost || this.ended || !isSyncRequest(raw)) return
+    const missing = this.sequencer.since(raw.haveSeq)
+    if (missing !== null) {
+      for (const env of missing) this.broadcast('apply', env)
+      return
+    }
+    // 기록에도 없을 만큼 뒤처졌다 — 그때는 세계 전체를 보내는 수밖에 없다
+    if (this.game.canSave) this.flushSync()
+    else this.pendingSync = true
+  }
+
+  /**
+   * 확정 명령의 적용이 던졌다. 번호는 이미 소비됐으니 이 화면은 갈렸다 —
+   * 조용히 진행하면 아무도 모르는 채로 다른 세계를 걷게 된다.
+   */
+  private onApplyFailed(seq: number, err: unknown): void {
+    console.error('확정 명령 적용 실패:', seq, err)
+    if (this.ended) return
+    if (this.isHost) {
+      // 호스트가 기준이므로 되돌릴 곳이 없다. 사실만 알린다
+      this.hooks.alert('명령을 적용하지 못했다. 화면이 어긋났을 수 있다.')
+      return
+    }
+    this.hooks.alert('세계가 어긋났다. 방장의 기준으로 다시 맞추는 중이다.')
+    this.broadcast('sync_req', { v: 1, userId: this.userId, haveSeq: -1 })
+  }
+
+  /**
+   * 호스트의 지금 세계를 전원 기준으로 — 필드에서만 가능하다.
+   *
+   * 같은 지점에서 두 번 보내지 않는다. 되돌리기는 그 자체로 stageStart를 일으키고,
+   * 그러면 받은 화면이 다시 체크섬을 보낸다 — 한쪽이 영영 일치하지 않으면
+   * 그 왕복이 끝나지 않는 고리가 된다. 지점당 한 번이면 고리가 닫힌다.
+   */
+  private lastSyncSeq: number | null = null
+
   private flushSync(): void {
     if (!this.isHost || !this.game.canSave) return
+    if (this.lastSyncSeq === this.sequencer.appliedSeq) return
+    this.lastSyncSeq = this.sequencer.appliedSeq
     this.pendingSync = false
     const payload: SyncPayload = {
       v: 1,
@@ -449,6 +586,11 @@ export class PartySession {
     this.game.restore(snap)
     this.game.moveTokenSeat = raw.moveTokenSeat
     this.sequencer.reset(raw.seq)
+    this.gapTries = 0
+    if (this.gapTimer !== null) {
+      clearTimeout(this.gapTimer)
+      this.gapTimer = null
+    }
     if (!this.started) {
       // 진행 중인 모험에 합류했다 — 로비를 닫고 세계로
       this.started = true
@@ -477,11 +619,24 @@ export class PartySession {
 
   private end(reason: string): void {
     if (this.ended) return
-    this.ended = true
-    if (this.gapTimer !== null) window.clearTimeout(this.gapTimer)
-    void this.channel.unsubscribe()
+    this.teardown()
     this.hooks.restoreScheduler()
     this.hooks.setLayoutKey(null)
     this.hooks.onEnded(reason)
+  }
+
+  /**
+   * 남긴 것을 전부 거둔다 — 채널·타이머·버스 구독. 낭독은 하지 않으므로
+   * 참가 실패처럼 "끝났다고 말할 것이 없는" 자리에서도 쓸 수 있다.
+   */
+  private teardown(): void {
+    if (this.ended) return
+    this.ended = true
+    if (this.gapTimer !== null) clearTimeout(this.gapTimer)
+    this.gapTimer = null
+    // 호스트의 실제 타이머가 살아 있으면 세션이 끝난 뒤에도 한 번 더 진행된다
+    this.scheduler.cancel(null)
+    this.unsubscribeBus()
+    this.channel.close()
   }
 }

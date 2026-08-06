@@ -50,5 +50,8 @@
       "def": 1,
       "spd": 1
     }
-  }
+  },
+  "victoryHealRatio": 0.3,
+  "turnDelayMs": 900,
+  "itemStackMax": 99
 }

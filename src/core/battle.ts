@@ -21,6 +21,8 @@ export class Battle {
     enemyIds: string[],
     monsters: Record<string, MonsterData>,
     private bus: EventBus,
+    /** 승리했을 때 돌아오는 최대 체력의 비율 — 수치는 데이터가 쥔다 */
+    private victoryHealRatio = 0.3,
   ) {
     this.enemies = enemyIds.map((id, i) => {
       const m = monsters[id]
@@ -81,6 +83,28 @@ export class Battle {
 
   get currentActor(): Combatant {
     return this.order[this.turnIndex]
+  }
+
+  /**
+   * 전투의 지금을 결정적 문자열 하나로. 함께 하기의 어긋남 감지가 쓴다 —
+   * 저장 스냅샷에는 전투가 담기지 않아서, 이것이 없으면 두 화면이 완전히 다른
+   * 전투를 하고 있어도 "같은 세계"라는 답이 나온다.
+   */
+  fingerprint(): string {
+    const one = (c: Combatant) =>
+      [
+        c.id,
+        `${c.hp}/${c.maxHp}`,
+        `${c.mp}`,
+        c.cooldowns.join('.'),
+        c.defending ? 'D' : '-',
+        `${c.hitsSinceDeflect ?? 0}`,
+      ].join(':')
+    return [
+      `turn${this.turnIndex}`,
+      `taunt${this.tauntRounds}:${this.tauntTarget?.id ?? '-'}`,
+      ...this.order.map(one),
+    ].join('|')
   }
 
   private aliveAllies(): Combatant[] {
@@ -409,10 +433,10 @@ export class Battle {
 
   private afterAction(): StepResult {
     if (this.aliveEnemies().length === 0) {
-      // 승리: 파티 전원(쓰러진 동료 포함) 최대 체력의 30% 회복
+      // 승리: 파티 전원(쓰러진 동료 포함)이 정해진 비율만큼 회복한다
       const revived = this.allies.filter((a) => a.hp === 0)
       for (const a of this.allies) {
-        a.hp = Math.min(a.maxHp, a.hp + Math.floor(a.maxHp * 0.3))
+        a.hp = Math.min(a.maxHp, a.hp + Math.floor(a.maxHp * this.victoryHealRatio))
         a.defending = false
       }
       this.bus.emit({ type: 'victory', boss: this.isBossBattle, revived })
