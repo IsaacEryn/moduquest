@@ -65,6 +65,14 @@ jobs:
           fi
       # v4부터 숨김 파일(도트파일)은 묶음에 들어가지 않는다.
       # 이 게임의 dist에는 숨김 파일이 없으므로 그대로 둔다
+      # 혼자 하는 실행은 서버 코드를 한 줄도 받지 않는다 — 이 성질은 정적 import 한 번에
+      # 조용히 깨지므로, 사람의 주의가 아니라 빌드 결과로 지킨다
+      - name: 첫 화면 번들에 서버 코드가 섞이지 않았는지
+        run: |
+          if grep -lE "GoTrueClient|RealtimeClient|SupabaseClient" dist/assets/index-*.js; then
+            echo "supabase가 초기 번들에 실렸다. 서버를 쓰는 모듈은 동적 import로만 닿을 것."
+            exit 1
+          fi
       - uses: actions/upload-pages-artifact@v5
         with:
           path: dist

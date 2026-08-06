@@ -17,6 +17,34 @@ export interface SaveRepository {
 export const isValidSlot = (slot: number) =>
   Number.isInteger(slot) && slot >= 0 && slot < SLOT_COUNT
 
+/**
+ * 지금 쓰는 저장소를 가리키는 손잡이.
+ *
+ * 화면들은 만들어질 때 저장소를 한 번 붙잡는다. 싱글은 이 기기에, 멀티는 계정에
+ * 저장한다는 규칙을 지키려면 그 사이에 이 껍데기가 있어야 한다 — 문이 바뀔 때
+ * 안쪽만 갈아 끼우면 화면은 아무것도 몰라도 된다.
+ * 함께 하기가 턴 시계를 네트워크 시계로 갈아 끼우는 방식과 같다.
+ */
+export class SwitchableSaveRepository implements SaveRepository {
+  constructor(public inner: SaveRepository) {}
+
+  list(): Promise<SlotSummary[]> {
+    return this.inner.list()
+  }
+
+  load(slot: number): Promise<SaveSnapshot | null> {
+    return this.inner.load(slot)
+  }
+
+  save(slot: number, snapshot: SaveSnapshot): Promise<void> {
+    return this.inner.save(slot, snapshot)
+  }
+
+  remove(slot: number): Promise<void> {
+    return this.inner.remove(slot)
+  }
+}
+
 export function summarize(slot: number, s: SaveSnapshot | null): SlotSummary {
   if (!s) return { slot, empty: true }
   return {
