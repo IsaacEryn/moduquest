@@ -256,18 +256,29 @@ export class CoopPanel {
     }
     const setError = this.errorLine(form)
 
+    // 지금 하려는 일과 반대편으로 가는 길을 나란히 둔다.
+    // 글자 수가 크게 다르면 두 버튼의 폭이 벌어져 줄이 흐트러지므로 짧게 맞추고,
+    // 무슨 뜻인지는 읽어 주는 이름(aria-label)이 채운다
+    const actions = document.createElement('div')
+    actions.className = 'auth-actions'
+
     const submit = document.createElement('button')
     submit.type = 'submit'
-    submit.textContent = signup ? '가입하고 시작' : '로그인'
-    form.append(submit)
+    submit.textContent = signup ? '가입하기' : '로그인'
 
-    // 가입과 로그인은 같은 무게의 갈림길이다 — 한쪽만 링크처럼 두면
-    // 마우스로도 키보드로도 눌러야 할 곳이 덜 또렷해진다
     const toggle = document.createElement('button')
     toggle.type = 'button'
     toggle.className = 'alt-action'
-    toggle.textContent = signup ? '이미 계정이 있다 — 로그인' : '계정이 없다 — 가입하기'
+    toggle.textContent = signup ? '로그인' : '가입하기'
+    // 보이는 글자가 이름 안에 그대로 들어 있어야 음성 조작으로도 부를 수 있다
+    toggle.setAttribute(
+      'aria-label',
+      signup ? '이미 계정이 있다면 로그인으로' : '계정이 없다면 가입하기로',
+    )
     toggle.addEventListener('click', () => this.renderAuth(!signup))
+
+    actions.append(submit, toggle)
+    form.append(actions)
 
     const finish = (profile: Profile) => {
       this.profile = profile
@@ -322,7 +333,7 @@ export class CoopPanel {
         })
     })
 
-    this.body.append(form, toggle)
+    this.body.append(form)
     email.focus()
   }
 
