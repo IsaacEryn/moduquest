@@ -1208,9 +1208,37 @@ export class Game {
     return this.data.monsters[id]?.sprite
   }
 
+  /**
+   * 화면 위쪽 상시 현황판(HUD)과 같은 내용을 말로. 그 판은 가상 커서로 찾아 읽는
+   * 정적 요약인데, 필드 영역이 role=application이라 브라우즈 모드에서는 화살표로
+   * 닿지 않는다. 그래서 눈으로 보는 사람은 늘 보이고 듣는 사람은 창을 열어야 하는
+   * 차이가 생겼다. 둘러보기가 그 차이를 메운다 — 같은 정보, 같은 수.
+   */
+  private statusLine(): string {
+    const hp = this.party
+      .map((c) => {
+        const who = c.seat === this.localSeat ? `${c.name}(나)` : c.name
+        return `${who} ${c.hp <= 0 ? '쓰러짐' : `${c.hp}/${c.maxHp}`}`
+      })
+      .join(', ')
+    const areas = this.stage.areas.length
+    const at = this.stage.areas.findIndex((a) => a.id === this.field.areaId)
+    const where =
+      areas > 1 && at >= 0
+        ? `스테이지 ${this.stageIndex + 1}, 구역 ${at + 1}/${areas}`
+        : `스테이지 ${this.stageIndex + 1}`
+    return `체력은 ${hp}. 동전 ${this.gold}냥, 재료 ${this.materials}개, 파티 ${this.partyLevel}레벨. ${where}.`
+  }
+
+  /**
+   * 둘러보기 — 사람이 청해서 듣는 요약이라 현황까지 함께 말한다.
+   * 구역 이동·전투 뒤에 저절로 나가는 요약에는 붙이지 않는다. 걸음마다 지갑을
+   * 다시 듣는 것은 안내가 아니라 소음이다.
+   */
   fieldSummary(): void {
     if (this.mode !== 'field') return
-    this.bus.emit({ type: 'fieldSummary', text: this.field.summary(this.stage.objective) })
+    const text = `${this.field.summary(this.stage.objective)} ${this.statusLine()}`
+    this.bus.emit({ type: 'fieldSummary', text })
   }
 
   // --- 전투 ---

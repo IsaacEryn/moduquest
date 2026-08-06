@@ -594,3 +594,62 @@ describe('지각 반경 합성', () => {
     expect(game.perceptionRadius).toBe(4)
   })
 })
+
+/**
+ * 화면 위쪽 현황판은 눈으로 보는 사람에게 늘 보이지만, 필드 영역이 role=application이라
+ * 브라우즈 모드에서는 화살표로 닿지 않는다. 그래서 둘러보기가 같은 수를 말해 준다.
+ * 두 곳이 다른 수를 말하기 시작하면 낭독이 거짓이 되므로 여기서 묶어 둔다.
+ */
+describe('둘러보기는 현황판과 같은 수를 말한다', () => {
+  function lookAround(game: Game, events: GameEvent[]): string {
+    const before = events.length
+    game.fieldSummary()
+    const e = events.slice(before).find((x) => x.type === 'fieldSummary')
+    return e && e.type === 'fieldSummary' ? e.text : ''
+  }
+
+  it('파티 체력·지갑·레벨·스테이지가 전부 들어 있다', () => {
+    const { game, events } = makeGame()
+    game.start()
+    skipDialogue(game)
+    const text = lookAround(game, events)
+    for (const c of game.party) {
+      // 내 자리는 현황판과 같이 (나)를 붙인다 — 셋이 걸을 때 누구 체력인지 헷갈리지 않게
+      const who = c.seat === game.localSeat ? `${c.name}(나)` : c.name
+      expect(text, c.name).toContain(`${who} ${c.hp}/${c.maxHp}`)
+    }
+    expect(text).toContain(`동전 ${game.currentGold}냥`)
+    expect(text).toContain(`재료 ${game.currentMaterials}개`)
+    expect(text).toContain(`파티 ${game.partyLevel}레벨`)
+    expect(text).toContain(`스테이지 ${game.currentStageIndex + 1}`)
+  })
+
+  it('쓰러진 동료는 숫자가 아니라 쓰러짐이라고 말한다', () => {
+    const { game, events } = makeGame()
+    game.start()
+    skipDialogue(game)
+    game.party[1].hp = 0
+    const text = lookAround(game, events)
+    expect(text).toContain(`${game.party[1].name} 쓰러짐`)
+  })
+
+  it('구역이 여럿인 스테이지에서는 몇 번째 구역인지 말한다', () => {
+    const { game, events } = makeGame()
+    game.startStage(1) // 울림 굴 — 구역이 여럿
+    skipDialogue(game)
+    const total = game.stage.areas.length
+    expect(total).toBeGreaterThan(1)
+    expect(lookAround(game, events)).toContain(`구역 1/${total}`)
+  })
+
+  it('저절로 나가는 요약에는 현황을 붙이지 않는다 — 걸음마다 지갑을 듣지 않게', () => {
+    const { game, events } = makeGame()
+    game.start()
+    skipDialogue(game)
+    const auto = events.filter((e) => e.type === 'fieldSummary')
+    expect(auto.length).toBeGreaterThan(0)
+    for (const e of auto) {
+      if (e.type === 'fieldSummary') expect(e.text).not.toContain('체력은')
+    }
+  })
+})

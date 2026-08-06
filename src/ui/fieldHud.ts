@@ -7,8 +7,12 @@ import { gauge, updateGauge } from './gauge'
  * 걷다가 전투에 들어갈지, 물약을 먼저 마실지를 화면만 보고 판단할 수 있어야 한다.
  *
  * 라이브 리전이 아니다 — 갱신을 스크린리더가 따라 읽으면 걸음마다 소음이 된다.
- * 낭독은 Announcer가 사건 단위로 이미 하고, 이 영역은 가상 커서로 찾아 읽는
- * 정적 요약이다. 그래서 aria-hidden도 아니다.
+ * 낭독은 Announcer가 사건 단위로 이미 한다. 그래서 aria-hidden도 아니다.
+ *
+ * 다만 이 판을 "가상 커서로 찾아 읽는 정적 요약"으로만 두면 반쪽이다. 필드 영역이
+ * role=application이라 브라우즈 모드(NVDA·센스리더)에서는 화살표가 여기 닿지 않는다 —
+ * 접근성 트리로 재어 보니 이 판의 열 개 값이 전부 그랬다. 그래서 같은 수를 둘러보기가
+ * 말로도 준다(Game.fieldSummary). 두 곳이 어긋나면 시험이 막는다.
  */
 export class FieldHud {
   readonly el: HTMLElement
