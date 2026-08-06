@@ -347,6 +347,12 @@ export class CoopPanel {
 
       const address = email.value.trim()
       const ticket = this.captcha?.token() ?? undefined
+      // 표가 없으면 서버가 어차피 거절한다. 요청을 보내 실패를 받아 오는 대신
+      // 여기서 멈추고 이유를 말한다 — 비밀번호를 의심하게 두지 않는다
+      if (captchaEnabled() && !ticket) {
+        setError('자동 가입 방지 확인이 아직 끝나지 않았다. 위의 확인을 마치고 다시 눌러 주세요.')
+        return
+      }
       const task = signup
         ? signUp(address, pw.value, nickname, ticket).then(async (result) => {
             if (result.kind === 'confirm') {

@@ -75,18 +75,33 @@ export async function mountCaptcha(container: HTMLElement): Promise<CaptchaWidge
   }
 
   let current: string | null = null
+
+  // 상자가 뜨지 않는 이유를 화면에도 남긴다. 아무 설명 없이 가입만 실패하면
+  // 이용자는 자기 비밀번호를 의심하게 된다
+  const notice = document.createElement('p')
+  notice.className = 'captcha-notice'
+  notice.setAttribute('role', 'alert')
+  const say = (text: string) => {
+    notice.textContent = text
+    if (text && !notice.isConnected) container.append(notice)
+    if (!text) notice.remove()
+  }
+
   const id = api.render(container, {
     sitekey: SITE_KEY,
     theme: 'dark',
     language: 'ko',
     callback: (token: string) => {
       current = token
+      say('')
     },
     'expired-callback': () => {
       current = null
+      say('자동 가입 방지 확인이 만료됐다. 다시 확인해 주세요.')
     },
     'error-callback': () => {
       current = null
+      say('자동 가입 방지를 불러오지 못했다. 새로고침하거나 잠시 뒤에 다시 시도해 주세요.')
     },
   })
 

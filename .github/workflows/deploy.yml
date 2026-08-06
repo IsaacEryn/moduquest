@@ -45,6 +45,9 @@ jobs:
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          # 자동 가입 방지의 공개 열쇠. 이 줄이 빠지면 Secrets에 값이 있어도
+          # 빌드에는 안 실려서, 화면에 상자가 안 뜬 채 서버만 표를 요구하게 된다
+          VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
       # v4부터 숨김 파일(도트파일)은 묶음에 들어가지 않는다.
       # 이 게임의 dist에는 숨김 파일이 없으므로 그대로 둔다
       - uses: actions/upload-pages-artifact@v5
