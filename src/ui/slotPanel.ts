@@ -3,8 +3,6 @@ import { SLOT_COUNT } from '../core/save'
 import type { SlotSummary } from '../core/types'
 import type { SaveRepository } from '../save/saveRepository'
 
-type Mode = 'continue' | 'new'
-
 function formatTime(ms: number): string {
   if (!ms) return ''
   const d = new Date(ms)
@@ -13,15 +11,23 @@ function formatTime(ms: number): string {
 
 /**
  * 저장 자리 세 칸. 이어서 하기·새로 시작·지우기가 한 화면에 있다.
- * 나중에 클라우드 저장이 붙어도 이 화면과 조작은 그대로다 —
- * SaveRepository 구현만 바뀐다.
+ *
+ * 예전에는 "새로 시작"과 "이어서 하기"가 따로 들어오는 두 모드였다. 그러면 자리를
+ * 보기 전에 무엇을 할지 정해야 해서, 빈 칸뿐인데 이어서 하기로 들어가면 전부 비활성인
+ * 화면을 만났다. 지금은 **칸의 상태가 곧 할 수 있는 일**이다 — 비었으면 새로 시작,
+ * 기록이 있으면 이어서 하기와 지우기.
+ *
+ * 어디에 저장되는가(이 기기냐 계정이냐)는 저장소가 알고, 이 화면은 모른다.
  */
 export class SlotPanel {
   private dialog: HTMLDialogElement
   private list: HTMLElement
   private prevFocus: Element | null = null
   private closed = true
-  private mode: Mode = 'continue'
+  /** 이번에 연 창을 그냥 닫았을 때 돌아갈 곳 — 고르고 닫은 경우에는 부르지 않는다 */
+  private onDismiss: (() => void) | null = null
+  /** 자리를 골라 닫는 중인가 */
+  private chose = false
 
   constructor(
     private game: Game,
@@ -53,24 +59,61 @@ export class SlotPanel {
     return this.dialog.open
   }
 
-  async open(mode: Mode): Promise<void> {
-    this.mode = mode
+  /**
+   * intro는 부르는 쪽이 정한다 — 같은 화면이라도 혼자 걷는 길과 함께 출발하는 길은
+   * 맥락이 다르고, 그 맥락을 아는 것은 이 화면이 아니라 문을 연 쪽이다.
+   */
+  async open(
+    intro = '자리를 고르자. 기록이 있는 자리는 이어서 하고, 빈 자리는 새로 시작한다.',
+    onDismiss?: () => void,
+  ): Promise<void> {
+    this.onDismiss = onDismiss ?? null
+    this.chose = false
     this.closed = false
     this.hooks.onOpen?.()
     this.prevFocus = document.activeElement
     this.confirmStage.clear()
-    this.dialog.querySelector<HTMLElement>('.intro')!.textContent =
-      mode === 'new'
-        ? '새 모험을 시작할 자리를 고르자. 기록이 있는 자리는 먼저 지워야 쓸 수 있다.'
-        : '이어서 할 기록을 고르자.'
+    this.dialog.querySelector<HTMLElement>('.intro')!.textContent = intro
     await this.render()
     this.dialog.showModal()
     this.dialog.querySelector<HTMLElement>('button:not([disabled])')?.focus()
   }
 
+  /**
+   * 읽지 못하면 빈 자리처럼 그리지 않는다. 계정 저장은 연결이 끊기면 못 읽는데,
+   * 그때 "비어 있다"고 그리면 그 자리에 새로 시작해 서버의 진짜 기록을 덮어쓴다.
+   */
   private async render(): Promise<void> {
-    const slots = await this.repo.list()
+    let slots
+    try {
+      slots = await this.repo.list()
+    } catch {
+      this.renderUnreadable()
+      return
+    }
     this.list.replaceChildren(...slots.map((s) => this.row(s)))
+  }
+
+  private renderUnreadable(): void {
+    const li = document.createElement('li')
+    li.className = 'slot-row'
+    const p = document.createElement('p')
+    p.className = 'slot-desc'
+    p.textContent = '기록을 불러오지 못했다. 연결을 확인하고 다시 시도하자.'
+    const actions = document.createElement('div')
+    actions.className = 'slot-actions'
+    const retry = document.createElement('button')
+    retry.type = 'button'
+    retry.textContent = '다시 시도'
+    retry.addEventListener('click', () => {
+      void this.render().then(() => {
+        this.dialog.querySelector<HTMLElement>('button:not([disabled])')?.focus()
+      })
+    })
+    actions.append(retry)
+    li.append(p, actions)
+    this.list.replaceChildren(li)
+    this.hooks.announce('기록을 불러오지 못했다. 연결을 확인하고 다시 시도하자.')
   }
 
   private describe(s: SlotSummary): string {
@@ -134,18 +177,13 @@ export class SlotPanel {
     }
 
     if (s.empty) {
-      if (this.mode === 'new') {
-        mk('여기서 새로 시작', () => {
-          this.close()
-          this.hooks.onStart(s.slot)
-        })
-      } else {
-        mk('이어서 하기', () => {}, true)
-      }
+      mk('여기서 새로 시작', () => {
+        this.chose = true
+        this.close()
+        this.hooks.onStart(s.slot)
+      })
     } else {
-      if (this.mode === 'continue') {
-        mk('이어서 하기', () => this.continueSlot(s.slot))
-      }
+      mk('이어서 하기', () => this.continueSlot(s.slot))
       // 기록이 있는 칸에서 새로 시작하려면 먼저 지워야 한다 —
       // 실수 한 번으로 기록이 사라지는 길을 없앤다
       mk('지우기', () => {
@@ -169,12 +207,15 @@ export class SlotPanel {
       return
     }
     this.confirmStage.delete(s.slot)
-    await this.repo.remove(s.slot)
-    this.hooks.announce(
-      this.mode === 'new'
-        ? `${s.slot + 1}번 자리를 지웠다. 이제 여기서 새로 시작할 수 있다.`
-        : `${s.slot + 1}번 자리를 지웠다. 비어 있다.`,
-    )
+    try {
+      await this.repo.remove(s.slot)
+    } catch {
+      // 지우기는 사람이 청한 일이다 — 됐는지 안 됐는지를 반드시 말해 준다
+      this.hooks.announce('기록을 지우지 못했다. 연결을 확인하고 다시 시도하자.')
+      await this.rerender(s.slot)
+      return
+    }
+    this.hooks.announce(`${s.slot + 1}번 자리를 지웠다. 이제 여기서 새로 시작할 수 있다.`)
     await this.rerender(s.slot)
   }
 
@@ -187,12 +228,13 @@ export class SlotPanel {
   }
 
   private async continueSlot(slot: number): Promise<void> {
-    const snapshot = await this.repo.load(slot)
+    const snapshot = await this.repo.load(slot).catch(() => null)
     if (!snapshot) {
       this.hooks.announce('그 자리의 기록을 읽을 수 없다.')
       await this.render()
       return
     }
+    this.chose = true
     this.close()
     this.hooks.onContinue(slot)
   }
@@ -209,12 +251,10 @@ export class SlotPanel {
       this.prevFocus.focus()
     }
     this.hooks.onClose?.()
-  }
-
-  /** 저장된 기록이 하나라도 있는지 — 타이틀의 "이어서 하기" 노출 판단용 */
-  async hasAny(): Promise<boolean> {
-    const slots = await this.repo.list()
-    return slots.some((s) => !s.empty)
+    const back = this.onDismiss
+    this.onDismiss = null
+    // 고르고 닫은 것이 아니라 그냥 닫은 것이면 온 곳으로 돌려보낸다
+    if (!this.chose) back?.()
   }
 
   static get slotCount(): number {

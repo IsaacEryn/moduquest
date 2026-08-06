@@ -12,8 +12,6 @@ export class Screens {
   private dialogueNext: HTMLButtonElement | null = null
   private dialoguePortrait: HTMLDivElement | null = null
 
-  /** 타이틀에 "이어서 하기"를 보일지 — 저장된 기록이 있을 때만 */
-  hasSaves = false
   /** 필드 화면이 살아 있는 동안 구역 변경을 반영하는 갱신자 */
   private onAreaChanged: (() => void) | null = null
   /** 마을 버튼을 지금 자리에 맞게 여닫는 갱신자 */
@@ -27,7 +25,7 @@ export class Screens {
     private battleUI: BattleUI,
     private openOptions: () => void,
     private openTraits: () => void,
-    private openSlots: (mode: 'new' | 'continue') => void,
+    private openSingle: () => void,
     private openStages: () => void,
     private openBag: () => void,
     private openHelp: () => void,
@@ -99,6 +97,16 @@ export class Screens {
     }
   }
 
+  /**
+   * 타이틀 — 게임에 들어가는 문은 둘이고, 그 둘만 크게 선다.
+   *
+   * 예전에는 버튼 여섯이 같은 무게로 한 줄에 늘어서 있었다. 앞의 둘(새로 시작·이어서
+   * 하기)이 한 묶음이고 셋째(함께 하기)가 다른 모드라는 사실을 화면이 말해 주지 않았고,
+   * "혼자 하기"라는 이름 자체가 없어서 그 반대편만 이름을 가진 꼴이었다.
+   *
+   * 설명은 버튼 **안**에 둔다. 밖에 두면 읽기 순서상 버튼 뒤에 도착해서, 무엇을
+   * 고르는지 모른 채 먼저 버튼을 만난다. 안에 두면 그 자체가 버튼의 이름이 된다.
+   */
   private renderTitle(): void {
     const s = document.createElement('section')
     s.className = 'panel title-screen'
@@ -106,6 +114,7 @@ export class Screens {
       <div class="title-art" aria-hidden="true"></div>
       <h2>모두의 원정대</h2>
       <p>서로 다른 방식으로 감각하는 동료들이 한 파티로 떠나는 모험</p>
+      <div class="title-doors"></div>
       <div class="actions"></div>
     `
     // 키비주얼 — 게임 안 스프라이트가 곧 얼굴이다. 다섯 직업이 나란히 선다
@@ -115,36 +124,50 @@ export class Screens {
       const def = SPRITES[key]
       if (def) art.append(drawSprite(def, 4, lowStim))
     }
+
+    const doors = s.querySelector('.title-doors')!
+    const door = (name: string, desc: string, onClick: () => void) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = 'door'
+      const t = document.createElement('span')
+      t.className = 'door-name'
+      t.textContent = name
+      const d = document.createElement('span')
+      d.className = 'door-desc'
+      d.textContent = desc
+      b.append(t, d)
+      b.addEventListener('click', onClick)
+      doors.append(b)
+      return b
+    }
+    const single = door(
+      '싱글 플레이',
+      '가입 없이 바로 시작한다. 기록은 이 기기에만 남는다.',
+      () => this.openSingle(),
+    )
+    door(
+      '멀티 플레이',
+      '로그인하면 기록이 계정에 남아 다른 기기에서도 이어서 할 수 있다. 친구와 함께도, 혼자서도.',
+      () => this.openCoop(),
+    )
+
+    // 게임에 들어가는 일이 아닌 것들은 아래 한 줄로 — 문과 같은 무게로 서지 않는다
     const actions = s.querySelector('.actions')!
-    const start = document.createElement('button')
-    start.type = 'button'
-    start.textContent = '새로 시작'
-    start.addEventListener('click', () => this.openSlots('new'))
-    const cont = document.createElement('button')
-    cont.type = 'button'
-    cont.textContent = '이어서 하기'
-    cont.addEventListener('click', () => this.openSlots('continue'))
-    const coop = document.createElement('button')
-    coop.type = 'button'
-    coop.textContent = '함께 하기'
-    coop.addEventListener('click', () => this.openCoop())
-    const traits = document.createElement('button')
-    traits.type = 'button'
-    traits.textContent = '특성 고르기'
-    traits.addEventListener('click', () => this.openTraits())
-    const help = document.createElement('button')
-    help.type = 'button'
-    help.textContent = '도움말'
-    help.addEventListener('click', () => this.openHelp())
-    const opts = document.createElement('button')
-    opts.type = 'button'
-    opts.textContent = '옵션'
-    opts.addEventListener('click', () => this.openOptions())
-    if (this.hasSaves) actions.append(start, cont, coop, traits, help, opts)
-    else actions.append(start, coop, traits, help, opts)
+    const minor = (label: string, onClick: () => void) => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.className = 'alt-action'
+      b.textContent = label
+      b.addEventListener('click', onClick)
+      actions.append(b)
+    }
+    minor('특성 고르기', () => this.openTraits())
+    minor('도움말', () => this.openHelp())
+    minor('옵션', () => this.openOptions())
+
     this.ui.append(s)
-    // 이어서 할 게 있으면 그쪽이 첫 포커스다
-    ;(this.hasSaves ? cont : start).focus()
+    single.focus()
   }
 
   private renderDialogue(): void {

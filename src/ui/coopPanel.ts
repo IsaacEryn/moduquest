@@ -16,7 +16,7 @@ import { hasSupabaseConfig } from '../net/supabaseClient'
 type View = 'auth' | 'confirm' | 'home' | 'room'
 
 /**
- * 함께 하기의 문. 로그인(가입) → 모험단 만들기/참가 → 로비까지 한 창에서.
+ * 멀티 플레이의 문. 로그인(가입) → 파티로 하기/혼자 하기 → 로비까지 한 창에서.
  * 이 파일 전체가 동적 import로만 불린다 — 솔로 플레이는 이 코드를 읽지도 않는다.
  */
 export class CoopPanel {
@@ -40,13 +40,17 @@ export class CoopPanel {
       onOpen?: () => void
       onClose?: () => void
       announce: (text: string) => void
+      /**
+       * 누가 로그인해 있는가가 바뀌었다. 멀티 플레이의 저장 자리는 계정에 붙으므로,
+       * main이 이 신호를 받아 저장소를 갈아 끼운다 — 화면은 그 사실을 모른다.
+       */
+      onProfileChanged?: (profile: Profile | null) => void | Promise<void>
       /** 세션을 만들거나 참가한다 — 실제 생성은 main이 한다(게임·데이터 접근) */
       createSession: (me: { userId: string; nickname: string }) => Promise<PartySession>
       joinSession: (code: string, me: { userId: string; nickname: string }) => Promise<PartySession>
       currentSession: () => PartySession | null
-      /** 호스트의 출발 — 기존 새로 시작/이어서 하기 흐름을 되쓴다 */
-      hostStartNew: () => void
-      hostStartContinue: () => void
+      /** 방장의 출발 — 저장 자리 화면을 열어 어느 자리로 갈지 고르게 한다 */
+      hostStart: () => void
       /** 게스트의 저장 자리 — null이면 이번 모험을 저장하지 않는다 */
       setGuestSlot: (slot: number | null) => void
       describeSlots: () => Promise<string[]>
@@ -58,7 +62,7 @@ export class CoopPanel {
     this.dialog.className = 'options coop'
     this.dialog.setAttribute('aria-labelledby', 'coop-title')
     this.dialog.innerHTML = `
-      <h2 id="coop-title">함께 하기</h2>
+      <h2 id="coop-title">멀티 플레이</h2>
       <div class="coop-body"></div>
       <div class="slot-actions">
         <button type="button" id="coop-close">닫기</button>
@@ -75,13 +79,25 @@ export class CoopPanel {
     })
   }
 
+  /**
+   * 프로필이 바뀌는 길은 셋(창 열기·로그인·로그아웃)뿐이고 전부 여기를 지난다.
+   * 기다리는 이유는 저장소 교체가 서버 코드를 불러오는 일이라서다 — 끝나기 전에
+   * 화면을 그리면 아직 이 기기의 자리를 읽어 계정 자리인 척 보여 준다.
+   */
+  private async setProfile(profile: Profile | null): Promise<void> {
+    this.profile = profile
+    await this.hooks.onProfileChanged?.(profile)
+  }
+
   get isOpen(): boolean {
     return this.dialog.open
   }
 
   async open(): Promise<void> {
     if (!hasSupabaseConfig()) {
-      this.hooks.announce('함께 하기 서버가 아직 연결되지 않았다. 지금은 혼자 모험할 수 있다.')
+      this.hooks.announce(
+        '멀티 플레이 서버가 아직 연결되지 않았다. 지금은 싱글 플레이로 모험할 수 있다.',
+      )
       return
     }
     this.closed = false
@@ -90,9 +106,9 @@ export class CoopPanel {
     this.dialog.showModal()
     this.renderLoading('로그인 상태를 확인하는 중…')
     try {
-      this.profile = await currentProfile()
+      await this.setProfile(await currentProfile())
     } catch {
-      this.profile = null
+      await this.setProfile(null)
     }
     this.view = this.hooks.currentSession() ? 'room' : this.profile ? 'home' : 'auth'
     this.render()
@@ -248,7 +264,8 @@ export class CoopPanel {
     intro.className = 'intro'
     intro.textContent = signup
       ? '처음이면 계정을 만들자. 닉네임은 동료들에게 보이는 이름이다.'
-      : '함께 하려면 로그인이 필요하다. 혼자 하는 모험은 로그인 없이 그대로다.'
+      : '멀티 플레이는 로그인이 필요하다. 기록이 계정에 남아 다른 기기에서도 이어서 할 수 있다. ' +
+        '싱글 플레이는 로그인 없이 그대로다.'
     this.body.append(intro)
 
     const form = document.createElement('form')
@@ -322,8 +339,8 @@ export class CoopPanel {
       form.append(agree)
     }
 
-    const finish = (profile: Profile) => {
-      this.profile = profile
+    const finish = async (profile: Profile) => {
+      await this.setProfile(profile)
       this.hooks.announce(`${profile.nickname}로 로그인했다.`)
       this.view = 'home'
       this.render()
@@ -362,7 +379,7 @@ export class CoopPanel {
               this.hooks.announce('확인 메일을 보냈다. 메일함의 링크를 누르면 계정이 열린다.')
               return
             }
-            finish(result.profile)
+            await finish(result.profile)
           })
         : signIn(address, pw.value, ticket).then(async (profile) => {
             // 트리거가 없던 시절의 계정이면 이름이 비어 있다 — 여기서 채운다
@@ -371,7 +388,7 @@ export class CoopPanel {
               await saveNickname(profile.userId, fallback)
               profile = { ...profile, nickname: fallback }
             }
-            finish(profile)
+            await finish(profile)
           })
 
       task
@@ -393,29 +410,38 @@ export class CoopPanel {
     const me = this.profile!
     const hello = document.createElement('p')
     hello.className = 'intro'
-    hello.textContent = `${me.nickname} — 모험단을 만들거나, 초대 코드로 참가하자.`
+    hello.textContent = `${me.nickname} — 어떻게 할까? 어느 쪽이든 기록은 계정에 남는다.`
     this.body.append(hello)
 
-    const makeBtn = document.createElement('button')
-    makeBtn.type = 'button'
-    makeBtn.textContent = '모험단 만들기'
-    makeBtn.addEventListener('click', () => {
+    /**
+     * 파티로 하든 혼자 하든 여는 것은 같은 모험단이다. 혼자 시작해도 채널을 여는 것은
+     * 나중에 동료가 초대 코드로 들어올 길을 닫지 않기 위해서다 — 이름만 다르고
+     * 안에서 일어나는 일은 하나다.
+     */
+    const openParty = (btn: HTMLButtonElement, said: string) => {
       if (this.busy) return
       this.busy = true
-      makeBtn.disabled = true
+      btn.disabled = true
       this.hooks
         .createSession({ userId: me.userId, nickname: me.nickname })
         .then(() => {
           this.view = 'room'
           this.render()
-          this.hooks.announce('모험단을 만들었다. 초대 코드를 동료에게 알리자.')
+          this.hooks.announce(said)
         })
         .catch((err: Error) => this.hooks.announce(err.message))
         .finally(() => {
           this.busy = false
-          makeBtn.disabled = false
+          btn.disabled = false
         })
-    })
+    }
+
+    const makeBtn = document.createElement('button')
+    makeBtn.type = 'button'
+    makeBtn.textContent = '모험단 만들기'
+    makeBtn.addEventListener('click', () =>
+      openParty(makeBtn, '모험단을 만들었다. 초대 코드를 동료에게 알리자.'),
+    )
 
     const joinForm = document.createElement('form')
     joinForm.setAttribute('aria-label', '초대 코드로 참가')
@@ -460,8 +486,8 @@ export class CoopPanel {
     out.className = 'alt-action'
     out.textContent = '로그아웃'
     out.addEventListener('click', () => {
-      void signOut().then(() => {
-        this.profile = null
+      void signOut().then(async () => {
+        await this.setProfile(null)
         this.view = 'auth'
         this.render()
         this.hooks.announce('로그아웃했다.')
@@ -478,7 +504,46 @@ export class CoopPanel {
     footer.className = 'coop-row'
     footer.append(gifts, out)
 
-    this.body.append(makeBtn, divider, joinForm, footer)
+    /**
+     * 두 갈래를 이름으로 가른다. 예전에는 "모험단 만들기"와 초대 코드 입력만 있어서,
+     * 혼자 걷고 싶은 사람은 자기가 무엇을 눌러야 하는지 알 수 없었다 —
+     * 혼자여도 출발할 수 있다는 안내가 로비 안쪽 버튼 뒤에나 있었다.
+     */
+    const choice = (title: string, desc: string, ...content: HTMLElement[]) => {
+      const box = document.createElement('section')
+      box.className = 'coop-choice'
+      const h = document.createElement('h3')
+      h.textContent = title
+      const p = document.createElement('p')
+      p.className = 'intro'
+      p.textContent = desc
+      box.append(h, p, ...content)
+      box.setAttribute('aria-label', title)
+      return box
+    }
+
+    const soloBtn = document.createElement('button')
+    soloBtn.type = 'button'
+    soloBtn.textContent = '혼자 시작하기'
+    soloBtn.addEventListener('click', () =>
+      openParty(soloBtn, '혼자 출발할 준비가 됐다. 동료는 초대 코드로 들어올 수 있다.'),
+    )
+
+    this.body.append(
+      choice(
+        '파티로 하기',
+        '동료를 초대해 셋까지 함께 걷는다.',
+        makeBtn,
+        divider,
+        joinForm,
+      ),
+      choice(
+        '혼자 하기',
+        '계정에 저장하며 혼자 걷는다. 동료는 나중에 초대 코드로 들어올 수 있다.',
+        soloBtn,
+      ),
+      footer,
+    )
     makeBtn.focus()
   }
 
@@ -526,24 +591,20 @@ export class CoopPanel {
     this.body.append(codeRow, roster)
 
     if (session.isHost) {
-      const startNew = document.createElement('button')
-      startNew.type = 'button'
-      startNew.textContent = '새 모험으로 출발'
-      startNew.addEventListener('click', () => this.hooks.hostStartNew())
-      const startCont = document.createElement('button')
-      startCont.type = 'button'
-      startCont.textContent = '저장된 기록에서 출발'
-      startCont.addEventListener('click', () => this.hooks.hostStartContinue())
+      // 새로 갈지 이어서 갈지는 저장 자리 화면이 자리를 보고 정한다 —
+      // 예전에는 여기서 먼저 정해야 해서, 빈 칸뿐인데 "저장된 기록에서 출발"을
+      // 고르면 전부 비활성인 화면을 만났다
       const note = document.createElement('p')
       note.className = 'intro'
       note.textContent =
         '혼자여도 출발할 수 있다. 동료는 모험 중에도 초대 코드로 합류한다.'
-      const startRow = document.createElement('div')
-      startRow.className = 'coop-row'
-      startCont.className = 'alt-action'
-      startRow.append(startNew, startCont)
-      this.body.append(startRow, note)
-      startNew.focus()
+      const start = document.createElement('button')
+      start.type = 'button'
+      start.textContent = '출발하기'
+      start.addEventListener('click', () => this.hooks.hostStart())
+      // 안내가 버튼보다 먼저 온다 — 무엇을 누르는지 알고 나서 누르도록
+      this.body.append(note, start)
+      start.focus()
     } else {
       const wait = document.createElement('p')
       wait.className = 'intro'

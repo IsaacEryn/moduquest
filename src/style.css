@@ -276,9 +276,44 @@ button:disabled {
   margin: 0 0 1.5rem;
 }
 
+/*
+ * 게임에 들어가는 문 둘. 나란히 서되 좁은 화면에서는 위아래로 쌓인다.
+ * 클리어·엔딩 화면도 .title-screen을 함께 쓰지만 .title-doors는 타이틀에만 있다.
+ */
+.title-doors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  justify-content: center;
+  margin-bottom: var(--sp-5);
+}
+
+.title-doors .door {
+  /* 문은 글자 폭이 아니라 정해진 폭으로 — 둘이 같은 무게로 서야 고르는 자리가 된다 */
+  flex: 1 1 16rem;
+  max-width: 22rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-5);
+  text-align: left;
+  line-height: 1.45;
+}
+
+.title-doors .door-name {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+}
+
+.title-doors .door-desc {
+  font-size: var(--fs-sm);
+  color: var(--text-dim);
+  font-weight: 400;
+}
+
 .title-screen .actions {
   display: flex;
-  /* 저장이 있으면 버튼이 다섯 — 좁은 화면에서는 줄을 바꾼다 */
   flex-wrap: wrap;
   gap: var(--sp-4);
   justify-content: center;
@@ -1020,9 +1055,14 @@ details > summary::marker {
   지금 하려던 일(제출)과 구분되도록 테두리만 남기고 채우지 않는다 —
   색이 아니라 채움의 유무로 갈라야 대비 설정에서도 구분이 살아남는다.
 */
-.coop .alt-action {
+/*
+ * 곁들이는 버튼 — 바탕 없이 테두리만. 함께 하기 창에서 시작한 꼴인데 타이틀의
+ * 보조 줄도 같은 무게라 울타리를 걷었다. 테두리는 조작 대상의 것(--control-border)을
+ * 쓴다. 예전에는 장식용 토큰이라 어두운 패널 위에서 경계가 1.65:1로 흐렸다.
+ */
+.alt-action {
   background: transparent;
-  border: 1px solid var(--panel-border);
+  border: 1px solid var(--control-border);
 }
 
 .coop-code {
@@ -1210,6 +1250,28 @@ details > summary::marker {
 */
 .coop .coop-body > button {
   display: block;
+  width: 100%;
+}
+
+/* 로그인 후 두 갈래 — 파티로 갈지 혼자 갈지가 이름으로 갈린다 */
+.coop .coop-choice {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+}
+
+.coop .coop-choice h3 {
+  margin: 0 0 var(--sp-1);
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+}
+
+.coop .coop-choice .intro {
+  margin: 0 0 var(--sp-3);
+}
+
+.coop .coop-choice > button {
   width: 100%;
 }
 

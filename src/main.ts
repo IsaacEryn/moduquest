@@ -28,7 +28,7 @@ import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
 import { PartyPanel } from './ui/partyPanel'
 import { AUTOSAVE_ON } from './save/autosaveEvents'
-import { LocalSaveRepository } from './save/saveRepository'
+import { LocalSaveRepository, SwitchableSaveRepository } from './save/saveRepository'
 import { Screens } from './ui/screens'
 import { SlotPanel } from './ui/slotPanel'
 import { StageSelect } from './ui/stageSelect'
@@ -127,7 +127,29 @@ const announcer = new Announcer(
 )
 
 // 저장이 막히면 반드시 알린다 — 저장 버튼이 없는 게임이라 조용한 실패가 곧 손실이다
-const saves = new LocalSaveRepository(data, (reason) => announcer.assertive(reason))
+const saveFailed = (reason: string) => announcer.assertive(reason)
+const deviceSaves = new LocalSaveRepository(data, saveFailed)
+
+/**
+ * 지금 쓰는 저장 자리. 싱글 플레이는 이 기기에, 멀티 플레이는 계정에 남는다 —
+ * 두 벌은 서로 다른 기록이고 섞이지 않는다. 화면들은 이 껍데기만 붙잡으므로
+ * 문이 바뀔 때 안쪽만 갈아 끼우면 된다.
+ */
+const saves = new SwitchableSaveRepository(deviceSaves)
+
+/** 이 기기의 자리로 되돌린다 — 싱글 플레이로 들어가거나 로그아웃할 때 */
+function useDeviceSaves(): void {
+  if (saves.inner === deviceSaves) return
+  saves.inner = deviceSaves
+  activeSlot = null // 다른 벌의 자리 번호를 물려받지 않는다
+}
+
+/** 계정의 자리로 옮긴다. 클라우드 저장소는 서버 코드를 끌고 오므로 그때 불러온다 */
+async function useAccountSaves(userId: string): Promise<void> {
+  const { CloudSaveRepository } = await import('./save/cloudSaveRepository')
+  saves.inner = new CloudSaveRepository(userId, data, saveFailed)
+  activeSlot = null
+}
 const partyPanel = new PartyPanel(game, {
   ...pauseHooks,
   onConfirm: (jobs) => {
@@ -180,7 +202,7 @@ const screens = new Screens(
   battleUI,
   () => options.open(),
   () => traitPanel.open(),
-  (mode) => void slotPanel.open(mode),
+  () => void openSinglePlay(),
   () => stageSelect.open(),
   () => bagPanel.open(),
   () => helpPanel.open(),
@@ -224,6 +246,17 @@ const sessionHooks: SessionHooks = {
   },
 }
 
+/**
+ * 싱글 플레이 — 이 기기의 자리로 되돌리고 저장 자리를 연다.
+ * 로그인한 채로도 싱글은 기기에 남는다. 두 벌은 서로 다른 기록이다.
+ */
+async function openSinglePlay(): Promise<void> {
+  useDeviceSaves()
+  await slotPanel.open(
+    '이 기기에 남는 기록이다. 기록이 있는 자리는 이어서 하고, 빈 자리는 새로 시작한다.',
+  )
+}
+
 async function openCoop(): Promise<void> {
   if (!coopPanel) {
     const [{ CoopPanel }, { PartySession }] = await Promise.all([
@@ -233,6 +266,11 @@ async function openCoop(): Promise<void> {
     coopPanel = new CoopPanel({
       ...pauseHooks,
       announce: (t) => announcer.polite(t),
+      // 멀티 플레이의 기록은 계정에 붙는다 — 누가 로그인해 있느냐가 곧 어느 자리냐다
+      onProfileChanged: (profile) => {
+        if (profile) void useAccountSaves(profile.userId)
+        else useDeviceSaves()
+      },
       createSession: async (me) => {
         activeSession = await PartySession.host(game, data, bus, sessionHooks, me)
         return activeSession
@@ -242,8 +280,18 @@ async function openCoop(): Promise<void> {
         return activeSession
       },
       currentSession: () => activeSession,
-      hostStartNew: () => void slotPanel.open('new'),
-      hostStartContinue: () => void slotPanel.open('continue'),
+      // 창을 겹쳐 열지 않는다 — 선물함과 같은 규칙이다. 겹치면 배경이 두 겹으로
+      // 어두워지고 어디로 돌아가는지가 화면으로도 낭독으로도 흐려진다
+      hostStart: () => {
+        void (async () => {
+          coopPanel?.close()
+          await slotPanel.open(
+            '계정에 남는 기록이다. 자리를 고르면 모험단이 함께 출발한다.',
+            // 고르지 않고 닫았으면 로비로 돌려보낸다 — 어디서 왔는지를 잃지 않는다
+            () => void openCoop(),
+          )
+        })()
+      },
       setGuestSlot: (slot) => {
         activeSlot = slot
       },
@@ -310,14 +358,8 @@ bus.on((e) => {
   }
 })
 
-/** 타이틀로 돌아올 때마다 "이어서 하기"를 보일지 다시 판단한다 */
-bus.on((e) => {
-  if (e.type !== 'mode' || e.mode !== 'title') return
-  void slotPanel.hasAny().then((has) => {
-    screens.hasSaves = has
-    screens.showTitle()
-  })
-})
+// 타이틀은 저장 유무와 무관하게 늘 같은 모양이다 — 문은 언제나 둘이다.
+// 예전에는 "이어서 하기"가 나타났다 사라지며 버튼 수와 첫 포커스가 함께 바뀌었다
 // 지나온 길 표시는 옵션이 정하고 그림·글 두 렌즈가 함께 따른다
 const applyTrail = () => { game.field.showTrail = store.options.trail }
 applyTrail()
@@ -426,11 +468,7 @@ document.addEventListener('keydown', (e) => {
 // 첫 화면은 mode 이벤트 없이 그려지므로 초기값을 직접 남긴다
 document.body.dataset.mode = game.mode
 
-// 저장된 기록이 있는지 먼저 확인하고 타이틀을 그린다
-void slotPanel.hasAny().then((has) => {
-  screens.hasSaves = has
-  screens.showTitle()
-})
+screens.showTitle()
 
 /**
  * 확인 메일의 링크를 눌러 돌아온 참이면 함께 하기를 바로 연다.
