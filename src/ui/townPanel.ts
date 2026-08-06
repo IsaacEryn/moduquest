@@ -1,5 +1,6 @@
 import { UPGRADE_STAT_KO, type Game } from '../core/game'
 import type { UpgradeStat } from '../core/types'
+import { ItemGrid, type GridEntry } from './itemGrid'
 
 const TOWN_TABS = [
   { id: 'shop', label: '사기' },
@@ -25,9 +26,13 @@ export class TownPanel {
   /** 보고 있는 가게. 닫았다 다시 열어도 하던 곳이 유지된다 */
   private activeTab: TownTab = 'shop'
 
+  private shopGrid!: ItemGrid
+  private partGrid!: ItemGrid
+
   constructor(
     private game: Game,
     private hooks: { onOpen?: () => void; onClose?: () => void },
+    lowStim: () => boolean = () => false,
   ) {
     this.dialog = document.createElement('dialog')
     this.dialog.className = 'options town'
@@ -37,10 +42,10 @@ export class TownPanel {
       <p class="town-wallet" aria-live="off"></p>
       <div class="town-tabs" role="tablist" aria-label="마을 가게"></div>
       <section role="tabpanel" id="town-panel-shop" aria-labelledby="town-tab-shop">
-        <ul class="bag-list town-shop"></ul>
+        <div class="town-shop"></div>
       </section>
       <section role="tabpanel" id="town-panel-part" aria-labelledby="town-tab-part">
-        <ul class="bag-list town-part"></ul>
+        <div class="town-part"></div>
       </section>
       <section role="tabpanel" id="town-panel-upgrade" aria-labelledby="town-tab-upgrade">
         <p class="bag-note">동전과 강화 재료로 한 사람의 능력치를 영구히 올린다. 되돌릴 수 없다.</p>
@@ -51,8 +56,61 @@ export class TownPanel {
       </div>
     `
     document.body.append(this.dialog)
+
+    const g = this.game
+    // 사는 곳 — 고르면 설명판에 능력치가 그대로 나온다.
+    // 예전에는 이름과 값만 보여서 무엇이 좋은지 알려면 사 봐야 했다
+    this.shopGrid = new ItemGrid({
+      label: '상점 물건',
+      lowStim,
+      emptyText: '상점에 물건이 없다.',
+      actions: [
+        {
+          label: '사기',
+          can: (e) => g.canBuy(e.id),
+          run: (e) => {
+            if (g.buy(e.id)) this.afterTrade(this.shopGrid)
+          },
+        },
+      ],
+    })
+    this.dialog.querySelector<HTMLElement>('.town-shop')!.append(this.shopGrid.el)
+
+    this.partGrid = new ItemGrid({
+      label: '가방에 든 물건',
+      lowStim,
+      emptyText: '가방이 비어 있다.',
+      actions: [
+        {
+          label: '팔기',
+          can: (e) => g.canSell(e.id),
+          run: (e) => {
+            if (g.sell(e.id)) this.afterTrade(this.partGrid)
+          },
+        },
+        {
+          label: '분해',
+          can: (e) => g.canDismantle(e.id),
+          run: (e) => {
+            if (g.dismantle(e.id)) this.afterTrade(this.partGrid)
+          },
+        },
+      ],
+    })
+    this.dialog.querySelector<HTMLElement>('.town-part')!.append(this.partGrid.el)
+
     this.dialog.querySelector('#town-close')!.addEventListener('click', () => this.close())
     this.dialog.addEventListener('close', () => this.afterClose())
+  }
+
+  /**
+   * 거래 한 번마다 값과 개수가 전부 달라지므로 다시 그린다.
+   * 다시 그리면 눌렀던 버튼이 사라지니 같은 자리로 손을 돌려준다 —
+   * 연달아 사고파는 동안 포커스가 튀면 키보드만으로는 길을 잃는다.
+   */
+  private afterTrade(grid: ItemGrid): void {
+    this.render()
+    grid.focusAction()
   }
 
   private renderTabs(): void {
@@ -164,66 +222,29 @@ export class TownPanel {
   }
 
   private renderShop(): void {
-    const list = this.dialog.querySelector<HTMLUListElement>('.town-shop')!
-    list.replaceChildren()
-    for (const item of this.game.shopStock) {
-      const li = document.createElement('li')
-      li.className = 'bag-item'
-      const head = document.createElement('p')
-      head.textContent =
-        `${item.name} — ${item.description}` + (item.owned > 0 ? ` (가진 것 ${item.owned}개)` : '')
-      li.append(
-        head,
-        this.action(`buy-${item.id}`, `사기 — ${item.price}냥`, this.game.canBuy(item.id), () =>
-          this.game.buy(item.id),
-        ),
-      )
-      list.append(li)
-    }
+    const entries: GridEntry[] = this.game.shopStock.map((row) => ({
+      id: row.id,
+      item: this.game.items[row.id],
+      badge: `${row.price}냥`,
+      tag: row.owned > 0 ? `가진 것 ${row.owned}` : undefined,
+    }))
+    this.shopGrid.setEntries(entries)
   }
 
   private renderParting(): void {
     const g = this.game
-    const list = this.dialog.querySelector<HTMLUListElement>('.town-part')!
-    list.replaceChildren()
-    const items = g.inventoryList
-    if (items.length === 0) {
-      const li = document.createElement('li')
-      li.textContent = '가방이 비어 있다.'
-      list.append(li)
-      return
-    }
-    for (const item of items) {
-      const li = document.createElement('li')
-      li.className = 'bag-item'
-      const head = document.createElement('p')
-      head.textContent = `${item.name} ×${item.count} — ${item.description}`
-      li.append(head)
-
-      const group = document.createElement('div')
-      group.setAttribute('role', 'group')
-      group.setAttribute('aria-label', `${item.name} 처분`)
-      const price = g.sellValueOf(item.id)
-      group.append(
-        this.action(
-          `sell-${item.id}`,
-          price === null ? '팔 수 없다' : `팔기 — ${price}냥`,
-          g.canSell(item.id),
-          () => g.sell(item.id),
-        ),
-      )
-      const yielded = g.dismantleYieldOf(item.id)
-      group.append(
-        this.action(
-          `dismantle-${item.id}`,
-          yielded === null ? '분해할 수 없다' : `분해 — 재료 ${yielded}개`,
-          g.canDismantle(item.id),
-          () => g.dismantle(item.id),
-        ),
-      )
-      li.append(group)
-      list.append(li)
-    }
+    const entries: GridEntry[] = g.inventoryList.map((row) => {
+      const price = g.sellValueOf(row.id)
+      return {
+        id: row.id,
+        item: g.items[row.id],
+        count: row.count,
+        // 팔 값을 칸에 적어 두면 무엇을 내놓을지 격자만 훑어도 정해진다
+        badge: price === null ? undefined : `${price}냥`,
+        tag: price === null ? '팔 수 없음' : undefined,
+      }
+    })
+    this.partGrid.setEntries(entries)
   }
 
   private renderUpgrades(): void {

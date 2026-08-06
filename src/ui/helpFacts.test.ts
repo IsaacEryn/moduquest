@@ -79,7 +79,7 @@ describe('도움말의 수치는 데이터에서 온다', () => {
   })
 
   it('되파는 값과 분해 산출이 economy와 같다', () => {
-    expect(facts['sell-values']).toContain(`물약 ${DATA.economy.sell.consumable}냥`)
+    expect(facts['sell-values']).toContain(`${Math.round(DATA.economy.sell.rate * 100)}퍼센트`)
     for (const [tier, v] of Object.entries(DATA.economy.sell.byTier)) {
       expect(facts['sell-values'], `tier ${tier}`).toContain(`${v}냥`)
     }

@@ -1,37 +1,12 @@
 import { EQUIP_SLOTS, SLOT_KO, type Game } from '../core/game'
-import type { EquipSlot, ItemData } from '../core/types'
+import type { EquipSlot } from '../core/types'
 import { josa } from './announcer'
 import { gauge } from './gauge'
+import { ItemGrid } from './itemGrid'
+import { describeItem, signed } from './itemText'
 
 const STAT_KO = { atk: '공격', def: '방어', spd: '속도' } as const
 type CoreStat = keyof typeof STAT_KO
-
-/** 오른 것은 +, 깎인 것은 - 그대로 — 무거운 장비의 대가를 감추지 않는다 */
-const signed = (v: number) => (v > 0 ? `+${v}` : `${v}`)
-
-/** 장비 한 점의 효과 문장 — 수치는 데이터에서 조립해 설명과 실제가 어긋나지 않는다 */
-function describeItem(item: ItemData, setName?: string): string {
-  const parts: string[] = []
-  const s = item.stats ?? {}
-  const bits = (Object.entries({ 체력: s.hp, 마력: s.mp, 공격: s.atk, 방어: s.def, 속도: s.spd }) as [
-    string,
-    number | undefined,
-  ][])
-    .filter(([, v]) => (v ?? 0) !== 0)
-    .map(([k, v]) => `${k} ${signed(v as number)}`)
-  if (bits.length) parts.push(bits.join(' '))
-  const a = item.allyStats ?? {}
-  const auraBits = (Object.entries({ 공격: a.atk, 방어: a.def, 속도: a.spd, 체력: a.hp, 마력: a.mp }) as [
-    string,
-    number | undefined,
-  ][])
-    .filter(([, v]) => (v ?? 0) !== 0)
-    .map(([k, v]) => `${k} ${signed(v as number)}`)
-  if (auraBits.length) parts.push(`동료 ${auraBits.join(' ')}`)
-  if (setName) parts.push(setName)
-  if (item.minLevel) parts.push(`${item.minLevel}레벨부터`)
-  return parts.join(' · ')
-}
 
 /**
  * 상태창 — 파티의 레벨·경험치·능력치 내역과 장비를 한 곳에서 본다.
@@ -55,6 +30,7 @@ export class StatusPanel {
   constructor(
     private game: Game,
     private hooks: { onOpen?: () => void; onClose?: () => void },
+    private lowStim: () => boolean = () => false,
   ) {
     this.dialog = document.createElement('dialog')
     this.dialog.className = 'options status'
@@ -287,8 +263,6 @@ export class StatusPanel {
     const g = this.game
     const box = document.createElement('div')
     box.className = 'status-picker'
-    box.setAttribute('role', 'group')
-    box.setAttribute('aria-label', `${SLOT_KO[slot]} 후보`)
 
     const candidates = g.inventoryList.filter(
       (i) => i.kind === 'equipment' && g.itemData(i.id)?.slot === slot,
@@ -298,25 +272,40 @@ export class StatusPanel {
       p.className = 'status-note'
       p.textContent = '가방에 이 자리에 맞는 장비가 없다.'
       box.append(p)
+      return box
     }
-    for (const cand of candidates) {
-      const item = g.itemData(cand.id)!
-      const setName = item.set ? g.setData(item.set)?.name : undefined
-      const b = document.createElement('button')
-      b.type = 'button'
-      const check = g.canEquip(memberId, cand.id)
-      b.textContent =
-        `${item.name} ×${cand.count} — ${describeItem(item, setName)}` +
-        (check.ok ? '' : ` (${check.reason ?? '지금은 못 입는다'})`)
-      b.disabled = !check.ok
-      b.addEventListener('click', () => {
-        if (g.equip(memberId, cand.id)) {
-          this.openPicker = null
-          this.render()
+
+    // 입을 것을 고르는 자리도 가방과 같은 격자다 — 같은 물건이 창마다
+    // 다르게 보이면 어디서 무엇을 봤는지 기억해야 할 것이 늘어난다
+    const grid = new ItemGrid({
+      label: `${SLOT_KO[slot]} 후보`,
+      lowStim: this.lowStim,
+      actions: [
+        {
+          label: '입기',
+          can: (e) => g.canEquip(memberId, e.id),
+          run: (e) => {
+            if (g.equip(memberId, e.id)) {
+              this.openPicker = null
+              this.render()
+            }
+          },
+        },
+      ],
+    })
+    grid.setEntries(
+      candidates.map((cand) => {
+        const item = g.itemData(cand.id)!
+        const check = g.canEquip(memberId, cand.id)
+        return {
+          id: cand.id,
+          item,
+          count: cand.count,
+          disabledReason: check.ok ? undefined : (check.reason ?? '지금은 못 입는다'),
         }
-      })
-      box.append(b)
-    }
+      }),
+    )
+    box.append(grid.el)
     return box
   }
 

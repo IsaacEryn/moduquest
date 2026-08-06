@@ -166,10 +166,10 @@ const stageSelect = new StageSelect(game, {
   ...pauseHooks,
   onPick: (index) => port.startStage(index),
 })
-const bagPanel = new BagPanel(port, pauseHooks)
+const bagPanel = new BagPanel(port, pauseHooks, () => store.options.lowStim)
 const helpPanel = new HelpPanel(data, pauseHooks)
-const statusPanel = new StatusPanel(port, pauseHooks)
-const townPanel = new TownPanel(port, pauseHooks)
+const statusPanel = new StatusPanel(port, pauseHooks, () => store.options.lowStim)
+const townPanel = new TownPanel(port, pauseHooks, () => store.options.lowStim)
 // 필드 상단 상시 현황 — 창을 열지 않아도 체력과 지갑이 보인다
 const fieldHud = new FieldHud(game, bus)
 // 획득·레벨업 토스트 — 시각 전용, 낭독은 Announcer가 이미 한다

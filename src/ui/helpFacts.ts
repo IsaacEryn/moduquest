@@ -60,8 +60,10 @@ export function helpFacts(data: GameData): Record<string, string> {
     .join(', ')
   facts['shop-stock'] = `물약 ${attrWord(potions)} 가지와 ${gear}를 판다`
 
+  // 소모품은 상점 값에서 끌어오므로 도움말도 규칙을 말한다 — 물약이 늘어도 문장이 안 낡는다
+  const sellPercent = Math.round(economy.sell.rate * 100)
   facts['sell-values'] =
-    `물약 ${economy.sell.consumable}냥, 장비는 등급에 따라 ${tierList(economy.sell.byTier, '냥')}`
+    `소모품은 산 값의 ${sellPercent}퍼센트, 장비는 등급에 따라 ${tierList(economy.sell.byTier, '냥')}`
   facts['dismantle-yield'] = tierList(economy.dismantle.byTier, '개')
 
   const up = economy.upgrade

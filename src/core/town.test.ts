@@ -162,6 +162,26 @@ describe('분해', () => {
     expect(r.reason).toContain('장비만')
   })
 
+  it('비싸게 산 물약은 비싸게 팔린다 — 예전에는 전부 같은 값이었다', () => {
+    const { game } = makeGame()
+    atCheckpoint(game)
+    const small = game.sellValueOf('potion_small')
+    const big = game.sellValueOf('potion_big')
+    expect(small).toBe(4)
+    expect(big).toBe(8)
+    expect(big).toBeGreaterThan(small as number)
+  })
+
+  it('되파는 값은 언제나 사는 값보다 싸다 — 되팔아 이문이 남으면 안 된다', () => {
+    const { game } = makeGame()
+    atCheckpoint(game)
+    for (const row of game.shopStock) {
+      const sell = game.sellValueOf(row.id)
+      if (sell === null) continue
+      expect(sell, `${row.id}는 ${row.price}냥에 사서 ${sell}냥에 팔린다`).toBeLessThan(row.price)
+    }
+  })
+
   it('추억의 물건과 오라 장비는 팔지도 분해하지도 못한다', () => {
     const { game } = makeGame()
     atCheckpoint(game)

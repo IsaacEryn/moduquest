@@ -271,6 +271,11 @@ export class Game {
     return this.data.jobs
   }
 
+  /** 화면이 아이템의 생김새와 효과를 읽어야 할 때 — 가방 격자가 쓴다 */
+  get items(): Record<string, ItemData> {
+    return this.data.items
+  }
+
   /** 특성과 지금 구역의 어둠 중 좁은 쪽을 쓴다 */
   get perceptionRadius(): number | null {
     return this.radiusFor(this.field.currentArea)
@@ -640,7 +645,14 @@ export class Game {
   sellValueOf(itemId: string): number | null {
     const item = this.data.items[itemId]
     if (!item) return null
-    if (item.kind === 'consumable') return this.data.economy.sell.consumable
+    if (item.kind === 'consumable') {
+      // 소모품은 상점 값에서 끌어온다 — 정액으로 두면 10냥짜리 작은 물약과
+      // 20냥짜리 큰 물약이 똑같은 값에 팔린다. 값을 두 곳에 적지 않는 편이
+      // 물약이 늘어도 어긋나지 않는다. 상점이 팔지 않는 것만 기본값을 쓴다
+      const shopPrice = this.data.economy.shop.stock[itemId]
+      if (shopPrice === undefined) return this.data.economy.sell.consumable
+      return Math.floor(shopPrice * this.data.economy.sell.rate)
+    }
     if (item.kind !== 'equipment' || !item.tier) return null
     if (item.allyStats) return null
     return this.data.economy.sell.byTier[String(item.tier)] ?? null

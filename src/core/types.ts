@@ -141,8 +141,12 @@ export interface EconomyData {
     /** 파는 물건과 값. 여기 없는 것은 상점에 없다 */
     stock: Record<string, number>
   }
-  /** 되파는 값. 소모품은 한 값, 장비는 등급으로 정한다 */
-  sell: { consumable: number; byTier: Record<string, number> }
+  /**
+   * 되파는 값. 소모품은 상점 값에 rate를 곱해서 정하고(작은 물약과 큰 물약이
+   * 같은 값에 팔리지 않게), 장비는 등급으로 정한다.
+   * consumable은 상점이 팔지 않는 소모품에만 쓰는 기본값이다.
+   */
+  sell: { rate: number; consumable: number; byTier: Record<string, number> }
   /** 장비를 분해해 얻는 강화 재료 수 */
   dismantle: { byTier: Record<string, number> }
   upgrade: {

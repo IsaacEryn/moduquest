@@ -19,6 +19,7 @@
     }
   },
   "sell": {
+    "rate": 0.4,
     "consumable": 4,
     "byTier": {
       "1": 6,
