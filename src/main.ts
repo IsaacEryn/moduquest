@@ -19,7 +19,7 @@ import { createGamePort } from './net/gamePort'
 import type { PartySession, SessionHooks } from './net/session'
 import type { CoopPanel } from './ui/coopPanel'
 import { createRenderer } from './render/scenes'
-import { Announcer } from './ui/announcer'
+import { Announcer, josa } from './ui/announcer'
 import { BagPanel } from './ui/bagPanel'
 import { BattleUI } from './ui/battleUI'
 import { FieldHud } from './ui/fieldHud'
@@ -316,6 +316,29 @@ async function openCoop(): Promise<void> {
           })
           // 창을 겹쳐 열지 않는다 — 배경이 두 겹으로 어두워지고, 어디로 돌아가는지가
           // 화면으로도 낭독으로도 흐려진다
+          coopPanel?.close()
+          await panel.open()
+        })()
+      },
+      openFriends: (me) => {
+        void (async () => {
+          const [{ FriendPanel }, { sendPartyInvite }] = await Promise.all([
+            import('./ui/friendPanel'),
+            import('./net/friends'),
+          ])
+          const panel = new FriendPanel({
+            announce: (t) => announcer.polite(t),
+            myFriendCode: () => me.friendCode,
+            // 지금 모험단이 있어야 친구를 부를 수 있다 — 부를 곳이 없으면 초대도 없다
+            partyCode: () => activeSession?.code ?? null,
+            invite: async (userId, nickname) => {
+              const code = activeSession?.code
+              if (!code) return
+              await sendPartyInvite(userId, code)
+              announcer.polite(`${josa(nickname, '을', '를')} 모험단으로 불렀다.`)
+            },
+            onClose: () => void openCoop(),
+          })
           coopPanel?.close()
           await panel.open()
         })()

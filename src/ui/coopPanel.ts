@@ -57,6 +57,8 @@ export class CoopPanel {
       describeSlots: () => Promise<{ label: string; empty: boolean }[]>
       /** 선물함 열기 — 세션과 무관한 비동기 우편 */
       openGifts: (me: Profile) => void
+      /** 친구 목록 열기 */
+      openFriends: (me: Profile) => void
     },
   ) {
     this.dialog = document.createElement('dialog')
@@ -169,6 +171,83 @@ export class CoopPanel {
 
   /** 가입 직후 — 아직 로그인이 아니다. 메일함으로 가야 한다 */
   private pendingEmail = ''
+
+  /**
+   * 받은 모험단 초대 — 친구가 부르면 여기 뜬다. 코드를 옮겨 적을 필요가 없는
+   * 지름길이라, 손이 불편하거나 코드 여덟 자를 옮기기 어려운 사람에게 특히 그렇다.
+   */
+  private async renderInvites(box: HTMLElement, me: Profile): Promise<void> {
+    const { listPartyInvites, deletePartyInvite } = await import('../net/friends')
+    let invites: Awaited<ReturnType<typeof listPartyInvites>>
+    try {
+      invites = await listPartyInvites()
+    } catch {
+      return
+    }
+    // 그 사이 화면이 바뀌었으면 남의 자리에 그리지 않는다
+    if (!box.isConnected || this.view !== 'home') return
+    box.replaceChildren()
+    if (invites.length === 0) return
+
+    const h = document.createElement('h3')
+    h.textContent = '받은 초대'
+    const list = document.createElement('ul')
+    list.className = 'coop-roster'
+    for (const invite of invites) {
+      const li = document.createElement('li')
+      const who = document.createElement('p')
+      who.className = 'friend-name'
+      who.textContent = `${invite.fromNickname}의 모험단`
+      const row = document.createElement('div')
+      row.className = 'friend-actions'
+
+      const join = document.createElement('button')
+      join.type = 'button'
+      join.textContent = '참가하기'
+      join.addEventListener('click', () => {
+        if (this.busy) return
+        this.busy = true
+        join.disabled = true
+        this.hooks
+          .joinSession(invite.code, { userId: me.userId, nickname: me.nickname })
+          .then(async () => {
+            await deletePartyInvite(invite.id)
+            this.guestSlot = undefined
+            this.view = 'room'
+            this.render()
+            this.hooks.announce(`${invite.fromNickname}의 모험단에 들어왔다.`)
+          })
+          .catch((err: Error) => {
+            this.hooks.announce(err.message)
+            join.disabled = false
+          })
+          .finally(() => {
+            this.busy = false
+          })
+      })
+
+      const drop = document.createElement('button')
+      drop.type = 'button'
+      drop.className = 'alt-action'
+      drop.textContent = '지우기'
+      drop.addEventListener('click', () => {
+        void deletePartyInvite(invite.id).then(() => {
+          this.hooks.announce('초대를 지웠다.')
+          void this.renderInvites(box, me)
+        })
+      })
+
+      row.append(join, drop)
+      li.append(who, row)
+      list.append(li)
+    }
+    box.append(h, list)
+    this.hooks.announce(
+      invites.length === 1
+        ? `${invites[0].fromNickname}가 모험단으로 불렀다.`
+        : `모험단 초대가 ${invites.length}개 와 있다.`,
+    )
+  }
 
   private renderConfirm(): void {
     const intro = document.createElement('p')
@@ -482,6 +561,11 @@ export class CoopPanel {
     gifts.textContent = '선물함'
     gifts.addEventListener('click', () => this.hooks.openGifts(me))
 
+    const friends = document.createElement('button')
+    friends.type = 'button'
+    friends.textContent = '친구'
+    friends.addEventListener('click', () => this.hooks.openFriends(me))
+
     const out = document.createElement('button')
     out.type = 'button'
     out.className = 'alt-action'
@@ -503,7 +587,7 @@ export class CoopPanel {
 
     const footer = document.createElement('div')
     footer.className = 'coop-row'
-    footer.append(gifts, out)
+    footer.append(friends, gifts, out)
 
     /**
      * 두 갈래를 이름으로 가른다. 예전에는 "모험단 만들기"와 초대 코드 입력만 있어서,
@@ -545,6 +629,11 @@ export class CoopPanel {
       ),
       footer,
     )
+    // 받은 초대는 코드를 옮겨 적을 필요 없는 지름길이라 맨 위에 둔다
+    const invites = document.createElement('div')
+    invites.className = 'coop-invites'
+    hello.after(invites)
+    void this.renderInvites(invites, me)
     makeBtn.focus()
   }
 
@@ -585,10 +674,17 @@ export class CoopPanel {
       roster.append(li)
     }
 
-    // 코드 줄과 복사 버튼은 한 몸이라 붙여 둔다
+    // 코드 줄과 복사 버튼은 한 몸이라 붙여 둔다.
+    // 친구 부르기는 코드를 읽어 주지 않아도 되는 다른 길이라 나란히 둔다
+    const callFriend = document.createElement('button')
+    callFriend.type = 'button'
+    callFriend.className = 'alt-action'
+    callFriend.textContent = '친구 부르기'
+    callFriend.addEventListener('click', () => this.hooks.openFriends(this.profile!))
+
     const codeRow = document.createElement('div')
     codeRow.className = 'coop-code-row'
-    codeRow.append(codeLine, copy)
+    codeRow.append(codeLine, copy, callFriend)
     this.body.append(codeRow, roster)
 
     if (session.isHost) {

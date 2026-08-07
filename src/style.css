@@ -1346,3 +1346,33 @@ details > summary::marker {
   color: var(--accent);
   font-size: var(--fs-sm);
 }
+
+/* 친구 목록 — 이름 한 줄, 그 아래 할 수 있는 일들 */
+.friend-name {
+  margin: 0;
+  font-weight: 600;
+}
+.friend-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.friend-actions button {
+  flex: 1 1 auto;
+  min-width: 8rem;
+}
+.friends-body section {
+  margin-top: var(--sp-5);
+}
+.friends-body h3 {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-md);
+}
+/* 받은 초대는 홈 맨 위 — 비어 있으면 자리도 차지하지 않는다 */
+.coop-invites:empty {
+  display: none;
+}
+.coop-invites {
+  margin-bottom: var(--sp-4);
+}
