@@ -45,6 +45,16 @@ export function helpFacts(data: GameData): Record<string, string> {
   const { items, economy, progression, monsters, jobs } = data
   const facts: Record<string, string> = {}
 
+  // 졌을 때 치르는 값. 손으로 적으면 수치를 고치는 순간 도움말이 거짓말을 한다
+  const penalty = progression.defeatPenalty
+  facts['defeat-penalty'] =
+    `가진 동전의 ${Math.round(penalty.goldLossRate * 100)}%를 잃고 ` +
+    `최대 체력의 ${Math.round(penalty.reviveHpRatio * 100)}%만 채운 채 일어난다`
+  const scale = progression.multiScaling
+  facts['multi-scaling'] =
+    `사람이 하나 늘 때마다 몹의 체력이 ${Math.round(scale.hpPerExtraHuman * 100)}%, ` +
+    `공격이 ${Math.round(scale.atkPerExtraHuman * 100)}% 오른다`
+
   // 레벨 제한이 붙은 등급만 말한다 — 1레벨부터 입는 등급은 말할 것이 없다
   const gated = [2, 3]
     .map((t) => ({ tier: t, level: minLevelOfTier(data, t) }))
