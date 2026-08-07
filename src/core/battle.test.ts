@@ -617,3 +617,77 @@ describe('피해의 종류와 상성', () => {
     expect(battle.enemies[0].hp).toBe(90)
   })
 })
+
+/**
+ * 보스의 큰 기술. 확률이 아니라 자기 턴을 세는 규칙이라 미리 알 수 있고,
+ * 미리 알 수 있어야 막을지 치유할지가 판단이 된다.
+ */
+describe('보스 패턴 — 세는 규칙', () => {
+  const storm: MonsterData = {
+    name: '사제', sprite: 'priest', hp: 400,
+    attackType: 'magic', patk: 2, matk: 20, pdef: 5, mdef: 5, spd: 1,
+    pattern: {
+      every: 3,
+      warning: '울림이 차오른다.',
+      skill: {
+        id: 'storm', name: '울림 폭풍', kind: 'damage', targeting: 'enemy-all',
+        cooldown: 0, multiplier: 1, damageType: 'magic', description: '',
+      },
+    },
+  }
+
+  function run(rounds: number) {
+    const a = ally({ id: 'a', frontOrder: 1, spd: 5, mdef: 0 })
+    const b = ally({ id: 'b', frontOrder: 2, spd: 5, mdef: 0 })
+    const bus = new EventBus()
+    const events: GameEvent[] = []
+    bus.on((e) => events.push(e))
+    const battle = new Battle([a, b], ['boss'], { boss: storm }, bus)
+    // 아군은 아무것도 하지 않고 몹 턴만 돌린다
+    for (let i = 0; i < rounds * 3; i++) battle.step()
+    return { a, b, events }
+  }
+
+  it('세 번째 자기 턴마다 모두를 친다 — 그 사이에는 하나만 친다', () => {
+    const { a, b, events } = run(3)
+    const stormHits = events.filter(
+      (e) => e.type === 'attacked' && e.skillName === '울림 폭풍',
+    )
+    // 세 라운드면 폭풍은 한 번, 그때 둘 다 맞으므로 피격 사건은 둘
+    expect(stormHits).toHaveLength(2)
+    // 폭풍이 아닌 턴에는 한 사람만 맞는다
+    expect(a.hp).toBeLessThan(100)
+    expect(b.hp).toBeLessThan(100)
+  })
+
+  it('터지기 직전 턴에 예고한다 — 화면을 못 봐도 대비할 수 있게', () => {
+    const { events } = run(3)
+    const charges = events.filter((e) => e.type === 'charging')
+    expect(charges).toHaveLength(1)
+    expect(charges[0]).toMatchObject({ warning: '울림이 차오른다.' })
+    // 예고가 폭풍보다 먼저 온다
+    const chargeAt = events.findIndex((e) => e.type === 'charging')
+    const stormAt = events.findIndex(
+      (e) => e.type === 'attacked' && e.skillName === '울림 폭풍',
+    )
+    expect(chargeAt).toBeGreaterThanOrEqual(0)
+    expect(chargeAt).toBeLessThan(stormAt)
+  })
+
+  it('같은 입력이면 같은 결과 — 무작위가 섞이지 않았다', () => {
+    const first = run(4)
+    const second = run(4)
+    expect(first.a.hp).toBe(second.a.hp)
+    expect(first.b.hp).toBe(second.b.hp)
+  })
+
+  it('센 턴 수가 지문에 담긴다 — 두 화면이 다른 박자를 세면 드러난다', () => {
+    const a = ally({ id: 'a', spd: 5 })
+    const bus = new EventBus()
+    const battle = new Battle([a], ['boss'], { boss: storm }, bus)
+    const before = battle.fingerprint()
+    battle.step()
+    battle.step()
+    expect(battle.fingerprint()).not.toBe(before)
+  })
+})

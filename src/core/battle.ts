@@ -105,6 +105,7 @@ export class Battle {
         c.cooldowns.join('.'),
         c.defending ? 'D' : '-',
         `${c.hitsSinceDeflect ?? 0}`,
+        `${c.turnsTaken ?? 0}`,
       ].join(':')
     return [
       `turn${this.turnIndex}`,
@@ -373,11 +374,39 @@ export class Battle {
    * 탱커가 파티를 지킬 수 있다. 그 밖에는 몹의 등급(ai)이 정한다.
    */
   private enemyAct(actor: Combatant): void {
+    const alive = this.aliveAllies()
+    // 큰 기술이 차례인가. 확률이 아니라 자기 턴을 세는 규칙이라 미리 알 수 있고,
+    // 미리 알 수 있어야 막을지 치유할지가 판단이 된다
+    const turns = (actor.turnsTaken ?? 0) + 1
+    actor.turnsTaken = turns
+    const pattern = actor.pattern
+    if (pattern && turns % pattern.every === 0) {
+      const skill = pattern.skill
+      if (skill.targeting === 'enemy-all') {
+        for (const target of alive) {
+          this.attack(actor, target, skill.multiplier ?? 1, skill.pierce ?? 0, skill.name, skill.damageType)
+        }
+      } else {
+        // 도발은 큰 기술에도 걸린다 — 탱커가 파티를 지키는 규칙은 예외를 두지 않는다
+        const target =
+          this.tauntTarget && this.tauntTarget.hp > 0 && this.tauntRounds > 0
+            ? this.tauntTarget
+            : Battle.frontOf(alive)
+        if (target) {
+          this.attack(actor, target, skill.multiplier ?? 1, skill.pierce ?? 0, skill.name, skill.damageType)
+        }
+      }
+      return
+    }
+    // 다음 턴이 그 차례라면 지금 예고한다
+    if (pattern && (turns + 1) % pattern.every === 0) {
+      this.bus.emit({ type: 'charging', actor, warning: pattern.warning })
+    }
+
     if (this.tauntTarget && this.tauntTarget.hp > 0 && this.tauntRounds > 0) {
       this.attack(actor, this.tauntTarget)
       return
     }
-    const alive = this.aliveAllies()
     let target: Combatant | undefined
     switch (actor.ai ?? 'front') {
       case 'weakest':

@@ -240,6 +240,13 @@ export class Sfx {
         this.tone({ from: 500, to: 900, duration: 0.12, gain: 0.13 }, dir)
         break
       }
+      case 'charging':
+        // 아래에서 위로 차오르는 소리 — 무슨 일이 오고 있다는 것이 귀로도 온다
+        this.chord([
+          { from: 110, to: 440, duration: 0.45, type: 'triangle', gain: 0.13 },
+          { from: 220, to: 880, duration: 0.4, type: 'sine', gain: 0.07, delay: 0.08 },
+        ])
+        break
       case 'healed':
         this.chord([
           { from: 587, to: 880, duration: 0.28, gain: 0.14 },

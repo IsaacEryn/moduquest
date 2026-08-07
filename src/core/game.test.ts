@@ -770,3 +770,29 @@ describe('새로 시작하면 지난 판이 따라오지 않는다', () => {
     expect(game.partyLevel).toBeGreaterThan(1)
   })
 })
+
+/**
+ * 밟기 전에 들려야 하는 것들. Field를 새로 만드는 자리가 셋이라(생성·스테이지 전환·
+ * 되살아나기) 한 곳만 빠뜨려도 스테이지를 옮긴 뒤 표시가 사라진다 — 실제로 빠뜨렸다.
+ */
+describe('강한 기척', () => {
+  it('큰 싸움이 되는 조우는 이름에 표시가 붙는다', () => {
+    const { game } = makeGame()
+    const named = (monsters: string[]) =>
+      game.field.encounterName({ id: 'x', pos: { x: 0, y: 0 }, monsters })
+    expect(named(['echo_priest'])).toBe('울림 사제(강한 기척)')
+    expect(named(['echo_shard'])).toBe('울림 조각')
+  })
+
+  it('스테이지를 옮겨도 표시가 살아 있다', () => {
+    const { game } = makeGame()
+    game.startStage(1)
+    expect(
+      game.field.encounterName({ id: 'x', pos: { x: 0, y: 0 }, monsters: ['echo_priest'] }),
+    ).toContain('강한 기척')
+    game.startStage(2)
+    expect(
+      game.field.encounterName({ id: 'x', pos: { x: 0, y: 0 }, monsters: ['echo_priest'] }),
+    ).toContain('강한 기척')
+  })
+})

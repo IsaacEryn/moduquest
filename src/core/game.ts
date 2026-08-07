@@ -73,6 +73,8 @@ export class Game {
   private stageIndex = 0
   private clearedStages = new Set<string>()
   private readonly monsterNames: Record<string, string>
+  /** 큰 싸움이 되는 몹 id — 필드 요약이 "강한 기척"을 붙일 때 쓴다 */
+  private bossIds = new Set<string>()
   /** 현재 파티 구성. 0번이 플레이어다 */
   private partyJobs: string[]
 
@@ -107,7 +109,12 @@ export class Game {
       Object.entries(data.monsters).map(([id, m]) => [id, m.name]),
     )
     const area = this.resolveFirstArea()
-    this.field = new Field(area, this.monsterNames, bus, this.radiusFor(area))
+    this.bossIds = new Set(
+      Object.entries(data.monsters)
+        .filter(([, m]) => m.isBoss)
+        .map(([id]) => id),
+    )
+    this.field = new Field(area, this.monsterNames, bus, this.radiusFor(area), this.bossIds)
   }
 
   // --- 지도 구역과 변형 ---
@@ -1014,7 +1021,7 @@ export class Game {
       nextVariant(this.stage, this.layoutKey, this.variantOf.get(this.stage.id) ?? null),
     )
     const area = this.resolveFirstArea()
-    this.field = new Field(area, this.monsterNames, this.bus, this.radiusFor(area))
+    this.field = new Field(area, this.monsterNames, this.bus, this.radiusFor(area), this.bossIds)
 
     this.bus.emit({
       type: 'stageStart',
@@ -1142,7 +1149,7 @@ export class Game {
     this.variantOf = new Map(s.variants.map((v) => [v.stage, v.variant]))
     // 복원은 순환하지 않는다 — 같은 기록은 언제나 같은 지도다
     const area = resolveArea(this.stage, s.field.areaId, this.variantIndex)
-    this.field = new Field(area, this.monsterNames, this.bus, this.radiusFor(area))
+    this.field = new Field(area, this.monsterNames, this.bus, this.radiusFor(area), this.bossIds)
     this.field.restore(
       s.field.pos,
       s.field.checkpointReached,

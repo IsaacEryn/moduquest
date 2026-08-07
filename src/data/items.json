@@ -617,5 +617,19 @@
     "allyStats": {
       "def": 1
     }
+  },
+  "echo_veil": {
+    "name": "울림 장막",
+    "description": "사제가 두르던 천. 소리가 닿기 전에 흩어진다.",
+    "kind": "equipment",
+    "slot": "armor",
+    "tier": 3,
+    "stats": {
+      "hp": 16,
+      "mp": 10,
+      "pdef": 1,
+      "mdef": 8
+    },
+    "minLevel": 4
   }
 }

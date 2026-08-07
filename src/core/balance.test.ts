@@ -297,3 +297,38 @@ describe('스테이지를 이어서 걸으면 소모가 쌓인다', () => {
     expect(walked[0].avg).toBeGreaterThan(0.9)
   })
 })
+
+/**
+ * 넓은 길의 선택 관문. 여기서 길 고르기가 파티 구성과 이어진다 —
+ * 마법 파티는 버겁고 물리 파티는 수월하니, 좁은 틈으로 곧장 가는 것이
+ * 손해가 아니라 다른 선택이 된다.
+ */
+describe('울림 사제 — 돌아가는 길의 관문', () => {
+  const entry = entryLevel(2)
+
+  it('물리 파티가 마법 파티보다 빨리 끝낸다', () => {
+    const body = simulate(buildPartyOf(['rogue', 'warrior', 'archer'], 'balanced', entry), [
+      'echo_priest',
+    ])
+    const mind = simulate(buildPartyOf(['mage', 'healer', 'mage'], 'balanced', entry), [
+      'echo_priest',
+    ])
+    expect(body.outcome).toBe('victory')
+    expect(body.rounds).toBeLessThan(mind.rounds)
+  })
+
+  it('최종 보스보다는 가볍다 — 선택 관문이 본편보다 무거우면 안 된다', () => {
+    const party = () => buildPartyOf(BASE_PARTY, 'balanced', entry)
+    const priest = simulate(party(), ['echo_priest'])
+    const keeper = simulate(party(), ['bell_keeper'])
+    expect(priest.outcome).toBe('victory')
+    expect(priest.rounds).toBeLessThan(keeper.rounds)
+  })
+
+  it('어떤 조합으로도 잡을 수 있다 — 지나칠 수 있어도 벽이면 안 된다', () => {
+    for (const combo of allPartyCombos()) {
+      const r = simulate(buildPartyOf(combo, 'balanced', entry), ['echo_priest'])
+      expect(r.outcome, combo.join('+')).toBe('victory')
+    }
+  })
+})

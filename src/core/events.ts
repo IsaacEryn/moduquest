@@ -27,6 +27,11 @@ export type GameEvent =
   | { type: 'taunted'; actor: Combatant; duration: number }
   | { type: 'defended'; actor: Combatant }
   | { type: 'deflected'; actor: Combatant; target: Combatant }
+  /**
+   * 보스가 큰 기술을 준비한다 — 다음 턴에 나간다.
+   * 화면의 연출을 못 보는 사람도 막을지 치유할지 고를 수 있도록 사건으로 흘린다.
+   */
+  | { type: 'charging'; actor: Combatant; warning: string }
   | { type: 'traitChanged'; name: string; description: string }
   | { type: 'downed'; target: Combatant }
   | { type: 'victory'; boss: boolean; revived: Combatant[] }

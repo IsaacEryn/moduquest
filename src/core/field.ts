@@ -50,6 +50,12 @@ export class Field {
     private monsterNames: Record<string, string>,
     private bus: EventBus,
     radius: number | null = null,
+    /**
+     * 만나면 큰 싸움이 되는 몹들. 이름만으로는 세다는 것을 알 수 없어서,
+     * 밟기 전에 들리도록 요약과 이동 안내에 표시를 붙인다.
+     * 지나칠 수 있는 관문이라면 더더욱 — 모르고 밟으면 고른 것이 아니다.
+     */
+    private bossIds: Set<string> = new Set(),
   ) {
     this.area = area
     this.pos = area.entryAt(null)
@@ -218,7 +224,8 @@ export class Field {
   }
 
   encounterName(e: EncounterData): string {
-    return this.monsterNames[e.monsters[0]]
+    const name = this.monsterNames[e.monsters[0]]
+    return e.monsters.some((id) => this.bossIds.has(id)) ? `${name}(강한 기척)` : name
   }
 
   removeEncounter(id: string): void {

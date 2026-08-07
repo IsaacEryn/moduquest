@@ -39,8 +39,7 @@
           "id": "t1",
           "items": [
             "potion_small",
-            "mana_potion",
-            "plate_armor"
+            "mana_potion"
           ]
         }
       ],
@@ -415,8 +414,7 @@
           "id": "t1",
           "items": [
             "potion_big",
-            "steel_gloves",
-            "twin_daggers"
+            "steel_gloves"
           ]
         }
       ],
@@ -794,8 +792,7 @@
         {
           "id": "t1",
           "items": [
-            "potion_big",
-            "flame_staff"
+            "potion_big"
           ]
         }
       ],

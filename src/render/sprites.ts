@@ -278,6 +278,29 @@ export const SPRITES: Record<string, SpriteDef> = {
       '                ',
     ],
   },
+  // 울림 사제 — 종지기와 같은 계열이되 옷이 짙고 두건을 썼다.
+  // 손에 든 것은 종이 아니라 울림을 모으는 고리다
+  priest: {
+    palette: { p: '#7a6ba8', P: '#4e4270', e: '#e8f6ff', r: '#c9b6f0', R: '#9d8ad0' },
+    pixels: [
+      '                ',
+      '      pppp      ',
+      '     pPPPPp     ',
+      '    pPPPPPPp    ',
+      '    pPePPePp    ',
+      '    pPPPPPPp    ',
+      '     pPPPPp     ',
+      '    pppppppp    ',
+      '   pPppppppPp rr',
+      '   pPppRRppPprRr',
+      '   pppRRRRpppr r',
+      '    ppRRRRpp  rr',
+      '    pppppppp    ',
+      '   pPpppppppp   ',
+      '   pppppppppp   ',
+      '                ',
+    ],
+  },
   // 종지기 — 놋쇠빛 옷에 종을 들었다. 힐러와 겹치지 않게 어깨를 넓게
   keeper: {
     palette: { k: '#b8a06a', K: '#8a7448', e: '#e8f6ff', b: '#e0c060', B: '#d8c070' },

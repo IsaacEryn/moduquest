@@ -205,6 +205,11 @@ export class Announcer {
         )
         break
       }
+      case 'charging':
+        // 큰 기술은 예고가 곧 판단의 재료다. 놓치면 안 되므로 강하게 알린다
+        this.assertive(`${e.actor.name}: ${e.warning}`)
+        this.caption('[기운을 모은다]')
+        break
       case 'healed': {
         const target = this.isMine(e.target) ? '내가' : josa(e.target.name, '이', '가')
         this.polite(

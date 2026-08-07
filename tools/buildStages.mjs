@@ -131,10 +131,12 @@ const STAGES = [
       {
         id: 'c',
         name: '넓은 길',
-        symbols: { 1: 'e1', 2: 'e2', C: 't1', D: 't2', w: 'wide', t: 'top' },
+        symbols: { 1: 'e1', 2: 'e2', M: 'e3', C: 't1', D: 't2', w: 'wide', t: 'top' },
         encounters: [
           { id: 'e1', monsters: ['echo_shard', 'echo_shard'] },
           { id: 'e2', monsters: ['goblin', 'echo_shard'] },
+          // 선택 관문. 보물로 가는 길목에 서 있고, 바깥으로 돌면 만나지 않는다
+          { id: 'e3', monsters: ['echo_priest'], dialogue: 'priest' },
         ],
         chests: [
           { id: 't1', items: ['potion_big', 'echo_shoes'] },

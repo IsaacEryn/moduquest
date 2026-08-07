@@ -32,8 +32,7 @@
         {
           "id": "t1",
           "items": [
-            "potion_small",
-            "healing_bell"
+            "potion_small"
           ]
         }
       ],
@@ -770,6 +769,13 @@
             "goblin",
             "echo_shard"
           ]
+        },
+        {
+          "id": "e3",
+          "monsters": [
+            "echo_priest"
+          ],
+          "dialogue": "priest"
         }
       ],
       "chests": [
@@ -777,16 +783,14 @@
           "id": "t1",
           "items": [
             "potion_big",
-            "echo_shoes",
-            "war_axe"
+            "echo_shoes"
           ]
         },
         {
           "id": "t2",
           "items": [
             "stamina_potion",
-            "mana_potion",
-            "silk_robe"
+            "mana_potion"
           ]
         }
       ],
@@ -963,6 +967,10 @@
               "x": 4,
               "y": 4
             },
+            "e3": {
+              "x": 5,
+              "y": 4
+            },
             "e2": {
               "x": 6,
               "y": 5
@@ -1124,6 +1132,10 @@
             "wide": {
               "x": 8,
               "y": 3
+            },
+            "e3": {
+              "x": 4,
+              "y": 5
             },
             "t1": {
               "x": 6,
@@ -1560,6 +1572,20 @@
       {
         "speaker": "c1",
         "text": "보통 공격은 잘 안 통해. 급습을 아껴 두자."
+      }
+    ],
+    "priest": [
+      {
+        "speaker": "c2",
+        "text": "앞을 막고 선 게 있다. 종소리를 다루는 자다."
+      },
+      {
+        "speaker": "c1",
+        "text": "마법으로는 잘 안 통해. 몸으로 치는 쪽이 낫다."
+      },
+      {
+        "speaker": "c2",
+        "text": "여기서 싸우지 않아도 계단으로는 갈 수 있어. 보물은 이 안쪽이지만."
       }
     ],
     "beforeBoss": [
