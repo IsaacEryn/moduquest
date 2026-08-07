@@ -421,3 +421,78 @@ describe('함께 하기 — 새 모험은 모두에게 처음이다', () => {
     expect(guest.started).toBe(true)
   })
 })
+
+describe('함께 하기 — 전투 중에 돌아온 사람', () => {
+  /** 파티를 몹 옆으로 데려가 전투를 연다 */
+  function pickFight(host: PartySession, game: Game): void {
+    const area = game.field.currentArea
+    const target = area.encounters[0]
+    const around = [
+      { d: 'south' as const, x: 0, y: -1 },
+      { d: 'north' as const, x: 0, y: 1 },
+      { d: 'west' as const, x: 1, y: 0 },
+      { d: 'east' as const, x: -1, y: 0 },
+    ]
+    const from = around.find((s) => area.tiles[target.pos.y + s.y]?.[target.pos.x + s.x] === 0)!
+    game.field.pos = { x: target.pos.x + from.x, y: target.pos.y + from.y }
+    host.propose({ kind: 'move', dir: from.d })
+    for (let i = 0; i < 20 && game.mode === 'dialogue'; i++) {
+      host.propose({ kind: 'advanceDialogue' })
+    }
+  }
+
+  it('전투 중에 돌아와도 자리를 미리 비워 두지 않는다 — 예전에는 전투가 멈췄다', async () => {
+    const { wire, host, guest, h } = await startedParty()
+    pickFight(host, h.game)
+    expect(h.game.mode).toBe('battle')
+
+    // 동료가 끊긴다 — 그 자리는 동료 AI가 이어받는다
+    guest.leave()
+    expect(h.game.seatControllerOf(1)).toBe('npc')
+
+    // 전투 중에 다시 들어온다. 세계는 아직 건넬 수 없다(필드가 아니다)
+    await PartySession.join(
+      host.code,
+      makeSide().game,
+      DATA,
+      new EventBus(),
+      makeSide().hooks,
+      { userId: 'guest-1', nickname: '동료1' },
+      wire.open,
+    )
+
+    // 자리가 사람에게 돌아가 있으면, 아직 로비에 있는 사람을 전투가 기다리다 멈춘다.
+    // 그래서 세계를 건네기 전까지는 동료 AI가 그 자리를 지켜야 한다
+    expect(h.game.seatControllerOf(1)).toBe('npc')
+  })
+
+  it('필드로 돌아오면 그때 세계와 자리를 함께 돌려준다', async () => {
+    const { wire, host, guest, h } = await startedParty()
+    pickFight(host, h.game)
+    expect(h.game.mode).toBe('battle')
+
+    guest.leave()
+    await PartySession.join(
+      host.code,
+      makeSide().game,
+      DATA,
+      new EventBus(),
+      makeSide().hooks,
+      { userId: 'guest-1', nickname: '동료1' },
+      wire.open,
+    )
+    expect(h.game.seatControllerOf(1)).toBe('npc')
+
+    // 방장이 스테이지를 다시 시작해 필드로 나온다.
+    // (전투를 끝까지 미는 길은 시험 환경에 턴 시계가 없어 쓸 수 없다)
+    host.propose({ kind: 'restartStage' })
+    for (let i = 0; i < 30 && h.game.mode === 'dialogue'; i++) {
+      host.propose({ kind: 'advanceDialogue' })
+    }
+    expect(h.game.mode).toBe('field')
+
+    // 필드에 닿으면 스냅샷이 나가고 자리도 사람에게 돌아온다
+    expect(wire.sent.some((m) => m.event === 'sync')).toBe(true)
+    expect(h.game.seatControllerOf(1)).toBe('human')
+  })
+})

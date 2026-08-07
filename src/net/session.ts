@@ -273,13 +273,16 @@ export class PartySession {
     if (!this.isHost || this.ended || userId === this.userId) return
     const existing = this.seats.find((s) => s.userId === userId)
     if (existing) {
-      // 재접속 — 같은 자리로 돌아온다. 필드에 닿는 순간 스냅샷을 보낸다
+      // 재접속 — 같은 자리로 돌아온다. 다만 자리를 지금 돌려주지는 않는다.
+      // 세계를 넘겨주는 것은 필드에 닿아야 가능한데, 자리만 먼저 사람에게
+      // 돌리면 아직 로비에 갇힌 사람을 전투가 영원히 기다린다(실제로 멈췄다).
+      // 자리는 flushSync가 세계를 실제로 건넨 뒤에 돌려준다.
       this.refreshNickname(existing)
-      existing.controller = 'human'
       if (this.started) {
-        this.sequencer.propose({ kind: 'seatControl', seat: existing.seat, controller: 'human' })
         this.pendingSync = true
         if (this.game.canSave) this.flushSync()
+      } else {
+        existing.controller = 'human'
       }
       this.shareSeats()
       this.hooks.onRosterChanged()
@@ -291,7 +294,13 @@ export class PartySession {
       this.shareSeats() // 자리가 없다 — 로스터에 없음을 보고 참가자가 스스로 안다
       return
     }
-    const seat: SeatInfo = { seat: free, userId, nickname: '', controller: 'human' }
+    // 모험 중에 합류하는 사람도 마찬가지다 — 세계를 받기 전까지는 동료 AI가 그 자리를 지킨다
+    const seat: SeatInfo = {
+      seat: free,
+      userId,
+      nickname: '',
+      controller: this.started ? 'npc' : 'human',
+    }
     this.seats.push(seat)
     this.refreshNickname(seat)
     if (this.started) {
@@ -555,8 +564,24 @@ export class PartySession {
    */
   private lastSyncSeq: number | null = null
 
+  /**
+   * 자리를 사람에게 돌려준다. 세계를 실제로 건네는 자리에서만 부른다 —
+   * 아직 로비에 있는 사람의 자리를 미리 비워 두면 전투가 그 자리를 기다리다 멈춘다.
+   */
+  private restoreSeats(): void {
+    for (const seat of this.seats) {
+      if (seat.controller === 'human') continue
+      if (!this.isPresent(seat.userId)) continue
+      seat.controller = 'human'
+      // 명령으로 알려야 다른 화면의 세계도 같이 바뀐다. 곧 보낼 스냅샷에도 담긴다
+      this.sequencer.propose({ kind: 'seatControl', seat: seat.seat, controller: 'human' })
+    }
+  }
+
   private flushSync(): void {
     if (!this.isHost || !this.game.canSave) return
+    // 자리 되돌리기가 먼저다 — 그래야 이 명령까지 포함한 번호로 스냅샷이 나간다
+    this.restoreSeats()
     if (this.lastSyncSeq === this.sequencer.appliedSeq) return
     this.lastSyncSeq = this.sequencer.appliedSeq
     this.pendingSync = false
