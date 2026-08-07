@@ -190,7 +190,7 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
       {
         "stage1": {
           "ambidextrous": 9,
-          "balanced": 7,
+          "balanced": 8,
           "firm-stance": 9,
           "measured-pace": 6,
           "narrow-focus": 7,
@@ -199,24 +199,24 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
           "swift-step": 9,
         },
         "stage2": {
-          "ambidextrous": 9,
-          "balanced": 8,
-          "firm-stance": 9,
-          "measured-pace": 8,
-          "narrow-focus": 8,
-          "quick-turn": 7,
+          "ambidextrous": 10,
+          "balanced": 9,
+          "firm-stance": 10,
+          "measured-pace": 9,
+          "narrow-focus": 9,
+          "quick-turn": 8,
           "steady-hand": 8,
-          "swift-step": 9,
+          "swift-step": 10,
         },
         "stage3": {
           "ambidextrous": 8,
-          "balanced": 7,
-          "firm-stance": 7,
+          "balanced": 8,
+          "firm-stance": 8,
           "measured-pace": 7,
           "narrow-focus": 7,
           "quick-turn": 7,
           "steady-hand": 7,
-          "swift-step": 7,
+          "swift-step": 8,
         },
       }
     `)
