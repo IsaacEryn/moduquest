@@ -1133,6 +1133,30 @@ details > summary::marker {
 
 /* --- 토스트 — 시각 전용 알림(aria-hidden). 낭독은 announcer가 이미 한다 --- */
 
+/*
+  새 판이 올라와 지금 화면이 낡았을 때의 한 줄. 토스트와 달리 스스로 사라지지
+  않는다 — 사라지는 알림은 놓치면 그만이지만 이것은 눌러야 풀리는 상태다.
+*/
+.stale-build {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--panel);
+  border-top: 2px solid var(--accent);
+  font-size: var(--fs-sm);
+}
+
+.stale-build p {
+  margin: 0;
+}
+
 .toasts {
   position: absolute;
   top: var(--sp-4);

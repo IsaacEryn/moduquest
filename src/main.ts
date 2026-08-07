@@ -657,3 +657,46 @@ if (import.meta.env.DEV) {
   ;(window as unknown as Record<string, unknown>).__game = game
   ;(window as unknown as Record<string, unknown>).__music = music
 }
+
+// --- 새 판이 올라온 뒤에도 열려 있던 화면 ---
+/*
+  배포가 나가면 옛 index가 가리키던 조각 이름이 사라진다. 그때 화면을 여는
+  동적 import가 404로 실패하는데, 부르는 쪽이 전부 `void import(...)`라
+  아무 일도 일어나지 않은 것처럼 보였다. 실제로 배포 직후 열어 둔 창에서
+  멀티 플레이 문을 눌렀더니 반응이 없었다 — 눌렀는데 아무 말도 없는 것이
+  가장 나쁜 실패다. 무엇이 일어났는지는 말해 줘야 한다.
+
+  아직 아무것도 시작하지 않았으면 조용히 새로 받는다(잃을 것이 없다).
+  걷는 중이면 스스로 정하게 둔다 — 함께 하기 중에 멋대로 새로고침하면
+  그 자리가 이탈로 처리되어 동료의 화면까지 흔든다.
+*/
+function showStaleBuildBar(): void {
+  if (document.querySelector('#stale-build')) return
+  const bar = document.createElement('div')
+  bar.id = 'stale-build'
+  bar.className = 'stale-build'
+  bar.setAttribute('role', 'status')
+  const text = document.createElement('p')
+  text.textContent = '새 판이 올라왔다. 새로고침하면 이어서 할 수 있다.'
+  const button = document.createElement('button')
+  button.type = 'button'
+  button.textContent = '새로고침'
+  button.addEventListener('click', () => location.reload())
+  bar.append(text, button)
+  document.querySelector('#app')?.append(bar)
+  // 손은 뺏지 않는다. role=status가 읽어 주고 줄은 사라지지 않으므로,
+  // 걷던 중이라면 하던 것을 마치고 눌러도 된다
+}
+
+window.addEventListener('unhandledrejection', (e) => {
+  const reason = e.reason as { message?: string } | undefined
+  const message = String(reason?.message ?? e.reason ?? '')
+  if (!/dynamically imported module|Importing a module script failed/i.test(message)) return
+  e.preventDefault()
+  if (game.mode === 'title') {
+    location.reload()
+    return
+  }
+  announcer.assertive('새 판이 올라왔다. 새로고침하면 이어서 할 수 있다.')
+  showStaleBuildBar()
+})
