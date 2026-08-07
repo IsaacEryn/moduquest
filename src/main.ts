@@ -388,7 +388,12 @@ bus.on((e) => {
 
 // 화면 모드를 body에 남긴다 — 타이틀·클리어에서 지도를 숨기는 CSS가 이 값을 본다
 bus.on((e) => {
-  if (e.type === 'mode') document.body.dataset.mode = e.mode
+  if (e.type !== 'mode') return
+  document.body.dataset.mode = e.mode
+  // 모드가 바뀌면 기록 창의 높이도 통째로 달라진다(클리어는 접히고 필드는 지도를 따른다).
+  // 남아 있던 스크롤 위치는 더 이상 바닥이 아니라서, 그대로 두면 다음 스테이지에서
+  // 새 줄이 쌓여도 따라 내려가지 않는다
+  textLog.scrollToBottom()
 })
 
 // 함께 하기 중에는 동료의 거래·장비·물약이 내 열린 창에도 닿아야 한다 —
