@@ -29,6 +29,7 @@ export async function attachAdminLink(): Promise<void> {
 
   const a = document.createElement('a')
   a.id = 'admin-link'
+  a.className = 'title-link'
   a.href = path
   a.textContent = '운영'
   // #ui는 화면 전환마다 통째로 비워진다 — 밖에 둬야 살아남는다.

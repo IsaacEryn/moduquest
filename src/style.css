@@ -1467,19 +1467,7 @@ details > summary::marker {
 }
 
 body[data-mode='title'] #admin-link {
-  display: block;
-  padding: var(--sp-1) var(--sp-3);
-  border: 1px solid var(--panel-border);
-  border-radius: 6px;
-  color: var(--text-dim);
-  text-decoration: none;
-  font-size: var(--fs-sm);
-}
-
-body[data-mode='title'] #admin-link:hover,
-body[data-mode='title'] #admin-link:focus-visible {
-  color: var(--text);
-  border-color: var(--focus);
+  display: inline-flex;
 }
 
 /* 옵션의 테마 고르기 — 네 갈래 라디오 한 줄 */
@@ -1523,22 +1511,41 @@ body[data-mode='title'] #title-links {
   z-index: 10;
 }
 
-#account-badge {
-  padding: var(--sp-1) var(--sp-3);
+/*
+ * 두 문(계정·운영)은 나란히 서므로 같은 크기여야 한다.
+ * 높이는 버튼의 최소 터치 크기(2.75rem)에 맞춘다 — 링크라고 작아질 이유가 없다.
+ */
+.title-link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 2.75rem;
+  padding: 0 var(--sp-3);
   border: 1px solid var(--control-border);
   border-radius: 6px;
   background: var(--btn-bg);
   color: var(--text);
   font-size: var(--fs-sm);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
   cursor: pointer;
 }
 
-/* 로그인돼 있으면 점 하나가 함께 말한다 — 색만으로 구분하지 않도록 이름도 바뀐다 */
-#account-badge.signed-in::before {
-  content: '●';
+.title-link:hover,
+.title-link:focus-visible {
+  background: var(--btn-hover);
+  border-color: var(--focus);
+}
+
+/* 로그인 중임을 색과 표식 둘로 말한다 — 색만으로는 전달되지 않는다 */
+#account-badge.signed-in .badge-mark {
   color: var(--accent);
-  margin-right: var(--sp-2);
-  font-size: 0.7em;
+}
+
+.badge-mark {
+  flex: none;
+  shape-rendering: crispEdges;
 }
 
 /* 계정 창 조각들 */
