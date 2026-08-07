@@ -10,7 +10,7 @@ import { levelSpread, ranked, signupsToBars } from '../format'
 import { dataTable, errorLine, heading, note } from '../layout'
 
 const STAGE_NAMES = [stagesMeta, stage2, stage3].map(
-  (s) => (s as { name?: string; id: string }).name ?? (s as { id: string }).id,
+  (s) => (s as { title?: string; id: string }).title ?? (s as { id: string }).id,
 )
 
 /** 이름표는 게임 데이터에서 가져온다 — 운영 화면에 이름을 따로 적지 않는다 */
