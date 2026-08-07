@@ -1593,3 +1593,21 @@ body[data-mode='title'] #title-links {
 .withdraw-list li {
   margin-bottom: var(--sp-1);
 }
+
+/* 게임 중 한 번짜리 팁 줄 — 화면 아래쪽에 잠시 떠 있다 걷힌다 */
+.tip-line {
+  position: fixed;
+  left: 50%;
+  bottom: var(--sp-5);
+  transform: translateX(-50%);
+  max-width: min(90vw, 34rem);
+  margin: 0;
+  padding: var(--sp-2) var(--sp-4);
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-md);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  z-index: 30;
+  box-shadow: 0 2px 8px var(--shadow);
+}

@@ -582,6 +582,29 @@ function refreshAdminLink(): void {
 refreshAdminLink()
 refreshAccountBadge(() => void openAccount())
 
+// --- 편의 옵션 발견 유도 — 처음 한 번, 강요 없이 ---
+import('./ui/tips').then(({ Tips, WELCOME_ID, hasSeenTip, markTipSeen }) => {
+  // 첫 방문이면 환영 설정을 연다. 게임 흐름에 들어가기 전이라 저장·락스텝과 무관하다
+  if (!hasSeenTip(WELCOME_ID) && game.mode === 'title') {
+    void import('./ui/welcomePanel').then(({ WelcomePanel }) => {
+      markTipSeen(WELCOME_ID)
+      new WelcomePanel(store, { announce: (t) => announcer.polite(t) }).open()
+    })
+  }
+
+  // 게임 중 맥락 팁 — 각각 평생 한 번, 한 세션에 하나만
+  const tips = new Tips((t) => announcer.polite(t))
+  bus.on((e) => {
+    if (e.type === 'battleStart') {
+      tips.show('battle-captions', '소리가 없어도 자막과 낭독으로 전투를 따라갈 수 있다 — 옵션에서 맞출 수 있다.')
+    }
+    // 필드에 처음 선 순간 — 어느 길로 왔든(새 모험·이어서 하기) mode가 말해 준다
+    if (e.type === 'mode' && e.mode === 'field') {
+      tips.show('field-text', '글씨가 작으면 옵션에서 큰 글씨를 켤 수 있다.')
+    }
+  })
+})
+
 /**
  * 확인 메일의 링크를 눌러 돌아온 참이면 함께 하기를 바로 연다.
  *
