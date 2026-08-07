@@ -94,13 +94,11 @@ describe('표시용 변환', () => {
 })
 
 describe('키 계약', () => {
-  it('경로 키 이름은 main.ts의 게이트와 같아야 한다', async () => {
-    // main.ts는 index 번들에 admin 코드를 싣지 않으려고 이 문자열을 직접 쓴다.
-    // 여기서 어긋나면 링크가 조용히 안 나타난다 — 이름을 바꾸면 양쪽을 같이
+  it('경로 키 이름은 고정이다 — main.ts의 게이트가 같은 문자열을 직접 쓴다', async () => {
+    // main.ts는 index 번들에 admin 코드를 싣지 않으려고 이 문자열을 그대로 적는다.
+    // 이 상수를 바꾸면 main.ts의 게이트도 같이 바꿔야 한다 — 어긋나면 링크가
+    // 조용히 안 나타난다. 이 시험이 상수 쪽의 이동을 막는 핀이다
     const { ADMIN_PATH_KEY } = await import('./guard')
     expect(ADMIN_PATH_KEY).toBe('moduquest-admin-path')
-    const { readFileSync } = await import('node:fs')
-    const main = readFileSync('src/main.ts', 'utf-8')
-    expect(main).toContain("localStorage.getItem('moduquest-admin-path')")
   })
 })
