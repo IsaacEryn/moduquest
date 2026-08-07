@@ -5,6 +5,8 @@ import { josa, toward } from '../core/korean'
 
 // 다른 UI가 쓰던 자리를 유지한다 — 규칙 자체는 코어에 있다
 export { josa, toward }
+import { resistTagOf } from '../core/resist'
+import { monsterResistLine } from './monsterText'
 import type { Options } from './optionsStore'
 
 
@@ -130,6 +132,15 @@ export class Announcer {
         const names = e.enemies.map((m) => m.name).join(', ')
         this.assertive(`전투 시작! 상대는 ${names}.`)
         this.caption('[전투 시작]')
+        // 약점은 외우게 두지 않는다 — 만날 때마다 다시 말한다.
+        // 같은 몹이 둘이면 한 번만
+        const said = new Set<string>()
+        for (const enemy of e.enemies) {
+          const line = monsterResistLine(enemy.name, enemy.resist)
+          if (!line || said.has(line)) continue
+          said.add(line)
+          this.polite(line)
+        }
         const order = e.order.map((c) => this.who(c)).join(', ')
         this.polite(`행동 순서: ${order}.`)
         break
@@ -173,9 +184,25 @@ export class Announcer {
       case 'attacked': {
         const target = this.isMine(e.target) ? '나' : e.target.name
         const left = e.target.hp > 0 ? ` 남은 체력 ${e.target.hp}.` : ''
-        const verb = e.skillName ?? '공격'
-        this.polite(`${this.who(e.actor)}의 ${verb}. ${target}에게 ${e.damage} 피해.${left}`)
-        this.caption(e.skillName ? `[${e.skillName}]` : '[타격]')
+        const verb = e.skillName ?? (e.damageType === 'magic' ? '마법' : '공격')
+        const tag = resistTagOf(e.target.resist, e.damageType)
+        // 약점을 찔렀는지는 숫자만으로 알기 어렵다. 배율을 아는 사람과 모르는 사람이
+        // 같은 것을 알도록 결과에 한마디를 붙인다
+        const hit = tag === 'weak' ? ' 약점이다!' : tag === 'strong' ? ' 잘 통하지 않는다.' : ''
+        this.polite(
+          `${this.who(e.actor)}의 ${verb}. ${target}에게 ${e.damage} 피해.${hit}${left}`,
+        )
+        this.caption(
+          tag === 'weak'
+            ? '[약점 적중]'
+            : tag === 'strong'
+              ? '[버텨 냄]'
+              : e.skillName
+                ? `[${e.skillName}]`
+                : e.damageType === 'magic'
+                  ? '[마법 타격]'
+                  : '[타격]',
+        )
         break
       }
       case 'healed': {

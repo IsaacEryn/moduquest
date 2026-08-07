@@ -3,6 +3,7 @@ import type { EventBus } from '../core/events'
 import type { Game } from '../core/game'
 import type { Combatant } from '../core/types'
 import { gauge } from './gauge'
+import { resistBadge } from './monsterText'
 
 /**
  * 전투 화면의 DOM 레이어: 상태판·행동 메뉴·시각 로그. 전부 시맨틱 마크업.
@@ -139,8 +140,13 @@ export class BattleUI {
       const line = c.id === front?.id ? ' (앞줄)' : ''
       const acting = c.id === this.currentActorId ? ' (차례)' : ''
       // 문장이 의미 채널이다 — 게이지는 그 곁의 시각 장식일 뿐이라 문장을 바꾸지 않는다
+      // 약점은 화면에도 늘 떠 있어야 한다. 창을 열어 확인해야 하는 정보였다면
+      // 기억력 좋은 사람만 유리해진다
+      const weak = resistBadge(c.resist)
       const text = document.createElement('span')
-      text.textContent = `${c.name}${line}${acting} — 체력 ${c.hp}/${c.maxHp}${mana}${deflect}`
+      text.textContent =
+        `${c.name}${line}${acting} — 체력 ${c.hp}/${c.maxHp}${mana}${deflect}` +
+        (weak ? ` · ${weak}` : '')
       li.append(text, gauge(c.hp, c.maxHp, 'hp'))
       if (c.maxMp > 0) li.append(gauge(c.mp, c.maxMp, 'mp'))
       if (c.id === this.currentActorId) li.classList.add('acting')
@@ -260,7 +266,8 @@ export class BattleUI {
     targets.forEach((t, i) => {
       const b = document.createElement('button')
       b.type = 'button'
-      b.textContent = `${t.name} (체력 ${t.hp})`
+      const weak = resistBadge(t.resist)
+      b.textContent = `${t.name} (체력 ${t.hp}${weak ? `, ${weak}` : ''})`
       b.addEventListener('click', () => {
         this.act(() => this.game.playerAction({ ...action, targetId: t.id }))
       })

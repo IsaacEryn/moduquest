@@ -1,5 +1,6 @@
 import type { EventBus, GameEvent } from '../core/events'
 import type { Dir } from '../core/types'
+import { resistTagOf } from '../core/resist'
 import type { Options } from '../ui/optionsStore'
 
 /** 방향을 좌우·앞뒤 좌표로 — 헤드폰에서 북쪽은 앞, 동쪽은 오른쪽으로 들린다 */
@@ -216,7 +217,21 @@ export class Sfx {
       case 'attacked': {
         // 아군이 때리면 오른쪽(적 진영), 맞으면 왼쪽에서 들린다
         const dir: Dir = e.actor.side === 'ally' ? 'east' : 'west'
-        this.tone({ from: 320, to: 90, duration: 0.16, type: 'sawtooth', gain: 0.22 }, dir)
+        if (e.damageType === 'magic') {
+          // 마법은 위로 열리는 사인파 — 몸으로 치는 소리와 결이 아예 달라야
+          // 눈을 감고도 무엇이 들어갔는지 안다
+          this.tone({ from: 180, to: 760, duration: 0.18, type: 'sine', gain: 0.16 }, dir)
+          this.tone({ from: 1040, duration: 0.1, type: 'sine', gain: 0.07, delay: 0.07 }, dir)
+        } else {
+          this.tone({ from: 320, to: 90, duration: 0.16, type: 'sawtooth', gain: 0.22 }, dir)
+        }
+        // 잘 통했는지도 소리로. 자막·낭독과 같은 판정(resistTagOf)을 읽는다
+        const tag = resistTagOf(e.target.resist, e.damageType)
+        if (tag === 'weak') {
+          this.tone({ from: 1200, to: 1700, duration: 0.1, gain: 0.1, delay: 0.09 }, dir)
+        } else if (tag === 'strong') {
+          this.tone({ from: 150, to: 110, duration: 0.14, type: 'square', gain: 0.1, delay: 0.08 }, dir)
+        }
         break
       }
       case 'deflected': {
