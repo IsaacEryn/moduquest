@@ -59,9 +59,25 @@ describe('도움말의 수치는 데이터에서 온다', () => {
       expect(facts['tier-levels']).toContain(`${level}레벨`)
       expect(facts['level-caps']).toContain(String(level))
     }
-    // 그 레벨은 실제로 착용 조건이어야 한다 — 문장과 판정이 같은 수를 봐야 한다
-    const tier2 = Object.values(DATA.items).filter((i) => i.tier === 2)
-    expect(tier2.every((i) => (i.minLevel ?? 1) === minLevelOfTier(DATA, 2))).toBe(true)
+    /*
+      그 레벨은 실제로 착용 조건이어야 한다 — 문장과 판정이 같은 수를 봐야 한다.
+      한 등급 안에서 하나만 낮아도 "정련은 4레벨, 울림은 4레벨부터" 같은 문장이 된다.
+      실제로 울림 장막 하나가 4로 적혀 있어서 그 문장이 나왔다. 그때 도움말은
+      데이터와 어긋나지 않으면서도 사람에게는 틀린 말을 했다.
+
+      등급을 손으로 적지 않고 데이터에 있는 것을 전부 돈다 — 4등급이 생겨도 따라온다.
+    */
+    const tiers = new Set(
+      Object.values(DATA.items)
+        .filter((i) => i.kind === 'equipment' && i.tier)
+        .map((i) => i.tier!),
+    )
+    for (const tier of tiers) {
+      const min = minLevelOfTier(DATA, tier)
+      for (const item of Object.values(DATA.items).filter((i) => i.tier === tier)) {
+        expect(item.minLevel ?? 1, `${item.name}의 레벨 조건`).toBe(min)
+      }
+    }
   })
 
   it('상점 품목 수가 진열대와 같다', () => {
@@ -109,23 +125,5 @@ describe('도움말의 수치는 데이터에서 온다', () => {
     const at = (slime.drops ?? []).findIndex((d) => d)
     expect(facts['drop-cycle']).toContain(slime.name)
     expect(facts['drop-cycle']).toContain(DATA.items[(slime.drops ?? [])[at]!].name)
-  })
-
-  it('같은 등급의 장비는 최소 레벨이 하나다', () => {
-    /*
-      도움말은 등급마다 최소 레벨을 하나만 말한다("울림은 6레벨부터"). 그 문장이
-      참이려면 등급 안에서 값이 갈리지 않아야 한다. 한 벌만 4로 적혀 있던 적이
-      있었는데, 그때 도움말은 데이터와 어긋나지 않으면서도 사람에게는 틀린 말을 했다.
-    */
-    const byTier = new Map<number, Set<number>>()
-    for (const item of Object.values(DATA.items)) {
-      if (item.kind !== 'equipment' || !item.tier) continue
-      const seen = byTier.get(item.tier) ?? new Set<number>()
-      seen.add(item.minLevel ?? 1)
-      byTier.set(item.tier, seen)
-    }
-    for (const [tier, levels] of byTier) {
-      expect([...levels], `${tier}등급의 최소 레벨이 갈렸다`).toHaveLength(1)
-    }
   })
 })
