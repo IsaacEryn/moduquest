@@ -169,20 +169,29 @@ const partyPanel = new PartyPanel(game, {
     game.start()
   },
 })
+let welcomePanel: import('./ui/welcomePanel').WelcomePanel | null = null
+
 const slotPanel = new SlotPanel(game, saves, {
   ...pauseHooks,
   announce: (text) => announcer.polite(text),
   onStart: (slot) => {
     activeSlot = slot
-    // 자리를 골랐으면 파티부터 짠다 — 확정하면 모험이 시작된다.
+    // 새 모험은 화면·소리 확인부터 — 같은 기기를 여러 사람이 쓰는 자리에서
+    // 다음 사람이 이전 사람의 설정을 물려받지 않게 한다. 그다음 파티를 짠다.
     // 멀티 플레이는 같은 직업 겹침을 허용한다 — 셋 다 힐러여도 그들의 모험이다.
     // 자리마다 누가 앉는지도 함께 넘긴다 — 사람 몫인지 컴퓨터 몫인지 알고 골라야 한다
-    const session = activeSession
-    partyPanel.open({
-      allowDuplicates: session !== null,
-      seatOwners: session
-        ? [0, 1, 2].map((n) => session.seats.find((s) => s.seat === n)?.nickname ?? null)
-        : undefined,
+    const openParty = () => {
+      const session = activeSession
+      partyPanel.open({
+        allowDuplicates: session !== null,
+        seatOwners: session
+          ? [0, 1, 2].map((n) => session.seats.find((s) => s.seat === n)?.nickname ?? null)
+          : undefined,
+      })
+    }
+    void import('./ui/welcomePanel').then(({ WelcomePanel }) => {
+      welcomePanel ??= new WelcomePanel(store, { announce: (t) => announcer.polite(t) })
+      welcomePanel.open(false, openParty)
     })
   },
   onContinue: async (slot) => {
@@ -600,7 +609,8 @@ import('./ui/tips').then(({ Tips, WELCOME_ID, hasSeenTip, markTipSeen }) => {
   if (!hasSeenTip(WELCOME_ID) && game.mode === 'title') {
     void import('./ui/welcomePanel').then(({ WelcomePanel }) => {
       markTipSeen(WELCOME_ID)
-      new WelcomePanel(store, { announce: (t) => announcer.polite(t) }).open()
+      welcomePanel ??= new WelcomePanel(store, { announce: (t) => announcer.polite(t) })
+      welcomePanel.open()
     })
   }
 

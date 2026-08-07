@@ -12,6 +12,8 @@ import { THEMES } from './optionsStore'
 export class WelcomePanel {
   private dialog: HTMLDialogElement
   private closed = true
+  /** 이번 열림이 끝나면 갈 곳 — 새 모험 흐름이 파티 짜기로 이어 준다 */
+  private onDone: (() => void) | null = null
 
   constructor(
     private store: OptionsStore,
@@ -77,8 +79,14 @@ export class WelcomePanel {
     this.dialog.addEventListener('close', () => this.afterClose())
   }
 
-  open(): void {
+  /**
+   * first: 첫 방문 인사인지, 새 모험을 시작하는 길인지 — 문구만 다르고 몸은 같다.
+   * 새 모험마다 다시 묻는 이유: 같은 기기를 여러 사람이 쓰는 자리(시연·교실)에서
+   * 다음 사람이 이전 사람의 화면을 물려받지 않게 하기 위해서다.
+   */
+  open(first = true, onDone?: () => void): void {
     this.closed = false
+    this.onDone = onDone ?? null
     const o = this.store.options
     this.dialog.querySelector<HTMLInputElement>(`#welcome-theme-${o.theme}`)!.checked = true
     this.dialog.querySelector<HTMLInputElement>('#welcome-textlarge')!.checked = o.textLarge
@@ -86,7 +94,9 @@ export class WelcomePanel {
     this.dialog.querySelector<HTMLInputElement>('#welcome-lowstim')!.checked = o.lowStim
     this.dialog.showModal()
     this.hooks.announce(
-      '처음 오셨다. 화면과 소리를 몸에 맞게 바꿀 수 있다 — 전부 나중에 옵션에서도 된다.',
+      first
+        ? '처음 오셨다. 화면과 소리를 몸에 맞게 바꿀 수 있다 — 전부 나중에 옵션에서도 된다.'
+        : '새 모험을 시작하기 전에 화면과 소리를 확인하자 — 전부 나중에 옵션에서도 바꿀 수 있다.',
     )
   }
 
@@ -99,5 +109,8 @@ export class WelcomePanel {
     if (this.closed) return
     this.closed = true
     this.hooks.onClose?.()
+    const done = this.onDone
+    this.onDone = null
+    done?.()
   }
 }
