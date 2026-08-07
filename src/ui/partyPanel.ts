@@ -41,6 +41,8 @@ export class PartyPanel {
   /** 같은 직업을 여러 자리에 허용하는가 — 멀티 플레이에서 켠다 */
   private allowDuplicates = false
   private status!: HTMLElement
+  /** 자리 이름표 — 누가 그 자리에 앉는지를 열 때마다 다시 적는다 */
+  private legends: HTMLElement[] = []
 
   constructor(
     private game: Game,
@@ -90,6 +92,7 @@ export class PartyPanel {
       const fs = document.createElement('fieldset')
       const legend = document.createElement('legend')
       legend.textContent = label
+      this.legends[slot] = legend
       fs.append(legend)
       for (const id of jobIds) {
         const j = this.game.jobs[id]
@@ -137,6 +140,26 @@ export class PartyPanel {
     this.dialog.addEventListener('close', () => this.afterClose())
   }
 
+  /**
+   * 자리마다 누가 앉는지를 이름표에 적는다. 함께 하기에서 동료 자리가 사람인지
+   * 컴퓨터인지 모르는 채로 직업을 고르면, 방장이 남의 몫을 대신 정해 버리거나
+   * 반대로 아무도 맡지 않을 자리를 오래 고민하게 된다.
+   * 혼자 할 때는 적지 않는다 — 동료가 컴퓨터인 것은 그 자체로 자명하다.
+   */
+  private labelSeats(owners?: (string | null)[]): void {
+    SLOT_LABELS.forEach((label, slot) => {
+      const legend = this.legends[slot]
+      if (!legend) return
+      if (!owners || slot === 0) {
+        legend.textContent = label
+        return
+      }
+      legend.textContent = owners[slot]
+        ? `${label} — ${owners[slot]}`
+        : `${label} — 컴퓨터가 맡는다`
+    })
+  }
+
   private checkRadio(slot: number, job: string): void {
     const input = this.dialog.querySelector<HTMLInputElement>(
       `#party-${slot}-${CSS.escape(job)}`,
@@ -148,12 +171,13 @@ export class PartyPanel {
     return this.dialog.open
   }
 
-  open(opts: { allowDuplicates?: boolean } = {}): void {
+  open(opts: { allowDuplicates?: boolean; seatOwners?: (string | null)[] } = {}): void {
     this.closed = false
     this.allowDuplicates = opts.allowDuplicates ?? false
     this.hooks.onOpen?.()
     this.prevFocus = document.activeElement
     this.status.textContent = ''
+    this.labelSeats(opts.seatOwners)
     this.dialog.querySelector('#party-intro')!.textContent = this.allowDuplicates
       ? '나와 동료 둘의 직업을 고르자. 함께 하기에서는 같은 직업이 겹쳐도 된다.'
       : '나와 동료 둘의 직업을 고르자. 겹치게 고르면 그 자리가 내 이전 직업을 대신 맡는다.'

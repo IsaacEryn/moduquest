@@ -171,8 +171,15 @@ const slotPanel = new SlotPanel(game, saves, {
   onStart: (slot) => {
     activeSlot = slot
     // 자리를 골랐으면 파티부터 짠다 — 확정하면 모험이 시작된다.
-    // 멀티 플레이는 같은 직업 겹침을 허용한다 — 셋 다 힐러여도 그들의 모험이다
-    partyPanel.open({ allowDuplicates: activeSession !== null })
+    // 멀티 플레이는 같은 직업 겹침을 허용한다 — 셋 다 힐러여도 그들의 모험이다.
+    // 자리마다 누가 앉는지도 함께 넘긴다 — 사람 몫인지 컴퓨터 몫인지 알고 골라야 한다
+    const session = activeSession
+    partyPanel.open({
+      allowDuplicates: session !== null,
+      seatOwners: session
+        ? [0, 1, 2].map((n) => session.seats.find((s) => s.seat === n)?.nickname ?? null)
+        : undefined,
+    })
   },
   onContinue: async (slot) => {
     const snapshot = await saves.load(slot)
@@ -252,6 +259,11 @@ const sessionHooks: SessionHooks = {
  * 로그인한 채로도 싱글은 기기에 남는다. 두 벌은 서로 다른 기록이다.
  */
 async function openSinglePlay(): Promise<void> {
+  // 로비에 두고 온 모험단이 있으면 먼저 떠난다. 출발을 취소하고 타이틀로
+  // 돌아와도 채널은 살아 있어서, 혼자 하겠다고 들어온 판이 여전히 모험단의
+  // 규칙(자리·명령 중계)을 따랐다 — 파티 짜기가 남의 자리를 물어보고,
+  // 로비에 남은 동료는 오지 않을 출발을 기다린다
+  if (activeSession && !activeSession.started) activeSession.leave()
   useDeviceSaves()
   await slotPanel.open(
     '이 기기에 남는 기록이다. 기록이 있는 자리는 이어서 하고, 빈 자리는 새로 시작한다.',

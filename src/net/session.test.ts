@@ -625,3 +625,24 @@ describe('함께 하기 — 컴퓨터에게 맡긴 자리', () => {
     expect(host.setSeatOpen(2, false)).toBe(false)
   })
 })
+
+describe('함께 하기 — 로비를 떠나는 길', () => {
+  it('출발 전에 떠나면 세션이 끝난다 — 혼자 하러 가는 사람을 붙들지 않는다', async () => {
+    const wire = new FakeWire()
+    const h = makeSide()
+    const host = await PartySession.host(
+      h.game,
+      DATA,
+      h.bus,
+      h.hooks,
+      { userId: 'host-1', nickname: '방장' },
+      wire.open,
+    )
+    expect(host.started).toBe(false)
+    host.leave()
+    expect(h.said.some((t) => t.includes('모험단에서 나왔다'))).toBe(true)
+    // 좌석과 시점이 솔로 기준으로 돌아온다
+    expect(h.game.localSeat).toBe(0)
+    expect(h.game.moveTokenSeat).toBe(0)
+  })
+})
