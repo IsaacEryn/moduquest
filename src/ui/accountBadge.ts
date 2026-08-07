@@ -5,6 +5,7 @@
  * 로그인 흔적(localStorage)이 있을 때만 동적 import로 이름을 물어본다.
  * 로그인한 적 없는 사람(솔로)의 브라우저에서는 요청이 한 건도 나가지 않는다.
  */
+import { toward } from '../core/korean'
 
 /**
  * 사람 모양 표식. 배지가 "이름표"가 아니라 "내 정보로 가는 문"이라는 것을
@@ -77,7 +78,7 @@ export function refreshAccountBadge(openAccount: () => void): void {
       if (profile) {
         // 이름만 두면 이름표로 읽힌다 — 무엇을 하는 버튼인지 글자로도 남긴다
         label.textContent = `${profile.nickname} · 내 정보`
-        badge.setAttribute('aria-label', `${profile.nickname}으로 로그인 중 — 내 정보 열기`)
+        badge.setAttribute('aria-label', `${toward(profile.nickname)} 로그인 중 — 내 정보 열기`)
       } else {
         // 토큰이 죽어 있었다 — 로그인 배지로 돌아간다
         label.textContent = '로그인'

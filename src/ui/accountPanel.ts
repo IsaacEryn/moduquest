@@ -9,6 +9,7 @@ import {
 import { checkNickname, NICKNAME_MAX } from '../net/nickname'
 import { AuthForm, errorLine, field } from './authForm'
 import type { EventBus } from '../core/events'
+import { toward } from '../core/korean'
 
 /**
  * 계정 창 — 로그인·내 정보·비밀번호 변경, 그리고 (다음 단계에서) 탈퇴.
@@ -99,7 +100,7 @@ export class AccountPanel {
       onSignedIn: async (profile) => {
         this.profile = profile
         await this.hooks.onProfileChanged(profile)
-        this.hooks.announce(`${profile.nickname}로 로그인했다.`)
+        this.hooks.announce(`${toward(profile.nickname)} 로그인했다.`)
         this.renderInfo()
       },
     })
@@ -186,7 +187,7 @@ export class AccountPanel {
     const input = field(form, 'account-nick', `새 닉네임 (${NICKNAME_MAX}자까지)`, 'text', 'nickname')
     input.maxLength = NICKNAME_MAX
     input.value = me.nickname
-    const setError = errorLine(form, this.hooks.announce)
+    const setError = errorLine(form)
     const submit = document.createElement('button')
     submit.type = 'submit'
     submit.textContent = '바꾸기'
@@ -227,7 +228,7 @@ export class AccountPanel {
     const current = field(form, 'account-pw-now', '현재 비밀번호', 'password', 'current-password')
     const next = field(form, 'account-pw-new', '새 비밀번호 (8자 이상)', 'password', 'new-password')
     const again = field(form, 'account-pw-again', '새 비밀번호 다시', 'password', 'new-password')
-    const setError = errorLine(form, this.hooks.announce)
+    const setError = errorLine(form)
     const submit = document.createElement('button')
     submit.type = 'submit'
     submit.textContent = '바꾸기'
@@ -321,7 +322,7 @@ export class AccountPanel {
     detailRow.append(detailLabel, detail)
     form.append(detailRow, note)
 
-    const setError = errorLine(form, this.hooks.announce)
+    const setError = errorLine(form)
 
     const next = document.createElement('button')
     next.type = 'submit'

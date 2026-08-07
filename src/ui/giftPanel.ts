@@ -348,6 +348,14 @@ export class GiftPanel {
     if (this.prevFocus instanceof HTMLElement && this.prevFocus.isConnected) {
       this.prevFocus.focus()
     }
+    /*
+      이 창은 열 때마다 새로 만들어진다. 닫고 나서도 문서에 남아 있으면 두 번째
+      창의 id가 첫 번째와 겹치고, `label[for]`와 `aria-labelledby`는 문서에서
+      처음 만난 것을 가리키므로 **닫힌 옛 창**에 묶인다 — 새 창의 입력칸이
+      스크린리더에 이름 없는 컨트롤로 읽히고 라벨을 눌러도 반응하지 않는다.
+      쓰고 나면 자리를 비운다.
+    */
+    this.dialog.remove()
     this.hooks.onClose?.()
   }
 }

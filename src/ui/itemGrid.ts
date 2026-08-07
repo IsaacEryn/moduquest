@@ -93,6 +93,14 @@ export class ItemGrid {
     return this.entries.find((e) => e.id === this.selectedId) ?? null
   }
 
+  /**
+   * 고른 칸을 미리 지정한다 — 격자를 새로 만들어야 하는 화면이 손이 있던
+   * 자리를 이어받게 하려고 둔다. setEntries보다 먼저 부른다.
+   */
+  preselect(id: string | null): void {
+    this.selectedId = id
+  }
+
   /** 다시 그린 뒤에도 손이 있던 자리를 지킨다 */
   focusSelected(): void {
     this.tileFor(this.selectedId)?.focus()

@@ -1341,6 +1341,17 @@ details > summary::marker {
 
 .item-tile.is-locked { opacity: 0.55; }
 
+/*
+  칸 위에 얹는 배지 셋(개수·값·착용자).
+
+  바탕을 반투명 --overlay로 두었더니 밝은 테마에서 흰 칸과 섞여 회색이 되고,
+  그 위의 글자가 대비를 잃었다 — 개수 3.96:1, 착용자 1.80:1, 값 1.37:1이라
+  10px 안팎의 글자에 필요한 4.5:1에 한참 못 미쳤다. 같은 내용이 aria-label에도
+  있어 낭독으로는 닿지만, 눈으로 훑는 쓰임 자체가 무력해진다.
+
+  그래서 배지만은 테마를 타지 않는 어두운 판에 흰 글자로 고정한다. 칸 그림이
+  밝든 어둡든 읽히는 쪽이, 테마마다 색을 맞춰 두는 것보다 튼튼하다.
+*/
 .tile-count,
 .tile-badge,
 .tile-tag {
@@ -1349,13 +1360,13 @@ details > summary::marker {
   line-height: 1;
   padding: 1px 3px;
   border-radius: 3px;
-  background: var(--overlay);
-  color: var(--text);
+  background: rgba(12, 16, 20, 0.88);
+  color: #ffffff;
 }
 
 .tile-count { right: 2px; bottom: 2px; font-weight: 700; }
-.tile-badge { left: 2px; bottom: 2px; color: var(--accent); }
-.tile-tag { left: 2px; top: 2px; font-size: 0.6rem; color: var(--text-dim); }
+.tile-badge { left: 2px; bottom: 2px; color: #7fe0a0; }
+.tile-tag { left: 2px; top: 2px; font-size: 0.68rem; color: #dfe6ec; }
 
 .grid-empty {
   grid-column: 1 / -1;

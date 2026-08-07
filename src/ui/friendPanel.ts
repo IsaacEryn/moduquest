@@ -212,6 +212,8 @@ export class FriendPanel {
       actions.className = 'friend-actions'
 
       if (this.confirming === entry.userId) {
+        // 확인을 묻는 줄에 표를 남긴다 — 손을 돌려줄 자리를 이것으로 찾는다
+        li.dataset.confirming = 'true'
         // 끊기 전 한 번 더 — 되돌릴 수 없는 일에는 확인 단계를 둔다
         const ask = document.createElement('p')
         ask.className = 'slot-confirm'
@@ -284,8 +286,17 @@ export class FriendPanel {
   private askConfirm(userId: string): void {
     this.confirming = userId
     this.render()
-    // 확인 버튼으로 손을 옮겨 준다 — 키보드만 쓰는 사람이 확인 단계를 놓치지 않게
-    this.body.querySelector<HTMLElement>('.friend-actions button')?.focus()
+    /*
+      확인 버튼으로 손을 옮겨 준다 — 키보드만 쓰는 사람이 확인 단계를 놓치지 않게.
+
+      예전에는 창 안의 첫 번째 friend-actions 버튼을 잡았는데, 그것은 문서 순서상
+      맨 위 항목의 버튼이지 지금 묻고 있는 항목의 것이 아니다. 받은 신청이 있거나
+      끊으려는 사람이 목록 중간이면, 손이 남의 줄의 '수락'이나 '모험단으로 초대'에
+      놓였다 — 확인을 놓치지 말라고 만든 장치가 엉뚱한 곳에서 Enter를 부르는 셈이다.
+    */
+    this.body
+      .querySelector<HTMLElement>('li[data-confirming] .friend-actions button')
+      ?.focus()
   }
 
   private button(label: string, run: () => Promise<void>, className?: string): HTMLButtonElement {
@@ -318,6 +329,9 @@ export class FriendPanel {
     if (this.prevFocus instanceof HTMLElement && this.prevFocus.isConnected) {
       this.prevFocus.focus()
     }
+    // 열 때마다 새로 만드는 창이라 닫으면 치운다 — 남겨 두면 다음 창과 id가
+    // 겹쳐서 라벨이 옛 노드에 묶인다(giftPanel에 같은 사정을 적어 두었다)
+    this.dialog.remove()
     this.hooks.onClose?.()
   }
 }

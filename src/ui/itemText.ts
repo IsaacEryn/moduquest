@@ -92,8 +92,8 @@ export function itemAriaLabel(
   return parts.join(', ')
 }
 
-/** 직업 제한을 사람이 읽을 문장으로 */
-export function jobLimitText(item: ItemData, jobName: (id: string) => string): string {
-  if (!item.jobs || item.jobs.length === 0) return ''
-  return `${item.jobs.map(jobName).join('·')} 전용`
-}
+/*
+  직업 제한 문장을 여기서도 만들 수 있게 해 두었지만 부르는 곳이 없다 —
+  "왜 못 입는가"는 코어의 canEquip이 이유와 함께 돌려주고, 화면은 그 문장을
+  그대로 쓴다. 규칙을 아는 쪽이 말하는 것이 옳으므로 이 자리는 비워 둔다.
+*/

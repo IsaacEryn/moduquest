@@ -3,6 +3,7 @@ import type { PartySession } from '../net/session'
 import { AuthForm, errorLine, field } from './authForm'
 import { hasSupabaseConfig } from '../net/supabaseClient'
 import { josa } from './announcer'
+import { toward } from '../core/korean'
 import type { EventBus } from '../core/events'
 
 type View = 'auth' | 'home' | 'room'
@@ -249,7 +250,7 @@ export class CoopPanel {
       bus: this.hooks.bus,
       onSignedIn: async (profile) => {
         await this.setProfile(profile)
-        this.hooks.announce(`${profile.nickname}로 로그인했다.`)
+        this.hooks.announce(`${toward(profile.nickname)} 로그인했다.`)
         this.view = 'home'
         this.render()
       },
@@ -300,7 +301,7 @@ export class CoopPanel {
     const code = field(joinForm, 'coop-code', '초대 코드 (8글자)', 'text', 'off')
     code.maxLength = 8
     code.style.textTransform = 'uppercase'
-    const setError = errorLine(joinForm, this.hooks.announce)
+    const setError = errorLine(joinForm)
     const joinBtn = document.createElement('button')
     joinBtn.type = 'submit'
     joinBtn.textContent = '참가하기'
@@ -418,6 +419,14 @@ export class CoopPanel {
   }
 
   /** 로비 — 코드, 자리, 출발 */
+  /**
+   * 방 안 화면. 누가 들고 나면 다시 그린다.
+   *
+   * **다시 그릴 때는 손을 뺏지 않는다.** 예전에는 그릴 때마다 방장은 출발 버튼,
+   * 동료는 나가기 버튼으로 포커스를 옮겼는데, 로스터는 사람이 합류할 때마다
+   * 갱신되므로 저장 자리를 고르던 손이 "모험단 나가기"로 튀었다 — 거기서 Enter를
+   * 누르면 실제로 나가진다. 처음 열 때만 자리를 잡아 준다.
+   */
   private renderRoom(): void {
     const session = this.hooks.currentSession()
     if (!session) {
@@ -425,6 +434,8 @@ export class CoopPanel {
       this.render()
       return
     }
+    // 이 창 안에 이미 손이 있으면 그대로 둔다
+    const handInside = this.dialog.contains(document.activeElement)
 
     const codeLine = document.createElement('p')
     codeLine.className = 'coop-code'
@@ -507,7 +518,7 @@ export class CoopPanel {
       start.addEventListener('click', () => this.hooks.hostStart())
       // 안내가 버튼보다 먼저 온다 — 무엇을 누르는지 알고 나서 누르도록
       this.body.append(note, start)
-      start.focus()
+      if (!handInside) start.focus()
     } else {
       const wait = document.createElement('p')
       wait.className = 'intro'
@@ -570,7 +581,7 @@ export class CoopPanel {
       leaveBtn.className = 'alt-action'
       leaveRow.append(leaveBtn)
       this.body.append(wait, row, leaveRow)
-      leaveBtn.focus()
+      if (!handInside) leaveBtn.focus()
     }
   }
 }

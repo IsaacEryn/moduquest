@@ -45,6 +45,17 @@ export class StatusPanel {
   private prevFocus: Element | null = null
   private closed = true
   /**
+   * 장비를 갈아입은 뒤 손이 있던 자리.
+   *
+   * 이 창은 값이 하나 바뀌면 통째로 다시 그린다(능력치 내역이 함께 달라지므로).
+   * 그러면 격자도 새로 서는데, 예전에는 고르던 칸이 목록 맨 앞으로 돌아가고
+   * 누르던 버튼이 사라지면서 손이 창 바깥으로 떨어졌다 — 키보드로 장비를
+   * 바꾸는 사람은 하나 갈아입을 때마다 처음부터 다시 걸어야 했다.
+   * 격자 자체를 살려 두는 길도 있지만, 그러면 "누가 무엇을 입었나"를 담은
+   * 클로저가 낡는다. 자리만 기억하고 새 격자에 물려준다.
+   */
+  private gearKeep: { id: string; action: number } | null = null
+  /**
    * 좁은 화면에서 보고 있는 파티원. 넓은 화면에서는 셋을 나란히 놓으므로 쓰지 않는다.
    * 폭 기준은 style.css의 첫 단 나눔과 같은 34rem이다 — 두 곳이 어긋나면
    * 탭도 없고 나란히도 아닌 화면이 생긴다.
@@ -375,7 +386,7 @@ export class StatusPanel {
       label: '가진 장비',
       spriteMode: this.spriteMode,
       emptyText: '아직 장비가 없다.',
-      actions: g.party.map((member) => ({
+      actions: g.party.map((member, index) => ({
         label: (e) => {
           const mine = wornBy.get(e.id)?.some((w) => w.member === member.id)
           const who = member.seat === this.game.localSeat ? '내가' : member.name
@@ -392,12 +403,23 @@ export class StatusPanel {
         run: (e) => {
           const worn = wornBy.get(e.id)?.find((w) => w.member === member.id)
           const done = worn ? g.unequip(member.id, worn.slot) : g.equip(member.id, e.id)
-          if (done) this.render()
+          if (!done) return
+          // 다시 그린 뒤 같은 자리로 손을 돌려준다. 입고 벗는 일은 연달아
+          // 하게 되므로, 한 번마다 목록 처음으로 튕기면 길을 잃는다
+          this.gearKeep = { id: e.id, action: index }
+          this.render()
         },
       })),
     })
+    const keep = this.gearKeep
+    if (keep) grid.preselect(keep.id)
     grid.setEntries(entries)
     box.append(grid.el)
+    if (keep) {
+      // 격자가 문서에 붙은 뒤라야 포커스가 간다
+      queueMicrotask(() => grid.focusAction(keep.action))
+      this.gearKeep = null
+    }
     return box
   }
 

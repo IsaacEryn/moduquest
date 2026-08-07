@@ -72,7 +72,7 @@ export class AuthForm {
       })
     }
 
-    const setError = errorLine(form, this.hooks.announce)
+    const setError = errorLine(form)
 
     // 지금 하려는 일과 반대편으로 가는 길을 나란히 둔다.
     // 글자 수가 크게 다르면 두 버튼의 폭이 벌어져 줄이 흐트러지므로 짧게 맞추고,
@@ -267,16 +267,19 @@ export function field(
   return input
 }
 
-export function errorLine(
-  form: HTMLElement,
-  announce: (text: string) => void,
-): (msg: string) => void {
+/**
+ * 폼의 오류 한 줄.
+ *
+ * `role="alert"`이 붙은 자리는 글자가 바뀌는 순간 스크린리더가 스스로 읽는다.
+ * 여기에 낭독까지 함께 보내면 같은 문장이 두 채널로 두 번 들린다 — 틀렸다는
+ * 말을 두 번 듣는 것은 도움이 아니라 방해다. 읽히는 일은 이 줄에 맡긴다.
+ */
+export function errorLine(form: HTMLElement): (msg: string) => void {
   const p = document.createElement('p')
   p.className = 'form-error'
   p.setAttribute('role', 'alert')
   form.append(p)
   return (msg: string) => {
     p.textContent = msg
-    if (msg) announce(msg)
   }
 }
