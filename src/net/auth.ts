@@ -133,7 +133,17 @@ export async function changePassword(current: string, next: string): Promise<voi
   const email = data.session?.user?.email
   if (!email) throw new Error('로그인이 필요하다.')
   const { error: verify } = await sb.auth.signInWithPassword({ email, password: current })
-  if (verify) throw new Error('현재 비밀번호가 맞지 않다.')
+  if (verify) {
+    /*
+      실패를 전부 "비밀번호가 틀렸다"로 바꿔 말하면, 맞게 적은 사람이 자기
+      비밀번호를 의심하며 무한히 다시 시도한다. 캡차가 켜져 있으면 이 재확인
+      호출은 토큰이 없어 항상 실패하는데(계정 창에는 확인 상자가 없다), 그때
+      화면에 뜨던 말이 바로 그 거짓말이었다. 자격이 틀린 것만 그렇게 말한다.
+    */
+    const said = friendly(verify.message)
+    const wrongPassword = verify.message.toLowerCase().includes('invalid login credentials')
+    throw new Error(wrongPassword ? '현재 비밀번호가 맞지 않다.' : said)
+  }
   const { error } = await sb.auth.updateUser({ password: next })
   if (error) throw new Error(friendly(error.message))
 }

@@ -47,13 +47,14 @@ export async function lookupFriend(
 ): Promise<{ userId: string; nickname: string } | null> {
   const trimmed = code.trim().toUpperCase()
   if (trimmed.length !== 8) return null
-  const { data } = await supabase()
-    .from('profiles')
-    .select('user_id, nickname')
-    .eq('friend_code', trimmed)
-    .maybeSingle()
-  if (!data) return null
-  return { userId: data.user_id as string, nickname: (data.nickname as string) ?? '' }
+  // 표를 직접 훑지 않고 서버 함수에 묻는다. profiles를 누구나 읽던 시절에는
+  // 코드 한 번 조회할 자리에서 남의 코드·역할·정지 이력까지 통째로 나왔다 —
+  // 코드가 열리면 선물과 친구 신청의 유일한 접근 통제가 사라진다.
+  // 이 함수는 정확히 맞는 코드에만 답하므로 목록을 훑을 수 없다
+  const { data } = await supabase().rpc('find_by_friend_code', { code: trimmed })
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) return null
+  return { userId: row.user_id as string, nickname: (row.nickname as string) ?? '' }
 }
 
 export async function sendGift(

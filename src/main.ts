@@ -557,6 +557,16 @@ function startThemeSync(): void {
 }
 
 async function sharedOnProfileChanged(profile: { userId: string } | null): Promise<void> {
+  /*
+    걷던 모험단은 계정을 따라간다. 로그아웃하거나 다른 계정으로 갈아탔는데도
+    세션이 살아 있으면, 채널에는 옛 신원이 그대로 앉아 남의 이름으로 명령을
+    계속 낸다 — 그 사이 자동저장은 기기 저장소로 가므로 동료가 보는 세계와
+    내 기록이 서로 다른 곳을 가리킨다. 나가는 방식은 "타이틀로"와 같다.
+  */
+  if (activeSession && activeSession.userId !== profile?.userId) {
+    if (activeSession.isHost) activeSession.finish()
+    else activeSession.leave()
+  }
   if (profile) {
     await useAccountSaves(profile.userId)
     startThemeSync()

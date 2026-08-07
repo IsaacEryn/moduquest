@@ -18,31 +18,51 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      # 빌드 잡은 저장소에 쓸 일이 없다 — 토큰을 작업 트리에 남기지 않는다
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v7
         with:
           node-version: 24
           cache: npm
       - run: npm ci
-      # 관례를 사람의 기억이 아니라 파이프라인이 지키게 한다
+      # 관례를 사람의 기억이 아니라 파이프라인이 지키게 한다.
+      #
+      # 세 검사 모두 한 줄만 보던 시절이 있었다. 이 저장소의 innerHTML은 전부
+      # 여러 줄 템플릿이라, 본문 줄에 값을 끼워 넣으면 `innerHTML`이 있는 줄과
+      # `${`가 있는 줄이 달라서 그냥 지나갔다. 파일을 통째로 읽어 비교한다.
       - name: 데이터 문자열을 innerHTML에 끼워 넣지 않았는지
         run: |
-          if grep -rn "innerHTML" src --include='*.ts' | grep '\${'; then
+          bad=0
+          for f in $(grep -rl "innerHTML" src); do
+            perl -0777 -ne 'exit 1 if /innerHTML\s*=\s*`[^`]*\$\{/s' "$f" || { echo "$f"; bad=1; }
+          done
+          if [ "$bad" = 1 ]; then
             echo "innerHTML에 값을 보간하고 있다. textContent를 쓸 것."
             exit 1
           fi
-      # 패턴에 [_]를 쓴 것은 이 검사 줄 자신이 걸리지 않게 하기 위해서다
+      # 패턴에 [_]를 쓴 것은 이 검사 줄 자신이 걸리지 않게 하기 위해서다.
+      #
+      # 그 글자만 찾던 때는 정작 진짜 사고를 못 잡았다 — 붙여 넣는 것은 키(JWT)인데
+      # 그건 base64라 그 글자가 나타나지 않는다. 모양으로도 찾고, 범위도 저장소
+      # 전체로 넓힌다(빌드 산출물과 의존성만 뺀다).
       - name: 서버 전용 키가 섞여 들어가지 않았는지
         run: |
-          if grep -rniE "service[_]role|SUPABASE[_]SERVICE" src .github; then
+          if grep -rniE --exclude-dir={node_modules,dist,.git} "service[_]role|SUPABASE[_]SERVICE" .; then
             echo "서버 전용 키가 클라이언트나 워크플로에 들어갔다."
+            exit 1
+          fi
+          if grep -rnE --exclude-dir={node_modules,dist,.git} "eyJ[A-Za-z0-9_-]{20,}\.eyJ[A-Za-z0-9_-]{20,}" .; then
+            echo "JWT 모양의 값이 저장소에 있다. 키는 Secrets에만 둔다."
             exit 1
           fi
       # VITE_로 시작하는 값은 무엇이든 브라우저 번들에 그대로 실린다.
       # 비밀로 두어야 할 것에 그 접두사가 붙으면 조용히 공개된다
       - name: 비밀 키에 VITE_ 접두사가 붙지 않았는지
         run: |
-          if grep -rnE "VITE[_][A-Z0-9_]*(SECRET|PRIVATE|PASSWORD|TOKEN)" src .github; then
+          if grep -rnE --exclude-dir={node_modules,dist,.git} \
+            "VITE[_][A-Z0-9_]*(SECRET|PRIVATE|PASSWORD|TOKEN)" .; then
             echo "VITE_ 접두사가 붙은 값은 브라우저로 나간다. 비밀이라면 접두사를 빼라."
             exit 1
           fi
