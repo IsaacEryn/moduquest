@@ -143,6 +143,67 @@ export function dataTable(
   return wrap
 }
 
+/**
+ * 목록 아래의 쪽 이동. 화면과 낭독이 같은 문장을 본다 —
+ * 스크린리더 사용자가 "몇 쪽 중 몇 쪽"을 버튼 눌러 가며 알아낼 일이 없어야 한다.
+ */
+export function pager(
+  state: { page: number; pages: number; label: string; hasPrev: boolean; hasNext: boolean },
+  go: (page: number) => void,
+): HTMLElement {
+  const nav = document.createElement('nav')
+  nav.className = 'admin-pager'
+  nav.setAttribute('aria-label', '쪽 이동')
+
+  const prev = button('← 이전', () => go(state.page - 1))
+  prev.disabled = !state.hasPrev
+  const next = button('다음 →', () => go(state.page + 1))
+  next.disabled = !state.hasNext
+
+  const status = document.createElement('p')
+  status.className = 'admin-pager-status'
+  status.setAttribute('role', 'status')
+  status.textContent =
+    state.pages > 1 ? `${state.page + 1} / ${state.pages}쪽 — ${state.label}` : state.label
+
+  nav.append(prev, status, next)
+
+  // 쪽이 여럿이면 번호로도 건너뛴다. 앞뒤 두 칸씩만 보여 줄이 길어지지 않게
+  if (state.pages > 1) {
+    const nums = document.createElement('div')
+    nums.className = 'admin-pager-nums'
+    const from = Math.max(0, state.page - 2)
+    const to = Math.min(state.pages - 1, state.page + 2)
+    if (from > 0) nums.append(numButton(0, state, go), ellipsis())
+    for (let i = from; i <= to; i++) nums.append(numButton(i, state, go))
+    if (to < state.pages - 1) nums.append(ellipsis(), numButton(state.pages - 1, state, go))
+    nav.append(nums)
+  }
+  return nav
+}
+
+function numButton(
+  i: number,
+  state: { page: number },
+  go: (page: number) => void,
+): HTMLButtonElement {
+  const b = button(String(i + 1), () => go(i))
+  if (i === state.page) {
+    b.setAttribute('aria-current', 'page')
+    b.className = 'admin-pager-now'
+    b.disabled = true
+  }
+  return b
+}
+
+function ellipsis(): HTMLElement {
+  const s = document.createElement('span')
+  s.className = 'admin-pager-gap'
+  s.textContent = '…'
+  s.setAttribute('aria-hidden', 'true')
+  return s
+}
+
 export function button(
   label: string,
   onClick: () => void | Promise<void>,

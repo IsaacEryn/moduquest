@@ -4,6 +4,7 @@ import {
   banLabel,
   describeAudit,
   latestSaveByUser,
+  pagerState,
   relativeTime,
   shouldCheckAdmin,
   signupsToBars,
@@ -118,5 +119,35 @@ describe('운영 조치를 사람 말로', () => {
       .toBe('모험가7FC2 (지워진 계정)')
     expect(auditTargetName(null, '이순신', 'uuid')).toBe('이순신')
     expect(auditTargetName(null, undefined, 'b4ab2a57-aaaa')).toBe('b4ab2a57')
+  })
+})
+
+describe('쪽 이동', () => {
+  it('전체 건수로 쪽 수와 범위를 말한다', () => {
+    const s = pagerState(0, 237, 50)
+    expect(s.pages).toBe(5)
+    expect(s.label).toBe('1–50번째 · 전체 237건')
+    expect(s.hasPrev).toBe(false)
+    expect(s.hasNext).toBe(true)
+  })
+
+  it('마지막 쪽은 남은 만큼만 세고 다음이 없다', () => {
+    const s = pagerState(4, 237, 50)
+    expect(s.label).toBe('201–237번째 · 전체 237건')
+    expect(s.hasNext).toBe(false)
+    expect(s.hasPrev).toBe(true)
+  })
+
+  it('비어 있어도 한 쪽으로 친다 — 0쪽이라는 말은 없다', () => {
+    const s = pagerState(0, 0, 50)
+    expect(s.pages).toBe(1)
+    expect(s.label).toBe('기록 없음')
+    expect(s.hasPrev).toBe(false)
+    expect(s.hasNext).toBe(false)
+  })
+
+  it('딱 떨어지면 빈 쪽을 만들지 않는다', () => {
+    expect(pagerState(0, 50, 50).pages).toBe(1)
+    expect(pagerState(0, 50, 50).hasNext).toBe(false)
   })
 })

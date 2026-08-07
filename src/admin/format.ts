@@ -118,3 +118,30 @@ export const LOGIN_ACTION_KO: Record<string, string> = {
   user_recovery_requested: '비밀번호 재설정 요청',
   token_refreshed: '세션 갱신',
 }
+
+/**
+ * 페이저가 말해야 하는 것 — 지금 몇 쪽인지, 전체가 몇 쪽인지, 무엇을 보고 있는지.
+ * 이전/다음 버튼만 있으면 "끝에 왔는지"조차 눌러 봐야 안다.
+ */
+export interface PagerState {
+  page: number
+  pages: number
+  /** "51–100번째 · 전체 237건" */
+  label: string
+  hasPrev: boolean
+  hasNext: boolean
+}
+
+export function pagerState(page: number, total: number, per: number): PagerState {
+  const pages = Math.max(1, Math.ceil(total / per))
+  const from = total === 0 ? 0 : page * per + 1
+  const to = Math.min(total, (page + 1) * per)
+  return {
+    page,
+    pages,
+    label:
+      total === 0 ? '기록 없음' : `${from}–${to}번째 · 전체 ${total.toLocaleString('ko-KR')}건`,
+    hasPrev: page > 0,
+    hasNext: page + 1 < pages,
+  }
+}

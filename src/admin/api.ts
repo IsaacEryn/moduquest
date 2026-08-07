@@ -22,10 +22,16 @@ export async function fetchStats(): Promise<Record<string, unknown>> {
   return data as Record<string, unknown>
 }
 
-export async function fetchProfiles(page: number, search: string): Promise<ProfileRow[]> {
+export interface Page<T> {
+  rows: T[]
+  /** 조건에 맞는 전체 건수 — 페이저가 "몇 쪽 중 몇 쪽"을 말하려면 필요하다 */
+  total: number
+}
+
+export async function fetchProfiles(page: number, search: string): Promise<Page<ProfileRow>> {
   let q = supabase()
     .from('profiles')
-    .select('user_id, nickname, friend_code, created_at, role, banned_until')
+    .select('user_id, nickname, friend_code, created_at, role, banned_until', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(page * PAGE, page * PAGE + PAGE - 1)
   if (search) {
@@ -34,9 +40,9 @@ export async function fetchProfiles(page: number, search: string): Promise<Profi
       ? q.eq('friend_code', search.toUpperCase())
       : q.ilike('nickname', `%${search}%`)
   }
-  const { data, error } = await q
+  const { data, error, count } = await q
   if (error) throw new Error('사용자 목록을 불러오지 못했다.')
-  return (data ?? []) as ProfileRow[]
+  return { rows: (data ?? []) as ProfileRow[], total: count ?? 0 }
 }
 
 /** 최근 저장 활동 — snapshot은 절대 가져오지 않는다 (행마다 최대 64KB) */
@@ -128,13 +134,13 @@ export async function lookupEmail(target: string): Promise<string> {
 }
 
 /** 감사 로그 읽기 */
-export async function fetchAudit(page: number): Promise<Record<string, unknown>[]> {
-  const { data } = await supabase()
+export async function fetchAudit(page: number): Promise<Page<Record<string, unknown>>> {
+  const { data, count } = await supabase()
     .from('admin_audit')
-    .select('*')
+    .select('*', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(page * PAGE, page * PAGE + PAGE - 1)
-  return data ?? []
+  return { rows: data ?? [], total: count ?? 0 }
 }
 
 /** 로그인·가입 같은 인증 사건 — 서비스가 이미 남기는 기록을 관리자만 본다 */
@@ -164,12 +170,12 @@ export async function fetchLog(
   columns: string,
   orderCol: string,
   page: number,
-): Promise<Record<string, unknown>[]> {
-  const { data, error } = await supabase()
+): Promise<Page<Record<string, unknown>>> {
+  const { data, error, count } = await supabase()
     .from(table)
-    .select(columns)
+    .select(columns, { count: 'exact' })
     .order(orderCol, { ascending: false })
     .range(page * PAGE, page * PAGE + PAGE - 1)
   if (error) throw new Error('기록을 불러오지 못했다.')
-  return (data ?? []) as unknown as Record<string, unknown>[]
+  return { rows: (data ?? []) as unknown as Record<string, unknown>[], total: count ?? 0 }
 }

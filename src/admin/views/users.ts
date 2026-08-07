@@ -9,8 +9,8 @@ import {
   setNickname,
   type ProfileRow,
 } from '../api'
-import { banLabel, latestSaveByUser, relativeTime } from '../format'
-import { button, dataTable, errorLine, heading, note } from '../layout'
+import { banLabel, latestSaveByUser, pagerState, relativeTime } from '../format'
+import { button, dataTable, errorLine, heading, note, pager } from '../layout'
 
 /**
  * 사용자 관리 — 목록·검색과 조치 세 가지(닉네임 초기화·정지·삭제).
@@ -24,6 +24,7 @@ export async function renderUsers(content: HTMLElement, actor: string): Promise<
   const rerender = async () => {
     content.replaceChildren(heading('사용자'), note('불러오는 중…'))
     let rows: ProfileRow[]
+    let total = 0
     let saved: Map<string, string>
     let signedIn: Map<string, string>
     try {
@@ -32,7 +33,8 @@ export async function renderUsers(content: HTMLElement, actor: string): Promise<
         fetchSaveActivity(),
         fetchLastSignin(),
       ])
-      rows = profiles
+      rows = profiles.rows
+      total = profiles.total
       saved = latestSaveByUser(saves)
       signedIn = logins
     } catch (e) {
@@ -210,23 +212,12 @@ export async function renderUsers(content: HTMLElement, actor: string): Promise<
     )
     if (rows.length === 0) content.append(note('결과가 없다.'))
 
-    const pager = document.createElement('div')
-    pager.className = 'admin-pager'
-    if (page > 0)
-      pager.append(
-        button('이전', () => {
-          page -= 1
-          void rerender()
-        }),
-      )
-    if (rows.length === PAGE)
-      pager.append(
-        button('다음', () => {
-          page += 1
-          void rerender()
-        }),
-      )
-    content.append(pager)
+    content.append(
+      pager(pagerState(page, total, PAGE), (next) => {
+        page = next
+        void rerender()
+      }),
+    )
   }
 
   await rerender()

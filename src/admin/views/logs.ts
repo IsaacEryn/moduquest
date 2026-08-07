@@ -1,6 +1,6 @@
 import { PAGE, fetchAudit, fetchLog, fetchLoginLog, fetchProfiles, nicknameMap } from '../api'
-import { LOGIN_ACTION_KO, auditTargetName, describeAudit, fullTime } from '../format'
-import { button, dataTable, errorLine, heading, note } from '../layout'
+import { LOGIN_ACTION_KO, auditTargetName, describeAudit, fullTime, pagerState } from '../format'
+import { dataTable, errorLine, heading, note, pager } from '../layout'
 
 /**
  * 기록 — 서버에 남는 모든 흔적을 탭으로.
@@ -22,6 +22,8 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
   const active = TABS.some((t) => t.key === tab) ? tab : 'logins'
 
   const rerender = async () => {
+    /** 이 탭의 전체 건수. 로그인 기록만은 서버가 총계를 주지 않아 -1로 둔다 */
+    let total = -1
     content.replaceChildren(heading('로그'))
 
     const tabsNav = document.createElement('nav')
@@ -56,16 +58,18 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
           ]),
         )
       } else if (active === 'signups') {
-        const rows = await fetchProfiles(page, '')
+        const { rows, total: n } = await fetchProfiles(page, '')
         count = rows.length
+        total = n
         table = dataTable(
           '가입 기록',
           ['시각', '닉네임', '친구 코드'],
           rows.map((r) => [fullTime(r.created_at), r.nickname, r.friend_code]),
         )
       } else if (active === 'gifts') {
-        const rows = await fetchLog('gifts', 'from_user, to_user, item_id, qty, status, created_at', 'created_at', page)
+        const { rows, total: n } = await fetchLog('gifts', 'from_user, to_user, item_id, qty, status, created_at', 'created_at', page)
         count = rows.length
+        total = n
         table = dataTable(
           '선물 기록',
           ['시각', '보낸 사람', '받는 사람', '물건', '수량', '상태'],
@@ -79,8 +83,9 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
           ]),
         )
       } else if (active === 'friends') {
-        const rows = await fetchLog('friendships', 'requester, addressee, status, created_at', 'created_at', page)
+        const { rows, total: n } = await fetchLog('friendships', 'requester, addressee, status, created_at', 'created_at', page)
         count = rows.length
+        total = n
         table = dataTable(
           '친구 기록',
           ['시각', '신청한 사람', '받은 사람', '상태'],
@@ -92,8 +97,9 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
           ]),
         )
       } else if (active === 'invites') {
-        const rows = await fetchLog('party_invites', 'from_user, to_user, created_at', 'created_at', page)
+        const { rows, total: n } = await fetchLog('party_invites', 'from_user, to_user, created_at', 'created_at', page)
         count = rows.length
+        total = n
         table = dataTable(
           '모험단 초대 기록',
           ['시각', '부른 사람', '불린 사람'],
@@ -101,8 +107,9 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
         )
       } else if (active === 'saves') {
         // snapshot 컬럼은 안 읽는다 — 행마다 최대 64KB
-        const rows = await fetchLog('user_saves', 'user_id, slot, updated_at', 'updated_at', page)
+        const { rows, total: n } = await fetchLog('user_saves', 'user_id, slot, updated_at', 'updated_at', page)
         count = rows.length
+        total = n
         table = dataTable(
           '저장 갱신 기록',
           ['시각', '사용자', '자리'],
@@ -113,8 +120,9 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
           ]),
         )
       } else {
-        const rows = await fetchAudit(page)
+        const { rows, total: n } = await fetchAudit(page)
         count = rows.length
+        total = n
         table = dataTable(
           '운영 조치 기록',
           ['시각', '관리자', '한 일'],
@@ -133,23 +141,24 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
       content.replaceChildren(heading('로그'), tabsNav, table)
       if (count === 0) content.append(note(page === 0 ? '기록이 없다.' : '더 이상 없다.'))
 
-      const pager = document.createElement('div')
-      pager.className = 'admin-pager'
-      if (page > 0)
-        pager.append(
-          button('이전', () => {
-            page -= 1
-            void rerender()
-          }),
-        )
-      if (count === PAGE)
-        pager.append(
-          button('다음', () => {
-            page += 1
-            void rerender()
-          }),
-        )
-      content.append(pager)
+      // 총계를 아는 탭은 "몇 쪽 중 몇 쪽"까지 말한다. 로그인 기록만은 총계를
+      // 못 받으므로 한 쪽 가득 찼는지로 다음 쪽 유무를 짐작한다
+      const state =
+        total >= 0
+          ? pagerState(page, total, PAGE)
+          : {
+              page,
+              pages: count === PAGE ? page + 2 : page + 1,
+              label: count === 0 ? '기록 없음' : `${page * PAGE + 1}–${page * PAGE + count}번째`,
+              hasPrev: page > 0,
+              hasNext: count === PAGE,
+            }
+      content.append(
+        pager(state, (next) => {
+          page = next
+          void rerender()
+        }),
+      )
     } catch (e) {
       content.replaceChildren(heading('로그'), tabsNav, errorLine((e as Error).message))
     }

@@ -342,12 +342,6 @@ select {
   font-weight: 600;
 }
 
-.admin-pager {
-  display: flex;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
 /* ── 좁은 화면 ── */
 
 /* 태블릿 — 메뉴가 위로 접혀 가로줄이 된다 */
@@ -435,5 +429,61 @@ select {
 
   .admin-card {
     flex-basis: calc(50% - 0.25rem);
+  }
+}
+
+/* ── 쪽 이동 ── */
+.admin-pager {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.admin-pager-status {
+  margin: 0;
+  color: var(--a-dim);
+  font-size: 0.85rem;
+}
+
+.admin-pager-nums {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.admin-pager-nums button {
+  min-width: 2.2rem;
+  padding: 0.3rem 0.5rem;
+}
+
+.admin-pager-now {
+  background: var(--a-accent);
+  border-color: var(--a-accent);
+  color: var(--a-accent-text);
+  opacity: 1;
+  font-weight: 600;
+}
+
+.admin-pager button:disabled:not(.admin-pager-now) {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.admin-pager-gap {
+  color: var(--a-dim);
+}
+
+@media (max-width: 40rem) {
+  .admin-pager {
+    justify-content: center;
+  }
+
+  .admin-pager-status {
+    order: -1;
+    width: 100%;
+    text-align: center;
   }
 }
