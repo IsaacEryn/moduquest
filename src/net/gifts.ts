@@ -47,14 +47,29 @@ export async function lookupFriend(
 ): Promise<{ userId: string; nickname: string } | null> {
   const trimmed = code.trim().toUpperCase()
   if (trimmed.length !== 8) return null
-  // 표를 직접 훑지 않고 서버 함수에 묻는다. profiles를 누구나 읽던 시절에는
-  // 코드 한 번 조회할 자리에서 남의 코드·역할·정지 이력까지 통째로 나왔다 —
-  // 코드가 열리면 선물과 친구 신청의 유일한 접근 통제가 사라진다.
-  // 이 함수는 정확히 맞는 코드에만 답하므로 목록을 훑을 수 없다
-  const { data } = await supabase().rpc('find_by_friend_code', { code: trimmed })
-  const row = Array.isArray(data) ? data[0] : data
-  if (!row) return null
-  return { userId: row.user_id as string, nickname: (row.nickname as string) ?? '' }
+  /*
+    표를 직접 훑지 않고 서버 함수에 묻는다. profiles를 누구나 읽던 시절에는
+    코드 한 번 조회할 자리에서 남의 코드·역할·정지 이력까지 통째로 나왔다 —
+    코드가 열리면 선물과 친구 신청의 유일한 접근 통제가 사라진다.
+    이 함수는 정확히 맞는 코드에만 답하므로 목록을 훑을 수 없다.
+
+    함수가 아직 없는 서버(코드가 먼저 올라간 순간)에서는 옛 길로 물러선다.
+    두 변경의 순서에 기대면, 순서가 어긋나는 잠깐 동안 선물을 못 부치게 된다.
+  */
+  const sb = supabase()
+  const { data, error } = await sb.rpc('find_by_friend_code', { code: trimmed })
+  if (!error) {
+    const row = Array.isArray(data) ? data[0] : data
+    if (!row) return null
+    return { userId: row.user_id as string, nickname: (row.nickname as string) ?? '' }
+  }
+  const { data: legacy } = await sb
+    .from('profiles')
+    .select('user_id, nickname')
+    .eq('friend_code', trimmed)
+    .maybeSingle()
+  if (!legacy) return null
+  return { userId: legacy.user_id as string, nickname: (legacy.nickname as string) ?? '' }
 }
 
 export async function sendGift(

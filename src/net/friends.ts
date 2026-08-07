@@ -185,3 +185,36 @@ export async function listPartyInvites(): Promise<PartyInvite[]> {
 export async function deletePartyInvite(id: string): Promise<void> {
   await supabase().from('party_invites').delete().eq('id', id)
 }
+
+/**
+ * 친구 관계와 받은 초대가 바뀌면 알려 준다.
+ *
+ * 예전에는 창을 닫았다 다시 열어야 바뀐 것이 보였다. 친구 신청은 상대가 수락하는
+ * 순간 관계가 서는 일이고 초대는 "지금 같이 걷자"는 부름인데, 그것을 보려고
+ * 창을 여닫아야 한다면 이미 늦은 소식이다.
+ *
+ * 무엇이 바뀌었는지는 굳이 캐지 않고 "바뀌었다"만 전한다 — 받는 쪽이 목록을
+ * 다시 읽으면 그것이 곧 진실이고, 정책이 이미 내 것만 보내 주므로 남의 변화로
+ * 헛되이 다시 읽는 일도 없다.
+ *
+ * 돌려주는 함수를 부르면 구독을 끊는다. 창이 닫힐 때 반드시 부른다.
+ */
+export function watchFriendActivity(onChange: (what: 'friends' | 'invites') => void): () => void {
+  const sb = supabase()
+  const channel = sb
+    .channel('friend-activity')
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'friendships' },
+      () => onChange('friends'),
+    )
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'party_invites' },
+      () => onChange('invites'),
+    )
+    .subscribe()
+  return () => {
+    void sb.removeChannel(channel)
+  }
+}

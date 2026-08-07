@@ -23,6 +23,8 @@ export class FriendPanel {
   private closed = true
   private busy = false
   private state: FriendState = { friends: [], incoming: [], outgoing: [] }
+  /** 실시간 구독을 끊는 손잡이 — 창이 닫히면 반드시 부른다 */
+  private unwatch: (() => void) | null = null
   /** 끊기 확인 중인 상대 */
   private confirming: string | null = null
 
@@ -71,6 +73,45 @@ export class FriendPanel {
     this.dialog.showModal()
     this.renderLoading()
     await this.reload()
+    this.watch()
+  }
+
+  /**
+   * 창이 열려 있는 동안 친구 관계의 변화를 그대로 받는다.
+   *
+   * 상대가 수락하는 순간 목록이 바뀌어야 한다 — 창을 닫았다 열어야 보이면
+   * 그건 이미 지난 소식이다. 무엇이 달라졌는지는 다시 읽어 견주고, 사람이
+   * 알아야 할 것만 말한다(늘어난 친구, 새로 온 신청).
+   */
+  private watch(): void {
+    if (this.unwatch) return
+    void import('../net/friends').then(({ watchFriendActivity }) => {
+      // 그 사이 닫혔으면 붙이지 않는다
+      if (this.closed) return
+      this.unwatch = watchFriendActivity((what) => {
+        if (what !== 'friends' || this.closed) return
+        void this.reloadAndTell()
+      })
+    })
+  }
+
+  /** 바뀐 것을 다시 읽고, 달라진 만큼만 말한다 */
+  private async reloadAndTell(): Promise<void> {
+    const before = this.state
+    await this.reload()
+    const after = this.state
+    const newFriends = after.friends.filter(
+      (f) => !before.friends.some((b) => b.userId === f.userId),
+    )
+    const newIncoming = after.incoming.filter(
+      (i) => !before.incoming.some((b) => b.userId === i.userId),
+    )
+    for (const f of newFriends) {
+      this.hooks.announce(`${josa(f.nickname, '과', '와')} 친구가 됐다.`)
+    }
+    for (const i of newIncoming) {
+      this.hooks.announce(`${i.nickname}에게서 친구 신청이 왔다.`)
+    }
   }
 
   private renderLoading(): void {
@@ -326,6 +367,8 @@ export class FriendPanel {
   private afterClose(): void {
     if (this.closed) return
     this.closed = true
+    this.unwatch?.()
+    this.unwatch = null
     if (this.prevFocus instanceof HTMLElement && this.prevFocus.isConnected) {
       this.prevFocus.focus()
     }

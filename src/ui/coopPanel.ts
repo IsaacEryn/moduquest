@@ -28,6 +28,12 @@ export class CoopPanel {
    * null은 사람이 직접 "저장하지 않는다"를 고른 것이라 그대로 존중한다.
    */
   private guestSlot: number | null | undefined = undefined
+  /** 다시 그리기 직전에 손이 이 창 안에 있었는가 — 자리를 뺏을지 정하는 근거 */
+  private handWasInside = false
+  /** 그때 손이 무엇에 있었나 — 같은 것이 새로 서면 거기로 돌려준다 */
+  private handKey: string | null = null
+  /** 받은 초대 실시간 구독을 끊는 손잡이 */
+  private unwatchInvites: (() => void) | null = null
 
   constructor(
     private hooks: {
@@ -141,6 +147,8 @@ export class CoopPanel {
   private afterClose(): void {
     if (this.closed) return
     this.closed = true
+    this.unwatchInvites?.()
+    this.unwatchInvites = null
     this.authForm?.destroy()
     if (this.prevFocus instanceof HTMLElement && this.prevFocus.isConnected) {
       this.prevFocus.focus()
@@ -157,11 +165,40 @@ export class CoopPanel {
     this.body.append(p)
   }
 
+  /**
+   * 다시 그린다.
+   *
+   * 로비는 누가 들고 날 때마다 다시 그려지므로, 손을 어떻게 다루는지가 중요하다.
+   * 손이 어디 있었는지는 **지우기 전에** 봐야 안다 — 비우고 나면 이미 body로
+   * 떨어져 있어서, 나중에 물으면 언제나 "밖에 있었다"가 된다.
+   *
+   * 뺏지 않는 것만으로는 모자랐다. 만지던 것이 사라지면 손은 갈 곳을 잃고
+   * body에 남아, 키보드로 쓰는 사람은 다시 처음부터 탭해야 한다. 무엇을 만지고
+   * 있었는지 적어 두었다가 같은 것이 새로 서면 그리로 돌려준다.
+   */
   private render(): void {
+    const active = document.activeElement
+    this.handWasInside = this.dialog.contains(active)
+    this.handKey = this.handWasInside ? handKeyOf(active) : null
     this.body.replaceChildren()
     if (this.view === 'auth') this.renderAuth()
     else if (this.view === 'home') this.renderHome()
     else this.renderRoom()
+    if (this.handWasInside) this.restoreHand()
+  }
+
+  /** 다시 그리기 전에 만지던 것과 같은 자리를 찾아 손을 돌려준다 */
+  private restoreHand(): void {
+    if (this.dialog.contains(document.activeElement)) return
+    const key = this.handKey
+    if (!key) return
+    const target =
+      key === 'select'
+        ? this.body.querySelector<HTMLElement>('select')
+        : [...this.body.querySelectorAll<HTMLButtonElement>('button')].find(
+            (b) => b.textContent?.trim() === key && !b.disabled,
+          )
+    target?.focus()
   }
 
 
@@ -415,7 +452,36 @@ export class CoopPanel {
     invites.className = 'coop-invites'
     hello.after(invites)
     void this.renderInvites(invites, me)
-    makeBtn.focus()
+    // 친구가 부르면 이 자리에 바로 뜬다 — 창을 여닫아야 보이면 이미 늦은 부름이다
+    this.watchInvites(invites, me)
+    if (!this.handWasInside) makeBtn.focus()
+  }
+
+  /**
+   * 받은 초대를 실시간으로 좇는다.
+   *
+   * 초대는 "지금 같이 걷자"는 부름이라 늦으면 뜻이 없다. 창을 열어 둔 채
+   * 기다리는 사람에게는 오는 즉시 보여야 한다 — 목록을 다시 그리고, 새로 온
+   * 것만 말한다. 이미 보고 있던 초대를 다시 읽으면 소음이 된다.
+   */
+  private watchInvites(box: HTMLElement, me: Profile): void {
+    this.unwatchInvites?.()
+    this.unwatchInvites = null
+    void import('../net/friends').then(({ watchFriendActivity }) => {
+      if (this.closed || !box.isConnected) return
+      this.unwatchInvites = watchFriendActivity((what) => {
+        if (what !== 'invites' || this.closed || !box.isConnected) return
+        const before = new Set(
+          [...box.querySelectorAll('.friend-name')].map((e) => e.textContent ?? ''),
+        )
+        void this.renderInvites(box, me).then(() => {
+          for (const el of box.querySelectorAll('.friend-name')) {
+            const text = el.textContent ?? ''
+            if (!before.has(text)) this.hooks.announce(`${text}에 초대받았다.`)
+          }
+        })
+      })
+    })
   }
 
   /** 로비 — 코드, 자리, 출발 */
@@ -434,8 +500,8 @@ export class CoopPanel {
       this.render()
       return
     }
-    // 이 창 안에 이미 손이 있으면 그대로 둔다
-    const handInside = this.dialog.contains(document.activeElement)
+    // 이 창 안에 이미 손이 있었으면 그대로 둔다(render가 지우기 전에 재 둔 값)
+    const handInside = this.handWasInside
 
     const codeLine = document.createElement('p')
     codeLine.className = 'coop-code'
@@ -584,4 +650,12 @@ export class CoopPanel {
       if (!handInside) leaveBtn.focus()
     }
   }
+}
+
+/** 손이 무엇에 있었는지를 한 조각 글로 — 셀렉트는 하나뿐이라 종류로 족하다 */
+function handKeyOf(el: Element | null): string | null {
+  if (!(el instanceof HTMLElement)) return null
+  if (el.tagName === 'SELECT') return 'select'
+  if (el.tagName === 'BUTTON') return el.textContent?.trim() || null
+  return null
 }
