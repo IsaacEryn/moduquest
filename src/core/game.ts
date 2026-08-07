@@ -4,6 +4,7 @@ import { Field } from './field'
 import { SAVE_VERSION } from './save'
 import { nextVariant, resolveArea, type ResolvedArea } from './layout'
 import { memberIdsOf, memberNamesOf } from './partyIds'
+import { scaleMonsters } from './scaling'
 import { computeMemberStats, levelForXp, type StatBreakdown } from './stats'
 import { applyCombat, perceptionRadius, resolveTrait, resolveTraitId } from './traits'
 import type {
@@ -1523,7 +1524,13 @@ export class Game {
       this.battle = new Battle(
         this.party,
         encounter.monsters,
-        this.data.monsters,
+        // 사람이 많을수록 몹도 강해진다 — 전투가 열리는 이 순간의 인원으로 정해지고,
+        // 자리 배정은 락스텝 명령이라 모든 화면이 같은 수를 센다
+        scaleMonsters(
+          this.data.monsters,
+          this.humanCount(),
+          this.data.progression.multiScaling,
+        ),
         this.bus,
         // 회복은 스테이지가 정한다 — 뒤로 갈수록 인색해져 물약이 쓸모를 갖는다
         this.data.progression.victoryHealRatio[this.stageIndex] ?? 0.3,

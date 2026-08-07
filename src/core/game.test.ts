@@ -1087,3 +1087,30 @@ describe('패배 페널티', () => {
     expect(other.goldOf(0)).toBe(80)
   })
 })
+
+describe('멀티에서는 몹도 강해진다', () => {
+  /** 조우에 들어가 첫 적의 최대 체력을 본다 */
+  function firstEnemyHp(humans: number): number {
+    const { game } = makeGame()
+    for (let seat = 1; seat < humans; seat++) game.setSeatController(seat, 'human')
+    game.start()
+    skipDialogue(game)
+    stepInto(game, 'e1')
+    skipDialogue(game)
+    return game.battle!.enemies[0].maxHp
+  }
+
+  it('사람이 늘면 전투에 선 몹이 실제로 두꺼워진다', () => {
+    const solo = firstEnemyHp(1)
+    const duo = firstEnemyHp(2)
+    const trio = firstEnemyHp(3)
+    expect(duo).toBeGreaterThan(solo)
+    expect(trio).toBeGreaterThan(duo)
+  })
+
+  it('혼자 걸을 때는 예전 그대로다', () => {
+    // 이 기능 때문에 솔로 밸런스가 흔들리면 안 된다
+    const slime = (monsters as unknown as Record<string, { hp: number }>).slime
+    expect(firstEnemyHp(1)).toBe(slime.hp)
+  })
+})

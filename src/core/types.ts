@@ -251,6 +251,14 @@ export interface ProgressionData {
    * 졌을 때 치르는 값. 되돌아가 다시 걷게 하지는 않되(그건 벌이다) 그냥 일어나지도
    * 않는다 — 다시 도전하는 일에 무게가 있어야 이겼을 때 성취가 된다.
    */
+  /**
+   * 사람이 하나 늘 때마다 몹이 이만큼 강해진다. 보상이 인원수만큼 늘기 때문에
+   * 몹도 함께 커져야 협동이 시시해지지 않는다 — 체력 위주인 이유는 scaling.ts에.
+   */
+  multiScaling: {
+    hpPerExtraHuman: number
+    atkPerExtraHuman: number
+  }
   defeatPenalty: {
     /** 자리마다 이 비율만큼 동전을 잃는다 */
     goldLossRate: number
