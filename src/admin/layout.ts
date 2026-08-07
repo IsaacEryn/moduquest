@@ -1,0 +1,160 @@
+import { supabase } from '../net/supabaseClient'
+import type { Route } from './router'
+
+/**
+ * CMS풍 뼈대 — 좌측 사이드바에 메뉴, 우측에 내용.
+ * 게임과는 다른 문법의 화면이라 스타일도 따로 간다(admin.css).
+ */
+
+const MENU: { hash: string; label: string; match: Route['view'] }[] = [
+  { hash: '#/dashboard', label: '대시보드', match: 'dashboard' },
+  { hash: '#/users', label: '사용자', match: 'users' },
+  { hash: '#/logs', label: '기록', match: 'logs' },
+  { hash: '#/resources', label: '게임 리소스', match: 'resources' },
+]
+
+export interface Layout {
+  /** 뷰가 그려 넣는 자리 */
+  content: HTMLElement
+  /** 현재 경로에 맞춰 사이드바 강조를 갱신한다 */
+  setActive: (route: Route) => void
+}
+
+export function mountLayout(root: HTMLElement, nickname: string): Layout {
+  root.replaceChildren()
+
+  const bar = document.createElement('header')
+  bar.className = 'admin-topbar'
+  const title = document.createElement('strong')
+  title.textContent = '모두의 원정대 — 운영'
+  const who = document.createElement('span')
+  who.className = 'admin-who'
+  who.textContent = nickname
+  const toGame = document.createElement('a')
+  toGame.href = './'
+  toGame.textContent = '게임으로'
+  const out = document.createElement('button')
+  out.type = 'button'
+  out.textContent = '로그아웃'
+  out.addEventListener('click', () => {
+    void supabase()
+      .auth.signOut()
+      .then(() => location.replace('./'))
+  })
+  const right = document.createElement('div')
+  right.className = 'admin-topbar-right'
+  right.append(who, toGame, out)
+  bar.append(title, right)
+
+  const shell = document.createElement('div')
+  shell.className = 'admin-shell'
+
+  const nav = document.createElement('nav')
+  nav.className = 'admin-nav'
+  nav.setAttribute('aria-label', '운영 메뉴')
+  const links: HTMLAnchorElement[] = []
+  for (const item of MENU) {
+    const a = document.createElement('a')
+    a.href = item.hash
+    a.textContent = item.label
+    a.dataset.view = item.match
+    links.push(a)
+    nav.append(a)
+  }
+
+  const content = document.createElement('main')
+  content.className = 'admin-content'
+  content.id = 'admin-content'
+
+  shell.append(nav, content)
+  root.append(bar, shell)
+
+  return {
+    content,
+    setActive: (route) => {
+      for (const a of links) {
+        if (a.dataset.view === route.view) a.setAttribute('aria-current', 'page')
+        else a.removeAttribute('aria-current')
+      }
+    },
+  }
+}
+
+// --- 뷰들이 같이 쓰는 조립 도구 ---
+
+export function heading(text: string): HTMLElement {
+  const h = document.createElement('h1')
+  h.textContent = text
+  return h
+}
+
+export function note(text: string): HTMLElement {
+  const p = document.createElement('p')
+  p.className = 'admin-note'
+  p.textContent = text
+  return p
+}
+
+export function errorLine(text: string): HTMLElement {
+  const p = document.createElement('p')
+  p.className = 'admin-error'
+  p.setAttribute('role', 'alert')
+  p.textContent = text
+  return p
+}
+
+/** 접근성 있는 데이터 표 — 모든 목록 화면이 이 하나로 그린다 */
+export function dataTable(
+  caption: string,
+  headers: string[],
+  rows: (string | HTMLElement)[][],
+): HTMLElement {
+  const wrap = document.createElement('div')
+  wrap.className = 'admin-table-wrap'
+  const table = document.createElement('table')
+  const cap = document.createElement('caption')
+  cap.className = 'visually-hidden'
+  cap.textContent = caption
+  table.append(cap)
+  const thead = document.createElement('thead')
+  const tr = document.createElement('tr')
+  for (const h of headers) {
+    const th = document.createElement('th')
+    th.scope = 'col'
+    th.textContent = h
+    tr.append(th)
+  }
+  thead.append(tr)
+  const tbody = document.createElement('tbody')
+  for (const row of rows) {
+    const trb = document.createElement('tr')
+    for (const cell of row) {
+      const td = document.createElement('td')
+      if (typeof cell === 'string') td.textContent = cell
+      else td.append(cell)
+      trb.append(td)
+    }
+    tbody.append(trb)
+  }
+  table.append(thead, tbody)
+  wrap.append(table)
+  return wrap
+}
+
+export function button(
+  label: string,
+  onClick: () => void | Promise<void>,
+  className = '',
+): HTMLButtonElement {
+  const b = document.createElement('button')
+  b.type = 'button'
+  b.textContent = label
+  if (className) b.className = className
+  b.addEventListener('click', () => {
+    b.disabled = true
+    void Promise.resolve(onClick()).finally(() => {
+      b.disabled = false
+    })
+  })
+  return b
+}

@@ -1384,3 +1384,28 @@ details > summary::marker {
 .seat-toggle {
   margin-top: var(--sp-2);
 }
+
+/* 운영 페이지 진입 — 관리자의 브라우저에서, 타이틀에서만 나타난다 */
+#admin-link {
+  display: none;
+}
+
+body[data-mode='title'] #admin-link {
+  display: block;
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  z-index: 10;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: var(--fs-sm);
+}
+
+body[data-mode='title'] #admin-link:hover,
+body[data-mode='title'] #admin-link:focus-visible {
+  color: var(--text);
+  border-color: var(--focus);
+}

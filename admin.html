@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <!--
+      관리자 페이지. 게임보다 통로가 더 좁다 — 로그인 화면이 없으므로(게임에서
+      로그인한 세션을 그대로 쓴다) 자동 가입 방지 상자(Cloudflare)도 필요 없다.
+      실질 방어는 이 파일이 아니라 서버의 행 단위 권한(RLS)이다.
+    -->
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; connect-src 'self' https://*.supabase.co wss://*.supabase.co; base-uri 'none'; form-action 'none'; object-src 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>운영 — 모두의 원정대</title>
+  </head>
+  <body>
+    <div id="admin-app">
+      <p id="admin-loading">확인하는 중…</p>
+    </div>
+    <script type="module" src="/src/admin/main.ts"></script>
+  </body>
+</html>

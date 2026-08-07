@@ -508,6 +508,18 @@ document.body.dataset.mode = game.mode
 screens.showTitle()
 
 /**
+ * 운영 페이지 진입 링크 — 관리자에게만, 타이틀에서만 보인다.
+ * localStorage에 운영 페이지 방문 흔적과 로그인 흔적이 둘 다 있을 때만
+ * 확인을 시작한다. 흔적이 없으면 여기서 끝 — 서버 요청 0건, 코드 로드도 없다.
+ */
+if (
+  localStorage.getItem('moduquest-admin-path') !== null &&
+  Object.keys(localStorage).some((k) => k.startsWith('sb-') && k.endsWith('-auth-token'))
+) {
+  void import('./net/adminLink').then((m) => m.attachAdminLink())
+}
+
+/**
  * 확인 메일의 링크를 눌러 돌아온 참이면 함께 하기를 바로 연다.
  *
  * 서버 코드는 함께 하기를 누를 때에만 불려 오므로, 그냥 두면 링크를 누르고

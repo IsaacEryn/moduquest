@@ -56,6 +56,24 @@ jobs:
           # 자동 가입 방지의 공개 열쇠. 이 줄이 빠지면 Secrets에 값이 있어도
           # 빌드에는 안 실려서, 화면에 상자가 안 뜬 채 서버만 표를 요구하게 된다
           VITE_TURNSTILE_SITE_KEY: ${{ secrets.VITE_TURNSTILE_SITE_KEY }}
+      # 운영 페이지의 주소는 Secrets에만 있다. 배포 때 파일명을 그 이름으로
+      # 바꿔 올리므로 저장소·번들·robots 어디에도 주소가 남지 않는다.
+      # 슬러그가 없으면 아예 배포하지 않는다 — /admin.html이라는 뻔한 주소로
+      # 나가는 사고를 구조적으로 막는 쪽이 낫다 (실질 방어는 어차피 RLS다)
+      - name: 운영 페이지 주소 바꾸기
+        env:
+          SLUG: ${{ secrets.ADMIN_PATH_SLUG }}
+        run: |
+          if [ -z "$SLUG" ]; then
+            rm -f dist/admin.html
+            echo "ADMIN_PATH_SLUG 없음 — 운영 페이지 미배포"
+          elif ! echo "$SLUG" | grep -qE '^[a-z0-9][a-z0-9-]{7,63}$' || [ "$SLUG" = "admin" ]; then
+            echo "슬러그가 형식(소문자·숫자·하이픈 8~64자)에 안 맞거나 'admin'이다"
+            exit 1
+          else
+            mv dist/admin.html "dist/${SLUG}.html"
+            echo "운영 페이지 배포 준비 완료"
+          fi
       # 규칙보다 사실이 낫다 — 실제로 나가는 파일을 열어 본다
       - name: 빌드 결과에 서버 전용 키가 없는지
         run: |
