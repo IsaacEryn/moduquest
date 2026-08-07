@@ -393,3 +393,131 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
     expect(sanitizeSnapshot(valid(), DATA)?.schemaVersion).toBe(SAVE_VERSION)
   })
 })
+
+/**
+ * 한 판에서 쌓은 것이 하나도 빠짐없이 살아남는가.
+ *
+ * 조각별 검사는 위에 이미 있지만, 실제로 잃는 사고는 "이것 하나만 안 담겼다"로
+ * 일어난다. 그래서 경험치·레벨·파티 구성·사람마다 다른 장비·사람마다 다른 강화·
+ * 지갑·가방·처치 수를 한 판에 다 쌓아 두고 저장이 지나는 진짜 길
+ * (snapshot → JSON → sanitizeSnapshot → restore)을 그대로 통과시킨다.
+ */
+describe('쌓은 것이 하나도 빠지지 않는다', () => {
+  /** 저장이 실제로 지나는 길 — 파일에 적히고, 검증을 거쳐, 되살아난다 */
+  function roundTrip(from: Game): Game {
+    const wire = JSON.parse(JSON.stringify(from.snapshot())) as unknown
+    const clean = sanitizeSnapshot(wire, DATA)
+    expect(clean, '검증을 통과하지 못했다').not.toBeNull()
+    const to = makeGame()
+    to.restore(clean!)
+    return to
+  }
+
+  /** 경험치·지갑·장비·강화·가방·처치 수를 고루 쌓은 한 판 */
+  function playedRich() {
+    const g = makeGame()
+    g.setParty(['archer', 'mage', 'warrior']) // 기본과 다른 구성으로
+    g.setTrait('steady-hand')
+    g.start()
+    skipDialogue(g)
+    // 쉼터로 가서 마을에 들른다 — 강화와 상점이 열리는 유일한 자리
+    const cp = g.field.currentArea.checkpoint!
+    g.field.pos = { ...cp }
+    g.moveField('north')
+    g.moveField('south')
+    skipDialogue(g)
+    const seed = g as unknown as { gold: number; materials: number; xp: number }
+    seed.xp = 160 // 여러 레벨 오른 상태
+    seed.gold = 400
+    seed.materials = 20
+    // 사람마다 다른 장비 — 전용 무기라 서로 바꿔 낄 수 없는 것들로 고른다
+    for (const [job, item] of [
+      ['archer', 'wood_bow'],
+      ['mage', 'wood_staff'],
+      ['warrior', 'heavy_club'],
+    ] as const) {
+      expect(g.buy(item), `${item} 구매`).toBe(true)
+      expect(g.equip(job, item), `${job}에게 ${item}`).toBe(true)
+    }
+    // 사람마다 다른 강화
+    expect(g.upgrade('archer', 'atk')).toBe(true)
+    expect(g.upgrade('archer', 'atk')).toBe(true)
+    expect(g.upgrade('mage', 'spd')).toBe(true)
+    expect(g.upgrade('warrior', 'hp')).toBe(true)
+    // 가방에도 남겨 둔다
+    expect(g.buy('potion_small')).toBe(true)
+    expect(g.buy('potion_small')).toBe(true)
+    return g
+  }
+
+  it('경험치와 레벨이 그대로 온다', () => {
+    const a = playedRich()
+    expect(a.partyLevel).toBeGreaterThan(1)
+    const b = roundTrip(a)
+    expect(b.currentXp).toBe(a.currentXp)
+    expect(b.partyLevel).toBe(a.partyLevel)
+    expect(b.xpToNext).toBe(a.xpToNext)
+  })
+
+  it('파티 구성이 순서까지 그대로 온다', () => {
+    const a = playedRich()
+    const b = roundTrip(a)
+    expect(b.currentPartyJobs).toEqual(a.currentPartyJobs)
+    expect(b.party.map((c) => c.id)).toEqual(a.party.map((c) => c.id))
+  })
+
+  it('사람마다 다른 장비가 제 주인에게 그대로 온다', () => {
+    const a = playedRich()
+    const b = roundTrip(a)
+    for (const c of a.party) {
+      expect(b.equipmentOf(c.id), c.id).toEqual(a.equipmentOf(c.id))
+    }
+    // 전용 무기가 섞이지 않았는지 — 이름까지 확인한다
+    expect(b.equipmentOf('archer').weapon).toBe('wood_bow')
+    expect(b.equipmentOf('mage').weapon).toBe('wood_staff')
+    expect(b.equipmentOf('warrior').weapon).toBe('heavy_club')
+  })
+
+  it('사람마다 다른 강화 단계가 그대로 온다', () => {
+    const a = playedRich()
+    const b = roundTrip(a)
+    for (const c of a.party) {
+      for (const stat of a.upgradeStats) {
+        expect(b.upgradeLevelOf(c.id, stat), `${c.id}.${stat}`).toBe(a.upgradeLevelOf(c.id, stat))
+      }
+    }
+    expect(b.upgradeLevelOf('archer', 'atk')).toBe(2)
+    expect(b.upgradeLevelOf('mage', 'spd')).toBe(1)
+    expect(b.upgradeLevelOf('warrior', 'hp')).toBe(1)
+  })
+
+  it('능력치가 같은 수로 다시 계산된다 — 장비·강화·특성이 다 반영된 결과로', () => {
+    const a = playedRich()
+    const b = roundTrip(a)
+    for (const c of a.party) {
+      const x = a.statBreakdownOf(c.id)!
+      const y = b.statBreakdownOf(c.id)!
+      expect(y.total, c.id).toEqual(x.total)
+      expect(y.equip, `${c.id} 장비분`).toEqual(x.equip)
+      expect(y.upgrade, `${c.id} 강화분`).toEqual(x.upgrade)
+    }
+  })
+
+  it('지갑·가방·처치 수·특성·클리어 기록이 그대로 온다', () => {
+    const a = playedRich()
+    const b = roundTrip(a)
+    expect(b.currentGold).toBe(a.currentGold)
+    expect(b.currentMaterials).toBe(a.currentMaterials)
+    expect(b.inventoryList).toEqual(a.inventoryList)
+    expect(b.currentTraitId).toBe(a.currentTraitId)
+    expect(b.clearedStageIds).toEqual(a.clearedStageIds)
+    expect(b.snapshot().kills).toEqual(a.snapshot().kills)
+  })
+
+  it('두 번 왕복해도 값이 흔들리지 않는다', () => {
+    const a = playedRich()
+    const once = roundTrip(a)
+    const twice = roundTrip(once)
+    expect(twice.snapshot()).toEqual(once.snapshot())
+  })
+})

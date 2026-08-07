@@ -134,7 +134,9 @@ const TRAIT_IDS = Object.keys(TRAITS.traits)
 const BASE_PARTY = party.map((p) => p.job)
 
 describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 수 있어야 한다', () => {
-  // 조합 30 × 특성 7 × 스테이지별 전투 11 = 2,310 전투 전수. 결정적이라 늘 같은 답이다
+  // 조합 30 × 특성 7 × 세 스테이지의 조우 18(3+7+8) = 3,780 전투 전수.
+  // 결정적이라 늘 같은 답이다 — 수를 늘려도 수십 ms면 끝난다
+  // (스테이지를 늘리면 이 수도 따라 늘어난다. 조우 수를 세어 고칠 것)
   for (const [stageIndex, stage] of STAGES.entries()) {
     it(`${stage.id} — 전 조합 × 전 특성 승리 (진입 최소 레벨)`, () => {
       const failures: string[] = []
