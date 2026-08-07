@@ -1,3 +1,4 @@
+import items from '../../data/items.json'
 import { PAGE, fetchAudit, fetchLog, fetchLoginLog, fetchProfiles, nicknameMap } from '../api'
 import { auditTargetName, describeAudit, fullTime, pagerState, relativeTime } from '../format'
 import { dataTable, errorLine, heading, note, pager } from '../layout'
@@ -16,6 +17,13 @@ const TABS: { key: string; label: string }[] = [
   { key: 'saves', label: '저장' },
   { key: 'audit', label: '운영 조치' },
 ]
+
+/** 아이템 id를 사람이 아는 이름으로 — 표에 potion_big이라고 적을 이유가 없다 */
+function itemName(id: unknown): string {
+  const key = String(id ?? '')
+  const item = (items as Record<string, { name?: string }>)[key]
+  return item?.name ?? key
+}
 
 export async function renderLogs(content: HTMLElement, tab: string): Promise<void> {
   let page = 0
@@ -79,8 +87,8 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
             fullTime(r.created_at as string),
             who(r.from_user),
             who(r.to_user),
-            String(r.item_id),
-            String(r.qty),
+            itemName(r.item_id),
+            `${r.qty}개`,
             r.status === 'claimed' ? '받음' : '대기',
           ]),
         )
@@ -118,7 +126,7 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
           rows.map((r) => [
             fullTime(r.updated_at as string),
             who(r.user_id),
-            `${Number(r.slot) + 1}번`,
+            `${Number(r.slot) + 1}번 자리`,
           ]),
         )
       } else {
