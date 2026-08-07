@@ -496,3 +496,132 @@ describe('함께 하기 — 전투 중에 돌아온 사람', () => {
     expect(h.game.seatControllerOf(1)).toBe('human')
   })
 })
+
+describe('함께 하기 — 컴퓨터에게 맡긴 자리', () => {
+  it('닫아 둔 자리에는 코드를 알아도 들어오지 못한다', async () => {
+    const wire = new FakeWire()
+    const h = makeSide()
+    const host = await PartySession.host(
+      h.game,
+      DATA,
+      h.bus,
+      h.hooks,
+      { userId: 'host-1', nickname: '방장' },
+      wire.open,
+    )
+    // 셋째 자리는 컴퓨터가 맡는다 — 둘이서만 걷기로 했다
+    expect(host.setSeatOpen(2, false)).toBe(true)
+
+    const g1 = makeSide()
+    await PartySession.join(
+      host.code,
+      g1.game,
+      DATA,
+      g1.bus,
+      g1.hooks,
+      { userId: 'guest-1', nickname: '동료1' },
+      wire.open,
+    )
+    expect(host.seats.map((s) => s.seat)).toEqual([0, 1])
+
+    // 둘째 사람은 남은 자리가 없다 — 열린 자리가 다 찼기 때문이다.
+    // 자리를 못 받으면 참가는 기다리다 포기하므로, 시계를 밀어 그 끝까지 본다
+    const g2 = makeSide()
+    const rejected = PartySession.join(
+      host.code,
+      g2.game,
+      DATA,
+      g2.bus,
+      g2.hooks,
+      { userId: 'guest-2', nickname: '동료2' },
+      wire.open,
+    ).then(
+      () => 'joined',
+      () => 'refused',
+    )
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(await rejected).toBe('refused')
+    expect(host.seats.some((s) => s.userId === 'guest-2')).toBe(false)
+  })
+
+  it('다시 열면 그 자리로 들어온다', async () => {
+    const wire = new FakeWire()
+    const h = makeSide()
+    const host = await PartySession.host(
+      h.game,
+      DATA,
+      h.bus,
+      h.hooks,
+      { userId: 'host-1', nickname: '방장' },
+      wire.open,
+    )
+    host.setSeatOpen(1, false)
+    host.setSeatOpen(1, true)
+    const g = makeSide()
+    await PartySession.join(
+      host.code,
+      g.game,
+      DATA,
+      g.bus,
+      g.hooks,
+      { userId: 'guest-1', nickname: '동료1' },
+      wire.open,
+    )
+    expect(host.seats.find((s) => s.userId === 'guest-1')?.seat).toBe(1)
+  })
+
+  it('사람이 앉은 자리는 닫지 못한다 — 자리를 닫는 것과 내보내는 것은 다른 일이다', async () => {
+    const wire = new FakeWire()
+    const h = makeSide()
+    const host = await PartySession.host(
+      h.game,
+      DATA,
+      h.bus,
+      h.hooks,
+      { userId: 'host-1', nickname: '방장' },
+      wire.open,
+    )
+    const g = makeSide()
+    await PartySession.join(
+      host.code,
+      g.game,
+      DATA,
+      g.bus,
+      g.hooks,
+      { userId: 'guest-1', nickname: '동료1' },
+      wire.open,
+    )
+    expect(host.setSeatOpen(1, false)).toBe(false)
+    expect(host.closedSeats).toEqual([])
+  })
+
+  it('게스트 화면도 어느 자리가 컴퓨터 몫인지 안다', async () => {
+    const wire = new FakeWire()
+    const h = makeSide()
+    const host = await PartySession.host(
+      h.game,
+      DATA,
+      h.bus,
+      h.hooks,
+      { userId: 'host-1', nickname: '방장' },
+      wire.open,
+    )
+    const g = makeSide()
+    const guest = await PartySession.join(
+      host.code,
+      g.game,
+      DATA,
+      g.bus,
+      g.hooks,
+      { userId: 'guest-1', nickname: '동료1' },
+      wire.open,
+    )
+    host.setSeatOpen(2, false)
+    expect(guest.closedSeats).toEqual([2])
+  })
+
+  it('출발한 뒤에는 자리를 바꾸지 못한다', async () => {
+    const { host } = await startedParty(1)
+    expect(host.setSeatOpen(2, false)).toBe(false)
+  })
+})

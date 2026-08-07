@@ -63,6 +63,12 @@ export class PartySession {
   readonly nickname: string
 
   seats: SeatInfo[] = []
+  /**
+   * 컴퓨터에게 맡기기로 한 자리. 빈 자리는 어차피 동료 AI가 지키지만, 그것과
+   * "여기는 사람을 받지 않는다"는 다른 말이다 — 둘이서만 걷기로 했으면
+   * 코드를 아는 사람도 들어오지 못해야 그 결정이 지켜진다.
+   */
+  closedSeats: Seat[] = []
   mySeat: Seat = 0
   started = false
   private ended = false
@@ -289,7 +295,7 @@ export class PartySession {
       return
     }
     const taken = new Set(this.seats.map((s) => s.seat))
-    const free = ([1, 2] as Seat[]).find((n) => !taken.has(n))
+    const free = ([1, 2] as Seat[]).find((n) => !taken.has(n) && !this.closedSeats.includes(n))
     if (free === undefined) {
       this.shareSeats() // 자리가 없다 — 로스터에 없음을 보고 참가자가 스스로 안다
       return
@@ -309,6 +315,24 @@ export class PartySession {
     }
     this.shareSeats()
     this.hooks.onRosterChanged()
+  }
+
+  /**
+   * 빈 자리를 컴퓨터에게 맡기거나 사람에게 연다. 방장만, 출발 전에만.
+   * 사람이 앉아 있는 자리는 닫지 못한다 — 자리를 닫는 것과 사람을 내보내는 것은
+   * 다른 일이고, 후자를 이 버튼 뒤에 숨기지 않는다.
+   */
+  setSeatOpen(seat: Seat, open: boolean): boolean {
+    if (!this.isHost || this.started || this.ended || seat === 0) return false
+    if (!open && this.seats.some((s) => s.seat === seat)) return false
+    const closed = this.closedSeats.includes(seat)
+    if (closed === !open) return true
+    this.closedSeats = open
+      ? this.closedSeats.filter((n) => n !== seat)
+      : [...this.closedSeats, seat]
+    this.shareSeats()
+    this.hooks.onRosterChanged()
+    return true
   }
 
   /** presence의 닉네임을 로스터에 옮겨 적는다 */
@@ -354,12 +378,14 @@ export class PartySession {
       seats: this.seats,
       moveTokenSeat: this.game.moveTokenSeat as Seat,
       started: this.started,
+      closedSeats: this.closedSeats,
     })
   }
 
   private receiveSeats(raw: unknown): void {
     if (this.isHost || !isSeatsPayload(raw)) return
     this.seats = raw.seats
+    this.closedSeats = raw.closedSeats ?? []
     const mine = raw.seats.find((s) => s.userId === this.userId)
     if (!mine) {
       if (this.onSeated) return // 아직 자리를 기다리는 중 — 만석이면 타임아웃이 알린다

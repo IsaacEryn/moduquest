@@ -1376,3 +1376,11 @@ details > summary::marker {
 .coop-invites {
   margin-bottom: var(--sp-4);
 }
+
+/* 로비 자리 — 한 줄 설명 아래에 방장이 쓰는 버튼 */
+.seat-line {
+  margin: 0;
+}
+.seat-toggle {
+  margin-top: var(--sp-2);
+}

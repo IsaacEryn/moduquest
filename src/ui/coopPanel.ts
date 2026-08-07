@@ -663,14 +663,40 @@ export class CoopPanel {
     const roster = document.createElement('ul')
     roster.className = 'coop-roster'
     roster.setAttribute('aria-label', '모험단 자리')
-    for (const seat of [0, 1, 2]) {
+    for (const seat of [0, 1, 2] as const) {
       const li = document.createElement('li')
       const info = session.seats.find((s) => s.seat === seat)
       const role = seat === 0 ? '방장' : `${seat + 1}번 자리`
-      if (!info) li.textContent = `${role} — 비어 있다`
-      else {
+      const closed = session.closedSeats.includes(seat)
+      const line = document.createElement('p')
+      line.className = 'seat-line'
+      if (info) {
         const who = info.userId === session.userId ? `${info.nickname} (나)` : info.nickname
-        li.textContent = `${role} — ${who}${info.controller === 'npc' ? ' (잠시 자리 비움)' : ''}`
+        line.textContent = `${role} — ${who}${info.controller === 'npc' ? ' (잠시 자리 비움)' : ''}`
+      } else if (closed) {
+        line.textContent = `${role} — 컴퓨터가 맡는다`
+      } else {
+        line.textContent = `${role} — 사람을 기다린다`
+      }
+      li.append(line)
+
+      // 빈 자리를 어떻게 할지는 방장이 정한다. 둘이서만 걷기로 했으면
+      // 코드를 아는 사람도 못 들어와야 그 결정이 지켜진다
+      if (session.isHost && seat !== 0 && !info) {
+        const toggle = document.createElement('button')
+        toggle.type = 'button'
+        toggle.className = 'alt-action seat-toggle'
+        toggle.textContent = closed ? '사람에게 열기' : '컴퓨터에게 맡기기'
+        toggle.addEventListener('click', () => {
+          if (!session.setSeatOpen(seat, closed)) return
+          this.hooks.announce(
+            closed
+              ? `${role}를 사람에게 열었다. 초대 코드로 들어올 수 있다.`
+              : `${role}는 컴퓨터가 맡는다. 이제 이 자리에는 들어올 수 없다.`,
+          )
+          this.render()
+        })
+        li.append(toggle)
       }
       roster.append(li)
     }

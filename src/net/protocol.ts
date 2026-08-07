@@ -61,6 +61,11 @@ export interface SeatsPayload {
   seats: SeatInfo[]
   moveTokenSeat: Seat
   started: boolean
+  /**
+   * 방장이 컴퓨터에게 맡기기로 한 자리. 코드를 알아도 이 자리에는 들어오지 못한다 —
+   * 둘이서만 걷기로 했으면 그 결정이 문이 되어야 한다.
+   */
+  closedSeats?: Seat[]
 }
 
 /**
@@ -247,7 +252,10 @@ export function isSeatsPayload(v: unknown): v is SeatsPayload {
     p.seats.every(isSeatInfo) &&
     seatsAreDistinct(p.seats) &&
     isSeat(p.moveTokenSeat) &&
-    typeof p.started === 'boolean'
+    typeof p.started === 'boolean' &&
+    // 옛 화면이 보낸 명부에는 이 항목이 없다 — 없으면 아무 자리도 닫지 않은 것
+    (p.closedSeats === undefined ||
+      (Array.isArray(p.closedSeats) && p.closedSeats.length <= 3 && p.closedSeats.every(isSeat)))
   )
 }
 
