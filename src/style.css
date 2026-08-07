@@ -1582,3 +1582,14 @@ body[data-mode='title'] #title-links {
 .account-danger {
   color: var(--danger);
 }
+
+/* 탈퇴 확인 — 지워지는 것의 목록 */
+.withdraw-list {
+  margin: var(--sp-3) 0;
+  padding-left: 1.2rem;
+  color: var(--danger-soft);
+}
+
+.withdraw-list li {
+  margin-bottom: var(--sp-1);
+}

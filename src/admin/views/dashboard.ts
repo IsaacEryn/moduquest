@@ -6,7 +6,7 @@ import stage3 from '../../data/stages/stage3.json'
 import traitsFile from '../../data/traits.json'
 import { levelForXp } from '../../core/stats'
 import { fetchPlayStats, fetchStats } from '../api'
-import { levelSpread, ranked, signupsToBars } from '../format'
+import { WITHDRAW_REASON_KO, levelSpread, ranked, signupsToBars } from '../format'
 import { dataTable, errorLine, heading, note } from '../layout'
 
 const STAGE_NAMES = [stagesMeta, stage2, stage3].map(
@@ -108,6 +108,7 @@ export async function renderDashboard(content: HTMLElement): Promise<void> {
     card('친구 관계', String(n('friendships_total'))),
     card('안 받은 선물', String(n('gifts_pending')), n('gifts_stale') > 0),
     card('정지 중', String(n('banned_now')), n('banned_now') > 0),
+    card('탈퇴', String(n('withdrawals_total')), n('withdrawals_total') > 0),
   )
   content.append(cards)
 
@@ -163,6 +164,23 @@ export async function renderDashboard(content: HTMLElement): Promise<void> {
       ),
     )
     content.append(warn)
+  }
+
+  // 탈퇴 사유 — 사람들이 떠나며 남긴 마지막 피드백
+  const reasons = (stats.withdrawal_reasons ?? {}) as Record<string, number>
+  if (Object.keys(reasons).length > 0) {
+    const sec = document.createElement('section')
+    const h = document.createElement('h2')
+    h.textContent = '탈퇴 사유'
+    sec.append(
+      h,
+      dataTable(
+        '탈퇴 사유 분포',
+        ['사유', '건수'],
+        ranked(reasons, (k) => WITHDRAW_REASON_KO[k] ?? k).map((r) => [r.name, `${r.n}건`]),
+      ),
+    )
+    content.append(sec)
   }
 
   content.append(

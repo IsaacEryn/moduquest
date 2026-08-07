@@ -518,12 +518,40 @@ screens.showTitle()
  * 로그인 상태가 바뀔 때 갈아 끼워야 하는 것들 — 저장소·운영 링크·계정 배지.
  * 어느 문(멀티 플레이 창·계정 창)으로 드나들었든 같은 길을 지난다.
  */
+let signedIn = false
+/** 마지막으로 서버에 밀어 둔 테마 — pull→set→optionsChanged 되울림을 끊는 기준 */
+let lastSyncedTheme: string | null = null
+
 async function sharedOnProfileChanged(profile: { userId: string } | null): Promise<void> {
-  if (profile) await useAccountSaves(profile.userId)
-  else useDeviceSaves()
+  signedIn = profile !== null
+  if (profile) {
+    await useAccountSaves(profile.userId)
+    // 테마는 계정을 따라온다 — 서버 값이 있으면 그쪽이 이긴다(마지막 저장 기기 우선)
+    void import('./net/settingsSync').then(async (sync) => {
+      const remote = await sync.pullTheme()
+      if (remote) {
+        lastSyncedTheme = remote
+        if (store.options.theme !== remote) store.set('theme', remote)
+      } else {
+        lastSyncedTheme = store.options.theme
+        await sync.pushTheme(store.options.theme)
+      }
+    })
+  } else {
+    useDeviceSaves()
+    lastSyncedTheme = null
+  }
   refreshAdminLink()
   refreshAccountBadge(() => void openAccount())
 }
+
+// 로그인 중에 테마를 바꾸면 서버에도 적는다 — 비로그인은 이 줄이 아무것도 하지 않는다
+bus.on((e) => {
+  if (e.type !== 'optionsChanged' || !signedIn) return
+  if (lastSyncedTheme === store.options.theme) return
+  lastSyncedTheme = store.options.theme
+  void import('./net/settingsSync').then((sync) => sync.pushTheme(store.options.theme))
+})
 
 let accountPanel: import('./ui/accountPanel').AccountPanel | null = null
 

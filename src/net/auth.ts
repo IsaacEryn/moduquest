@@ -138,6 +138,16 @@ export async function changePassword(current: string, next: string): Promise<voi
   if (error) throw new Error(friendly(error.message))
 }
 
+/** 회원 탈퇴 — 서버 함수가 본인 확인 후 계정과 딸린 기록 전부를 지운다 */
+export async function deleteMyAccount(reason: string, detail?: string): Promise<void> {
+  const { data, error } = await supabase().functions.invoke('delete-my-account', {
+    body: { reason, detail: detail || null },
+  })
+  if (error || !(data as { ok?: boolean })?.ok) {
+    throw new Error('탈퇴 처리에 실패했다. 잠시 뒤에 다시 해 보고, 계속 안 되면 문의처로 알려 달라.')
+  }
+}
+
 export async function signOut(): Promise<void> {
   await supabase().auth.signOut()
 }

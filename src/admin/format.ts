@@ -172,3 +172,12 @@ export function levelSpread(
   }
   return out
 }
+
+/** 탈퇴 사유 id → 사람 말 */
+export const WITHDRAW_REASON_KO: Record<string, string> = {
+  fun: '재미가 없어서',
+  difficulty: '난이도가 맞지 않아서',
+  accessibility: '접근성이 불편해서',
+  privacy: '개인정보가 걱정돼서',
+  other: '그 밖의 이유',
+}
