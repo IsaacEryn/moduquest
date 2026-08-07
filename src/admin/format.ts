@@ -54,11 +54,12 @@ export function signupsToBars(rows: { day: string; n: number }[]): { day: string
 }
 
 /**
- * 타이틀 진입 링크의 게이트 — 관리자 경로 키와 로그인 흔적(sb-*-auth-token)이
- * 둘 다 있어야 확인을 시작한다. 이 함수가 false면 서버 요청이 0건이어야 한다 —
+ * 타이틀 진입 링크의 게이트 — 로그인 흔적(sb-*-auth-token)이 있을 때만 묻는다.
+ * 이 함수가 false면 서버 요청이 0건이고 운영 관련 코드가 내려오지도 않는다 —
  * "솔로는 서버를 모른다" 원칙의 시험 가능한 형태다.
+ *
+ * 관리자인지, 주소가 무엇인지는 전부 서버가 판정한다.
  */
-export function shouldCheckAdmin(storageKeys: string[], hasAdminPath: boolean): boolean {
-  if (!hasAdminPath) return false
+export function shouldCheckAdmin(storageKeys: string[]): boolean {
   return storageKeys.some((k) => k.startsWith('sb-') && k.endsWith('-auth-token'))
 }

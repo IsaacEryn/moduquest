@@ -1,19 +1,15 @@
-import { shouldCheckAdmin } from '../admin/format'
-import { ADMIN_PATH_KEY } from '../admin/guard'
+import { supabase } from './supabaseClient'
 
 /**
  * 타이틀 우측 상단의 운영 페이지 진입 링크.
  *
- * 주소는 이 코드 어디에도 없다 — 운영 페이지가 자기 방문 때 localStorage에
- * 남긴 것을 읽을 뿐이다. 그 키와 로그인 흔적이 둘 다 있을 때만 서버에
- * 역할을 물어본다. 비로그인 사용자(솔로)는 이 파일이 불려도 요청 0건으로
- * 끝난다 — 실제로는 main이 게이트를 먼저 보므로 불리지도 않는다.
+ * 주소는 이 코드에도 저장소에도 없다 — 서버에 관리자로 확인된 뒤, 서버가
+ * 알려 준 경로로만 링크를 만든다. 관리자가 슬러그를 외우고 다닐 이유가 없다.
+ *
+ * 이 파일은 로그인한 사람에게만 동적으로 불려 온다(main.ts의 게이트).
+ * 로그인하지 않은 사람의 브라우저에는 이 코드가 내려오지도 않는다.
  */
 export async function attachAdminLink(): Promise<void> {
-  const path = localStorage.getItem(ADMIN_PATH_KEY)
-  if (!shouldCheckAdmin(Object.keys(localStorage), path !== null)) return
-
-  const { supabase } = await import('./supabaseClient')
   const sb = supabase()
   const { data } = await sb.auth.getSession()
   const userId = data.session?.user?.id
@@ -24,17 +20,23 @@ export async function attachAdminLink(): Promise<void> {
     .select('role')
     .eq('user_id', userId)
     .maybeSingle()
-  if (row?.role !== 'admin') {
-    // 강등됐거나 다른 계정이다 — 키를 지워 다음 부팅부터는 묻지도 않는다
-    localStorage.removeItem(ADMIN_PATH_KEY)
-    return
-  }
+  if (row?.role !== 'admin') return
+
+  // 주소는 서버가 쥐고 있다. 관리자에게만 응답하는 함수라, 이 호출이 성공했다는
+  // 것 자체가 이미 관리자라는 뜻이다
+  const { data: path, error } = await sb.rpc('admin_path')
+  if (error || typeof path !== 'string' || !path) return
 
   const a = document.createElement('a')
   a.id = 'admin-link'
-  a.href = path!
+  a.href = path
   a.textContent = '운영'
   // #ui는 화면 전환마다 통째로 비워진다 — 밖에 둬야 살아남는다.
   // 보이고 숨는 것은 CSS(body[data-mode='title'])가 맡는다
   document.getElementById('app')?.append(a)
+}
+
+/** 로그아웃·계정 전환 때 링크를 거둔다 — 남아 있으면 남의 화면에 남의 문이 보인다 */
+export function removeAdminLink(): void {
+  document.getElementById('admin-link')?.remove()
 }

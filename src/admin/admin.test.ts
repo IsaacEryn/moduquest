@@ -41,17 +41,13 @@ describe('해시 라우팅', () => {
 })
 
 describe('타이틀 진입 링크 게이트 — 솔로는 서버를 모른다', () => {
-  it('운영 페이지 방문 흔적이 없으면 로그인돼 있어도 묻지 않는다', () => {
-    expect(shouldCheckAdmin(['sb-abc-auth-token'], false)).toBe(false)
-  })
-
   it('로그인 흔적이 없으면 묻지 않는다 — 서버 요청 0건의 근거', () => {
-    expect(shouldCheckAdmin(['moduquest-options', 'moduquest-trait'], true)).toBe(false)
-    expect(shouldCheckAdmin([], true)).toBe(false)
+    expect(shouldCheckAdmin(['moduquest-options', 'moduquest-trait'])).toBe(false)
+    expect(shouldCheckAdmin([])).toBe(false)
   })
 
-  it('두 흔적이 다 있어야 확인을 시작한다', () => {
-    expect(shouldCheckAdmin(['sb-xyz-auth-token', 'moduquest-options'], true)).toBe(true)
+  it('로그인해 있으면 확인을 시작한다 — 관리자인지는 서버가 판정한다', () => {
+    expect(shouldCheckAdmin(['sb-xyz-auth-token', 'moduquest-options'])).toBe(true)
   })
 })
 
@@ -93,12 +89,3 @@ describe('표시용 변환', () => {
   })
 })
 
-describe('키 계약', () => {
-  it('경로 키 이름은 고정이다 — main.ts의 게이트가 같은 문자열을 직접 쓴다', async () => {
-    // main.ts는 index 번들에 admin 코드를 싣지 않으려고 이 문자열을 그대로 적는다.
-    // 이 상수를 바꾸면 main.ts의 게이트도 같이 바꿔야 한다 — 어긋나면 링크가
-    // 조용히 안 나타난다. 이 시험이 상수 쪽의 이동을 막는 핀이다
-    const { ADMIN_PATH_KEY } = await import('./guard')
-    expect(ADMIN_PATH_KEY).toBe('moduquest-admin-path')
-  })
-})

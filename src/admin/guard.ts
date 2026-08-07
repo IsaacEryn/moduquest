@@ -14,9 +14,6 @@ export function decideAccess(userId: string | null, role: string | null): Access
   return { kind: 'allow', userId }
 }
 
-/** 타이틀 화면의 진입 링크가 이 키를 본다 — 관리자 페이지가 스스로 주소를 남긴다 */
-export const ADMIN_PATH_KEY = 'moduquest-admin-path'
-
 /** 통과하면 내 userId, 아니면 게임으로 돌려보낸다 */
 export async function guard(): Promise<string> {
   const sb = supabase()
@@ -38,8 +35,9 @@ export async function guard(): Promise<string> {
     location.replace('./')
     throw new Error('denied')
   }
-  // 주소를 이 브라우저에만 남긴다. 게임 타이틀의 진입 링크가 이 키로 생긴다 —
-  // 저장소·번들·robots 어디에도 주소를 적지 않기 위한 자기-기록이다
-  localStorage.setItem(ADMIN_PATH_KEY, location.pathname)
+  // 주소를 서버에 적어 둔다. 게임 타이틀의 진입 링크가 관리자에게만 이 값을
+  // 물어본다 — 관리자가 비밀 주소를 외우거나 기기마다 다시 입력할 일이 없다.
+  // 실패해도 운영 페이지 자체는 열린다(링크 편의가 본문을 막지 않는다)
+  await sb.rpc('set_admin_path', { path: location.pathname })
   return access.userId
 }

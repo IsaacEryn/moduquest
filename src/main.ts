@@ -283,6 +283,9 @@ async function openCoop(): Promise<void> {
       onProfileChanged: (profile) => {
         if (profile) void useAccountSaves(profile.userId)
         else useDeviceSaves()
+        // 누가 들어와 있는지가 바뀌면 운영 링크도 다시 판단한다 —
+        // 로그아웃했는데 남의 문이 그대로 보이면 안 된다
+        refreshAdminLink()
       },
       createSession: async (me) => {
         activeSession = await PartySession.host(game, data, bus, sessionHooks, me)
@@ -509,15 +512,20 @@ screens.showTitle()
 
 /**
  * 운영 페이지 진입 링크 — 관리자에게만, 타이틀에서만 보인다.
- * localStorage에 운영 페이지 방문 흔적과 로그인 흔적이 둘 다 있을 때만
- * 확인을 시작한다. 흔적이 없으면 여기서 끝 — 서버 요청 0건, 코드 로드도 없다.
+ * 로그인 흔적이 있을 때만 확인을 시작한다. 없으면 여기서 끝 —
+ * 서버 요청 0건이고 운영 관련 코드가 내려오지도 않는다.
  */
-if (
-  localStorage.getItem('moduquest-admin-path') !== null &&
-  Object.keys(localStorage).some((k) => k.startsWith('sb-') && k.endsWith('-auth-token'))
-) {
+function refreshAdminLink(): void {
+  // 이미 붙은 링크는 먼저 거둔다 — 계정이 바뀌었을 수 있다
+  document.getElementById('admin-link')?.remove()
+  const signedIn = Object.keys(localStorage).some(
+    (k) => k.startsWith('sb-') && k.endsWith('-auth-token'),
+  )
+  if (!signedIn) return
   void import('./net/adminLink').then((m) => m.attachAdminLink())
 }
+
+refreshAdminLink()
 
 /**
  * 확인 메일의 링크를 눌러 돌아온 참이면 함께 하기를 바로 연다.
