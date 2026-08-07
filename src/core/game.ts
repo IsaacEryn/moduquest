@@ -600,15 +600,21 @@ export class Game {
     return { ok: true }
   }
 
-  /** 착용. 슬롯이 차 있으면 맞교환 — 중간 상태 없이 한 동작이다 */
-  equip(memberId: string, itemId: string): boolean {
-    if (!this.canEquip(memberId, itemId).ok) return false
+  /**
+   * 착용. 슬롯이 차 있으면 맞교환 — 중간 상태 없이 한 동작이다.
+   *
+   * 물건이 오가는 가방은 **명령을 낸 자리의 것**이다. 자리마다 가방이 갈린
+   * 뒤로는 이 인자가 없으면 화면마다 다른 가방에서 꺼내 쓰게 되어, 같은 확정
+   * 명령이 화면마다 다른 결과를 낳는다(락스텝이 깨진다).
+   */
+  equip(memberId: string, itemId: string, seat = this.localSeat): boolean {
+    if (!this.canEquip(memberId, itemId, seat).ok) return false
     const item = this.data.items[itemId]
     const slot = item.slot as EquipSlot
-    this.consumeItem(itemId)
+    this.consumeItem(itemId, seat)
     const eq = this.equipment.get(memberId) ?? {}
     const prev = eq[slot]
-    if (prev) this.addItem(prev)
+    if (prev) this.addItem(prev, seat)
     eq[slot] = itemId
     this.equipment.set(memberId, eq)
     this.refreshParty()
@@ -625,13 +631,14 @@ export class Game {
     return true
   }
 
-  unequip(memberId: string, slot: EquipSlot): boolean {
+  /** 벗은 물건은 명령을 낸 자리의 가방으로 — equip과 같은 이유다 */
+  unequip(memberId: string, slot: EquipSlot, seat = this.localSeat): boolean {
     if (this.mode !== 'field' && this.mode !== 'title') return false
     const eq = this.equipment.get(memberId)
     const id = eq?.[slot]
     if (!eq || !id) return false
     delete eq[slot]
-    this.addItem(id)
+    this.addItem(id, seat)
     this.refreshParty()
     const member = this.party.find((c) => c.id === memberId)
     this.bus.emit({
@@ -761,7 +768,7 @@ export class Game {
     if (!this.canBuy(itemId, seat).ok) return false
     const price = this.data.economy.shop.stock[itemId]
     this.golds[seat] = this.goldOf(seat) - price
-    this.addItem(itemId)
+    this.addItem(itemId, seat)
     this.bus.emit({
       type: 'bought',
       name: this.data.items[itemId].name,
@@ -821,7 +828,7 @@ export class Game {
   sell(itemId: string, seat = this.localSeat): boolean {
     if (!this.canSell(itemId, seat).ok) return false
     const price = this.sellValueOf(itemId) as number
-    this.consumeItem(itemId)
+    this.consumeItem(itemId, seat)
     this.golds[seat] = this.goldOf(seat) + price
     this.bus.emit({
       type: 'sold',
@@ -846,7 +853,7 @@ export class Game {
   dismantle(itemId: string, seat = this.localSeat): boolean {
     if (!this.canDismantle(itemId, seat).ok) return false
     const gainedMaterials = this.dismantleYieldOf(itemId) as number
-    this.consumeItem(itemId)
+    this.consumeItem(itemId, seat)
     this.mats[seat] = this.materialsOf(seat) + gainedMaterials
     this.bus.emit({
       type: 'dismantled',
@@ -1094,7 +1101,7 @@ export class Game {
     const healed = Math.min(item.heal, target.maxHp - target.hp)
     if (healed <= 0) return false
     target.hp += healed
-    this.consumeItem(itemId)
+    this.consumeItem(itemId, seat)
     this.bus.emit({ type: 'itemUsed', name: item.name, target, healed, mana: 0, cooldownCut: 0 })
     return true
   }
@@ -1584,6 +1591,10 @@ export class Game {
     // 토큰은 쥔 사람 또는 방장(0번)만 넘길 수 있다
     if (fromSeat !== this.moveTokenSeat && fromSeat !== 0) return false
     if (toSeat === this.moveTokenSeat) return false
+    // 받을 손이 있어야 넘긴다. 컴퓨터가 맡은 자리로 가면 아무도 걷지 못해
+    // 파티가 그 자리에 멈춘다 — canGiveItem과 같은 이유로 코어가 막는다.
+    // 화면은 사람 자리만 보여주지만, 막는 것은 화면의 몫이 아니다
+    if (this.seatControllerOf(toSeat) !== 'human') return false
     this.moveTokenSeat = toSeat
     this.bus.emit({
       type: 'moveTokenChanged',

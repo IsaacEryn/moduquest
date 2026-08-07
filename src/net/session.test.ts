@@ -380,6 +380,76 @@ describe('함께 하기 — 뒷정리', () => {
 })
 
 /**
+ * 봉투가 나르는 자리는 가방과 지갑까지 닿아야 한다.
+ *
+ * 자리마다 가방을 갈라 놓고도 확정 명령을 적용할 때 자리를 넘기지 않은 적이 있다.
+ * 그러면 받는 쪽 기본값이 `localSeat`(그 화면의 주인)으로 떨어져서, 게스트가 산
+ * 물건이 게스트 화면에서는 게스트 가방에, 방장 화면에서는 방장 가방에 들어갔다.
+ * 두 세계가 갈리고 체크섬이 그것을 잡아내 방장 기준으로 되돌린다 — 즉 게스트는
+ * 산 것을 잃고 방장은 영문 모를 지출을 겪는다.
+ *
+ * 화면 하나만 놓고 보면 멀쩡해 보이는 종류의 결함이라, 시험은 반드시 두 화면의
+ * 지갑·가방을 견줘야 한다.
+ */
+describe('함께 하기 — 명령은 낸 사람의 가방에서 나간다', () => {
+  /** 두 화면이 같은 세계를 보고 있는가 */
+  const agreed = (a: Game, b: Game): boolean =>
+    worldChecksum(a.snapshot(), a.liveFingerprint()) ===
+    worldChecksum(b.snapshot(), b.liveFingerprint())
+
+  it('게스트가 쓴 물약은 게스트 가방에서 빠진다 — 방장 것이 줄지 않는다', async () => {
+    const { guest, h, g } = await startedParty()
+    // 양쪽 화면에 똑같이: 게스트 자리에만 물약 하나, 그리고 쓸 이유(다친 몸)
+    const target = h.game.party[0].id
+    for (const side of [h, g]) {
+      const gm = side.game as unknown as { addItem(id: string, seat: number): void }
+      gm.addItem('potion_small', 1)
+      side.game.party[0].hp = 1
+    }
+    expect(agreed(h.game, g.game)).toBe(true)
+
+    guest.propose({ kind: 'useItemInField', itemId: 'potion_small', targetId: target })
+
+    // 두 화면이 같은 결론에 이르렀는가 — 갈리면 락스텝이 깨진 것이다
+    expect(agreed(h.game, g.game)).toBe(true)
+    // 그리고 그 결론은 "꺼낸 사람의 가방이 준다"여야 한다
+    expect(h.game.countOf('potion_small', 1)).toBe(0)
+    expect(h.game.countOf('potion_small', 0)).toBe(0)
+    expect(g.game.countOf('potion_small', 1)).toBe(0)
+    expect(h.game.party[0].hp).toBeGreaterThan(1)
+  })
+
+  it('게스트가 입은 장비는 게스트 가방에서 나간다', async () => {
+    const { host, guest, h, g } = await startedParty()
+    for (const side of [h, g]) {
+      const gm = side.game as unknown as { addItem(id: string, seat: number): void }
+      gm.addItem('wood_sword', 1)
+    }
+
+    guest.propose({ kind: 'equip', memberId: 'warrior', itemId: 'wood_sword' })
+
+    expect(agreed(h.game, g.game)).toBe(true)
+    expect(h.game.countOf('wood_sword', 1)).toBe(0)
+    // 방장 가방은 건드리지 않았다
+    expect(h.game.countOf('wood_sword', 0)).toBe(0)
+    expect(host.appliedSeq).toBe(guest.appliedSeq)
+  })
+})
+
+describe('함께 하기 — 길잡이는 받을 손이 있는 자리로만', () => {
+  it('컴퓨터가 맡은 자리로는 넘기지 못한다 — 넘어가면 아무도 걷지 못한다', async () => {
+    const { host, h } = await startedParty()
+    // 2번은 사람이 앉지 않은 자리다(게스트 하나짜리 판)
+    expect(h.game.seatControllerOf(2)).not.toBe('human')
+    const before = h.game.moveTokenSeat
+
+    host.propose({ kind: 'token', toSeat: 2 })
+
+    expect(h.game.moveTokenSeat).toBe(before)
+  })
+})
+
+/**
  * 같은 결함이 함께 하기에서는 다른 얼굴로 나타났다. 방장의 Game은 화면이 살아 있는
  * 동안 하나뿐이라, 혼자 한 판 걷고 나서 모험단을 열면 방장만 지난 판의 레벨과 지갑을
  * 안고 출발했다. 동료는 처음부터라 첫 걸음부터 다른 세계였다.
