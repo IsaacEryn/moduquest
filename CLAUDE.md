@@ -18,6 +18,7 @@
 - `docs/03-game-design.md` — 턴제 전투, 밸런스, 직업, 스토리, 함께 하기 규칙
 - `docs/04-architecture.md` — 레이어 구조, 락스텝 동기화, 보안 경계
 - `docs/05-accessibility.md` — 접근성 구현 노트
+- `docs/06-decisions.md` — 한 번 정했다가 다시 본 결정들과 그때 무엇으로 확인했는지
 
 작업용 비공개 문서는 **`.private/`**(gitignore됨)에 둔다. 그 내용을 공개 산출물이나
 커밋 메시지로 옮기지 않는다 — 요약이나 인용도 마찬가지다.
