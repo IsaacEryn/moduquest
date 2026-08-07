@@ -32,7 +32,14 @@ export type GameEvent =
    * 화면의 연출을 못 보는 사람도 막을지 치유할지 고를 수 있도록 사건으로 흘린다.
    */
   | { type: 'charging'; actor: Combatant; warning: string }
-  | { type: 'traitChanged'; name: string; description: string }
+  /** 누구의 특성이 바뀌었는지까지 — 함께 하기에서는 자리마다 다른 눈을 갖는다 */
+  | {
+      type: 'traitChanged'
+      seat: number
+      memberName: string
+      name: string
+      description: string
+    }
   | { type: 'downed'; target: Combatant }
   | { type: 'victory'; boss: boolean; revived: Combatant[] }
   | { type: 'defeat' }

@@ -401,7 +401,8 @@ export interface TraitsFile {
 export interface SaveSnapshot {
   schemaVersion: number
   stageIndex: number
-  traitId: string
+  /** 자리마다 고른 특성. 파티 배열과 같은 순서다 */
+  traitIds: string[]
   /** 지도 순환의 자리 번호 — 같은 기록은 언제나 같은 지도를 낸다 */
   layoutKey: number
   /** 스테이지별로 걷고 있는 지도 변형. 현재 스테이지 것도 여기서 읽는다 */

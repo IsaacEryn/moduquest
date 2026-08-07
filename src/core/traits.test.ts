@@ -256,3 +256,70 @@ describe('특성 문구', () => {
     }
   })
 })
+
+/**
+ * 자리마다 다른 눈.
+ *
+ * 예전에는 방장의 특성 하나가 세계 전체에 적용됐다. 그러면 함께 하기에서 동료가
+ * 좁은 지각을 골라도 아무 일이 일어나지 않고, 방장이 고르면 모두의 화면이 좁아진다.
+ * "각자 다른 렌즈"가 규칙이 되려면 자리마다 눈이 달라야 한다.
+ */
+describe('좌석별 특성', () => {
+  it('자기 자리의 능력치만 바뀐다', () => {
+    const { game } = makeGame()
+    const before = game.party.map((c) => c.patk)
+    game.setTrait('quick-turn', 1) // 공격 +3
+    expect(game.party[1].patk).toBe(before[1] + 3)
+    expect(game.party[0].patk).toBe(before[0])
+    expect(game.party[2].patk).toBe(before[2])
+  })
+
+  it('흘리기도 자리마다 따로 붙는다', () => {
+    const { game } = makeGame()
+    game.setTrait('swift-step', 2) // 4번째 피격을 흘린다
+    expect(game.party[2].guardEvery).toBe(4)
+    expect(game.party[0].guardEvery ?? 0).toBe(0)
+  })
+
+  it('내 화면은 내 눈으로 본다 — 같은 세계, 다른 렌즈', () => {
+    const { game } = makeGame()
+    game.setTrait('narrow-focus', 1) // 출발 전에 고른다. 걸어서 4칸 밖은 모른다
+    game.start()
+    const far = { x: 10, y: 1 }
+
+    // 0번 자리에서 보면 지도 전체를 안다
+    game.localSeat = 0
+    game.refreshPerceptionForTest()
+    expect(game.field.isKnown(far)).toBe(true)
+
+    // 같은 순간, 1번 자리의 눈으로 보면 모른다
+    game.localSeat = 1
+    game.refreshPerceptionForTest()
+    expect(game.field.isKnown(far)).toBe(false)
+  })
+
+  it('둘러보기도 내 반경만 말한다', () => {
+    const { game } = makeGame()
+    game.setTrait('narrow-focus', 1)
+    game.start()
+    game.localSeat = 1
+    game.refreshPerceptionForTest()
+    const text = game.field.summary(game.stage.objective)
+    expect(text).toContain('알 수 없다')
+    // 반경이 좁아도 쉼터와 목표는 가리지 않는다
+    expect(text).toContain('쉼터')
+    expect(text).toContain('목표')
+  })
+
+  it('저장하면 자리별로 남고 되돌리면 그대로 온다', () => {
+    const { game } = makeGame()
+    game.setTrait('firm-stance', 0)
+    game.setTrait('narrow-focus', 2)
+    game.start()
+    const snap = game.snapshot()
+    expect(snap.traitIds).toEqual(['firm-stance', 'balanced', 'narrow-focus'])
+    const { game: other } = makeGame()
+    other.restore(snap)
+    expect(other.traitIdList).toEqual(['firm-stance', 'balanced', 'narrow-focus'])
+  })
+})

@@ -15,7 +15,7 @@ export function canonicalSnapshot(s: SaveSnapshot): string {
   const c = {
     schemaVersion: s.schemaVersion,
     stageIndex: s.stageIndex,
-    traitId: s.traitId,
+    traitIds: s.traitIds,
     layoutKey: s.layoutKey,
     variants: sortBy(s.variants, (v) => v.stage),
     field: {

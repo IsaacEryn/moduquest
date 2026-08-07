@@ -42,8 +42,16 @@ export class Field {
    */
   private steppedOn = new Set<string>()
 
-  /** 걸어서 이 거리 안만 알 수 있다. null이면 지도 전체를 안다 */
-  private radius: number | null
+  /**
+   * 자리마다 걸어서 이 거리 안만 알 수 있다. null이면 지도 전체를 안다.
+   *
+   * 반경은 게임 상태가 아니라 **보기**다. 파티는 한 세계를 함께 걷지만 각자 아는
+   * 범위가 다를 수 있고, 그래야 "넓게 보는 동료가 알려 주는" 협동이 생긴다.
+   * 락스텝은 상태만 맞추면 되므로 화면마다 다른 반경을 써도 어긋나지 않는다.
+   */
+  private radii: (number | null)[] = [null]
+  /** 이 화면이 누구의 눈으로 보는가 — 내 자리다 */
+  private viewSeat = 0
 
   constructor(
     area: ResolvedArea,
@@ -59,12 +67,14 @@ export class Field {
   ) {
     this.area = area
     this.pos = area.entryAt(null)
-    this.radius = radius
+    this.radii = [radius]
     this.markStep()
   }
 
-  setPerceptionRadius(radius: number | null): void {
-    this.radius = radius
+  /** 자리별 반경을 통째로 바꾼다 — 특성이나 구역이 바뀔 때 Game이 부른다 */
+  setPerceptionRadii(radii: (number | null)[], viewSeat = this.viewSeat): void {
+    this.radii = radii.length ? radii : [null]
+    this.viewSeat = viewSeat
   }
 
   /** 지나온 길 표시를 쓸지. 옵션이 정하고 세 렌즈가 함께 따른다 */
@@ -137,8 +147,14 @@ export class Field {
    * 화면에만 안개를 걸면 낭독과 텍스트 기록으로 새어 나간다.
    */
   isKnown(p: Pos): boolean {
-    if (this.radius === null) return true
-    return Math.abs(p.x - this.pos.x) + Math.abs(p.y - this.pos.y) <= this.radius
+    const radius = this.radiusOfView
+    if (radius === null) return true
+    return Math.abs(p.x - this.pos.x) + Math.abs(p.y - this.pos.y) <= radius
+  }
+
+  /** 이 화면이 쓰는 반경 */
+  get radiusOfView(): number | null {
+    return this.radii[this.viewSeat] ?? null
   }
 
   /** 지금 아는 조우만 */
@@ -335,11 +351,11 @@ export class Field {
       const line = this.describeRoute('쉼터', this.area.checkpointRoute)
       if (line) parts.push(line)
     }
-    if (this.radius !== null) {
+    if (this.radiusOfView !== null) {
       // 왜 좁아졌는지 구역이 이유를 주면 함께 말한다
       const note = this.area.darkness?.note
       parts.push(
-        `${note ? `${note} ` : ''}걸어서 ${this.radius}칸 안만 알 수 있다. 그 밖은 알 수 없다.`,
+        `${note ? `${note} ` : ''}걸어서 ${this.radiusOfView}칸 안만 알 수 있다. 그 밖은 알 수 없다.`,
       )
     }
     if (this.showTrail) {

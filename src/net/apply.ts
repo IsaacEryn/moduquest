@@ -49,7 +49,7 @@ export function applyEnvelope(
       game.upgrade(cmd.memberId, cmd.stat)
       break
     case 'setTrait':
-      game.setTrait(cmd.traitId)
+      game.setTrait(cmd.traitId, seat)
       break
     case 'startStage':
       game.startStage(cmd.index)

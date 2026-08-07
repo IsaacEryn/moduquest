@@ -28,7 +28,7 @@ function snapshot(stageIndex = 0, defeated: string[] = []): SaveSnapshot {
   return {
     schemaVersion: 1,
     stageIndex,
-    traitId: 'balanced',
+    traitIds: ['balanced', 'balanced', 'balanced'],
     layoutKey: 0,
     variants: [],
     field: {

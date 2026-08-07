@@ -21,7 +21,8 @@ export type NetCommand =
   | { kind: 'sell'; itemId: string }
   | { kind: 'dismantle'; itemId: string }
   | { kind: 'upgrade'; memberId: string; stat: UpgradeStat }
-  | { kind: 'setTrait'; traitId: string } // 방장 전용 (특성은 0번 자리의 것)
+  // 자기 자리의 특성만 바꾼다 — 누구인지는 봉투(Envelope.seat)가 이미 말한다
+  | { kind: 'setTrait'; traitId: string }
   | { kind: 'startStage'; index: number } // 방장 전용
   | { kind: 'nextStage' } // 방장 전용
   | { kind: 'restartStage' } // 방장 전용
@@ -73,7 +74,15 @@ export interface SeatsPayload {
  * 전원이 같은 조건에서 같은 명령을 재생하면 같은 세계가 된다.
  */
 export type SeedPayload =
-  | { v: 1; kind: 'new'; jobs: string[]; traitId: string; layoutKey: number; seats: SeatInfo[] }
+  | {
+      v: 1
+      kind: 'new'
+      jobs: string[]
+      /** 자리마다의 특성. 파티 배열과 같은 순서 */
+      traitIds: string[]
+      layoutKey: number
+      seats: SeatInfo[]
+    }
   // 스냅샷은 sanitizeSnapshot이 최종 판정
   | { v: 1; kind: 'restore'; snapshot: unknown; seats: SeatInfo[] }
 
@@ -188,7 +197,6 @@ export function isNetCommand(v: unknown): v is NetCommand {
 /** 방장(0번 자리)만 낼 수 있는 명령 — 호스트가 제안 단계에서 거른다 */
 export function hostOnly(cmd: NetCommand): boolean {
   return (
-    cmd.kind === 'setTrait' ||
     cmd.kind === 'startStage' ||
     cmd.kind === 'nextStage' ||
     cmd.kind === 'restartStage' ||
@@ -272,7 +280,8 @@ export function isSeedPayload(v: unknown): v is SeedPayload {
       Array.isArray(p.jobs) &&
       p.jobs.length === 3 &&
       p.jobs.every((j) => isId(j)) &&
-      isId(p.traitId) &&
+      Array.isArray(p.traitIds) &&
+      p.traitIds.every(isId) &&
       isInt(p.layoutKey, 0, 99)
     )
   }

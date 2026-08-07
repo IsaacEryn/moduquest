@@ -51,7 +51,7 @@ export function summarize(slot: number, s: SaveSnapshot | null): SlotSummary {
     slot,
     empty: false,
     stageIndex: s.stageIndex,
-    traitId: s.traitId,
+    traitId: s.traitIds[0],
     progress: progressScore(s),
     updatedAt: s.updatedAt,
   }

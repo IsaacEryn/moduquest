@@ -66,8 +66,7 @@ export function createGamePort(game: Game, getSession: () => PartySession | null
     return ok
   })
   reroutes.set('setTrait', (traitId: string) => {
-    const session = getSession()
-    if (!session?.isHost) return false // 특성은 방장(0번 자리)의 것
+    // 자기 자리의 특성은 누구나 바꾼다 — 자리는 봉투가 나르므로 남의 눈은 못 건드린다
     const ok = game.canChangeTrait().ok
     if (ok) propose({ kind: 'setTrait', traitId })
     return ok

@@ -240,9 +240,11 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
   })
 
   it('모르는 특성은 기본값으로 되돌린다', () => {
-    expect(sanitizeSnapshot({ ...valid(), traitId: '없는특성' }, DATA)?.traitId).toBe(
-      DATA.traits.default,
-    )
+    const s = sanitizeSnapshot({ ...valid(), traitIds: ['없는특성', 'balanced', 12] }, DATA)
+    expect(s?.traitIds[0]).toBe(DATA.traits.default)
+    expect(s?.traitIds[1]).toBe('balanced')
+    // 개수가 모자라거나 값이 이상해도 자리 수만큼 채운다
+    expect(s?.traitIds).toHaveLength(DATA.party.length)
   })
 
   it('말이 안 되는 체력도 그대로 두지 않는다', () => {

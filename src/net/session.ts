@@ -407,7 +407,7 @@ export class PartySession {
       v: 1,
       kind: 'new',
       jobs,
-      traitId: this.game.currentTraitId,
+      traitIds: this.game.traitIdList,
       layoutKey: this.layoutKey(),
       seats: this.seats,
     }
@@ -453,8 +453,9 @@ export class PartySession {
       this.game.restore(snap)
     } else {
       this.hooks.setLayoutKey(seed.layoutKey)
-      this.game.setTrait(seed.traitId)
       this.game.setParty(seed.jobs)
+      // 자리마다의 특성 — 파티를 먼저 세워야 자리 수가 맞는다
+      seed.traitIds.forEach((id, seat) => this.game.setTrait(id, seat))
       this.game.start()
     }
     this.started = true

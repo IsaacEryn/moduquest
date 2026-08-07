@@ -9,10 +9,12 @@ import type { EquipSlot, GameData, SaveSnapshot, StageData } from './types'
  *
  * 6: 공격·방어가 물리와 마법으로 갈렸다. 저장에 능력치가 직접 들어 있지는 않지만
  *    강화 단계가 이전 계산을 전제하고 있어서, 옛 기록을 그대로 펴면 강화한 적 없는
- *    쪽이 올라가거나 올린 쪽이 사라진다. 조용히 어긋난 파티로 계속 노는 것보다
- *    빈 칸에서 다시 시작하는 편이 낫다고 보았다.
+ *    쪽이 올라가거나 올린 쪽이 사라진다.
+ * 7: 특성이 자리마다 갈렸다. 하나였던 traitId가 배열이 됐다 — 옛 기록의 특성 하나를
+ *    모든 자리에 복사할 수도 있었지만, 그러면 동료들이 고르지 않은 대가를 지고
+ *    시작한다. 빈 칸에서 각자 고르는 편이 정직하다.
  */
-export const SAVE_VERSION = 6
+export const SAVE_VERSION = 7
 export const SLOT_COUNT = 3
 
 const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'shoes', 'gloves']
@@ -230,7 +232,15 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
   return {
     schemaVersion: SAVE_VERSION,
     stageIndex,
-    traitId: resolveTraitId(data.traits, typeof r.traitId === 'string' ? r.traitId : null),
+    // 자리별 특성. 모르는 id는 기본값으로 떨어지고, 개수가 모자라면 채운다
+    traitIds: Array.from({ length: party.length }, (_, i) =>
+      resolveTraitId(
+        data.traits,
+        Array.isArray(r.traitIds) && typeof r.traitIds[i] === 'string'
+          ? (r.traitIds[i] as string)
+          : null,
+      ),
+    ),
     layoutKey,
     variants,
     field: {

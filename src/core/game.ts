@@ -69,7 +69,12 @@ export class Game {
   private currentEncounter: EncounterData | null = null
   private seenDialogues = new Set<string>()
   private turnTimer: unknown = null
-  private traitId: string
+  /**
+   * 자리마다 고른 특성. 예전에는 방장 것 하나가 세계 전체에 적용됐다 —
+   * 그러면 "각자 다른 렌즈"가 함께 하기에서만 성립하지 않는다. 좁게 보는 사람에게
+   * 넓게 보는 동료가 알려 주는 협동은 자리마다 눈이 달라야 생긴다.
+   */
+  private traitIds: string[]
   private stageIndex = 0
   private clearedStages = new Set<string>()
   private readonly monsterNames: Record<string, string>
@@ -102,7 +107,12 @@ export class Game {
     /** 지도 순환의 자리 번호. 코어는 이것이 저장 자리인지 모른다 */
     private layoutKeyOf: () => number = () => 0,
   ) {
-    this.traitId = resolveTraitId(data.traits, traitId)
+    // 시작할 때 주어진 특성은 0번 자리의 것이다. 나머지 자리는 기본값에서 출발하고,
+    // 함께 하기에서 사람이 앉으면 각자 자기 것을 고른다 — 모두에게 같은 특성을
+    // 복사하면 고르지 않은 대가를 동료가 지고 시작한다
+    this.traitIds = data.party.map((_, i) =>
+      i === 0 ? resolveTraitId(data.traits, traitId) : data.traits.default,
+    )
     this.partyJobs = data.party.map((p) => p.job)
     this.party = this.buildParty()
     this.monsterNames = Object.fromEntries(
@@ -115,6 +125,7 @@ export class Game {
         .map(([id]) => id),
     )
     this.field = new Field(area, this.monsterNames, bus, this.radiusFor(area), this.bossIds)
+    this.refreshPerception()
   }
 
   // --- 지도 구역과 변형 ---
@@ -136,8 +147,8 @@ export class Game {
    * 특성과 구역 어둠 중 좁은 쪽. Field가 생기기 전에도 필요해서 area를 직접 받는다 —
    * 생성자가 Field보다 먼저 반경을 알아야 하는 닭과 달걀 때문이다.
    */
-  private radiusFor(area: ResolvedArea): number | null {
-    const byTrait = perceptionRadius(this.trait, this.data.traits.limits)
+  private radiusFor(area: ResolvedArea, seat = this.localSeat): number | null {
+    const byTrait = perceptionRadius(this.traitOf(seat), this.data.traits.limits)
     const byArea = area.darkness?.radius ?? null
     if (byTrait === null) return byArea
     if (byArea === null) return byTrait
@@ -160,7 +171,7 @@ export class Game {
         ? null
         : (area.exits.find((e) => e.id.endsWith(`-${fromExitId}`))?.name ?? null)
     this.field.enterArea(area, fromExitId)
-    this.field.setPerceptionRadius(this.radiusFor(area))
+    this.field.setPerceptionRadii(this.radiiFor(area), this.localSeat)
     this.bus.emit({
       type: 'areaChanged',
       areaId: area.areaId,
@@ -234,7 +245,6 @@ export class Game {
   }
 
   private buildParty(): Combatant[] {
-    const trait = this.trait
     const ids = this.memberIds
     const names = memberNamesOf(this.partyJobs, (job) => this.data.jobs[job].name)
     return this.partyJobs.map((job, index) => {
@@ -265,8 +275,8 @@ export class Game {
         sprite: j.sprite ?? job,
         frontOrder: j.frontOrder,
       }
-      // 특성은 0번 자리(방장)의 것 — 좌석별 특성은 이후 확장 지점
-      if (index === 0) applyCombat(c, trait)
+      // 흘리기·관통도 각자 자기 특성에서 온다
+      applyCombat(c, this.traitOf(index))
       return c
     })
   }
@@ -292,8 +302,18 @@ export class Game {
 
   // --- 특성 ---
 
+  /** 이 화면 앞에 앉은 사람의 특성. 화면·낭독이 "내 것"을 물을 때 쓴다 */
   get trait(): TraitData {
-    return resolveTrait(this.data.traits, this.traitId)
+    return this.traitOf(this.localSeat)
+  }
+
+  traitOf(seat: number): TraitData {
+    return resolveTrait(this.data.traits, this.traitIds[seat] ?? null)
+  }
+
+  /** 자리별 특성 id — 저장·체크섬·화면이 함께 읽는다 */
+  get traitIdList(): string[] {
+    return [...this.traitIds]
   }
 
   get traits(): TraitsFile {
@@ -309,9 +329,24 @@ export class Game {
     return this.data.items
   }
 
-  /** 특성과 지금 구역의 어둠 중 좁은 쪽을 쓴다 */
+  /** 이 화면이 쓰는 반경 — 특성과 지금 구역의 어둠 중 좁은 쪽 */
   get perceptionRadius(): number | null {
     return this.radiusFor(this.field.currentArea)
+  }
+
+  /** 자리마다의 반경. 화면은 자기 자리 것만 쓰지만 Field는 전부 들고 있는다 */
+  private radiiFor(area: ResolvedArea): (number | null)[] {
+    return this.traitIds.map((_, seat) => this.radiusFor(area, seat))
+  }
+
+  /** 내 자리가 바뀌었다 — 화면이 localSeat을 옮긴 뒤 부른다 */
+  refreshPerceptionForTest(): void {
+    this.refreshPerception()
+  }
+
+  /** 특성이 바뀌거나 자리가 바뀌면 반경을 다시 싣는다 */
+  private refreshPerception(): void {
+    this.field.setPerceptionRadii(this.radiiFor(this.field.currentArea), this.localSeat)
   }
 
   /**
@@ -332,21 +367,30 @@ export class Game {
     }
   }
 
-  setTrait(id: string): boolean {
+  /** 자기 자리의 특성만 바꾼다. 남의 자리는 남이 정한다 */
+  setTrait(id: string, seat = this.localSeat): boolean {
     if (!this.canChangeTrait().ok) return false
+    if (seat < 0 || seat >= this.traitIds.length) return false
     const next = resolveTraitId(this.data.traits, id)
-    if (next === this.traitId) return false
-    this.traitId = next
+    if (next === this.traitIds[seat]) return false
+    this.traitIds[seat] = next
     // 전체 재계산 한 길로 — 예전엔 직업 기본값에서 다시 계산해 성장·장비가 날아갔다
     this.refreshParty()
-    this.field.setPerceptionRadius(this.perceptionRadius)
-    const trait = this.trait
-    this.bus.emit({ type: 'traitChanged', name: trait.name, description: trait.summary })
+    this.refreshPerception()
+    const trait = this.traitOf(seat)
+    this.bus.emit({
+      type: 'traitChanged',
+      seat,
+      memberName: this.party[seat]?.name ?? '',
+      name: trait.name,
+      description: trait.summary,
+    })
     return true
   }
 
+  /** 이 화면의 특성 id — 특성 창이 지금 무엇이 골라져 있는지 표시할 때 쓴다 */
   get currentTraitId(): string {
-    return this.traitId
+    return this.traitIds[this.localSeat] ?? this.data.traits.default
   }
 
   /**
@@ -471,8 +515,9 @@ export class Game {
   /** 능력치 내역 — buildParty와 상태창이 같은 결과를 읽는다 */
   private breakdownFor(memberId: string): StatBreakdown {
     const job = this.jobOfMember(memberId) ?? memberId
-    // 특성은 0번 자리의 것 — 같은 직업이 둘이어도 특성은 방장 자리에만 붙는다
-    const isTraitBearer = this.memberIds[0] === memberId
+    // 자리마다 자기 특성. 어느 자리인지는 id 순서가 말해 준다 —
+    // 같은 직업이 둘이어도 각자 다른 특성을 가질 수 있다
+    const seat = this.memberIds.indexOf(memberId)
     return computeMemberStats({
       job: this.data.jobs[job],
       growth: this.data.progression.growth[job],
@@ -481,7 +526,7 @@ export class Game {
       equipment: this.equippedItems(memberId),
       auraFromOthers: this.auraFor(memberId),
       sets: this.data.sets,
-      trait: isTraitBearer ? this.trait : null,
+      trait: seat >= 0 ? this.traitOf(seat) : null,
       limits: this.data.traits.limits,
     })
   }
@@ -1022,6 +1067,7 @@ export class Game {
     )
     const area = this.resolveFirstArea()
     this.field = new Field(area, this.monsterNames, this.bus, this.radiusFor(area), this.bossIds)
+    this.refreshPerception()
 
     this.bus.emit({
       type: 'stageStart',
@@ -1075,7 +1121,7 @@ export class Game {
     return {
       schemaVersion: SAVE_VERSION,
       stageIndex: this.stageIndex,
-      traitId: this.traitId,
+      traitIds: [...this.traitIds],
       layoutKey: this.layoutKey,
       variants: [...this.variantOf.entries()].map(([stage, variant]) => ({ stage, variant })),
       field: {
@@ -1122,7 +1168,9 @@ export class Game {
     this.bus.emit({ type: 'battleEnd' })
 
     this.stageIndex = s.stageIndex
-    this.traitId = s.traitId
+    this.traitIds = this.partyJobs.map(
+      (_, i) => resolveTraitId(this.data.traits, s.traitIds[i] ?? null),
+    )
     this.xp = s.xp
     this.gold = s.gold
     this.materials = s.materials
@@ -1150,6 +1198,7 @@ export class Game {
     // 복원은 순환하지 않는다 — 같은 기록은 언제나 같은 지도다
     const area = resolveArea(this.stage, s.field.areaId, this.variantIndex)
     this.field = new Field(area, this.monsterNames, this.bus, this.radiusFor(area), this.bossIds)
+    this.refreshPerception()
     this.field.restore(
       s.field.pos,
       s.field.checkpointReached,

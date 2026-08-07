@@ -236,9 +236,17 @@ export class Announcer {
         this.caption('[흘림]')
         break
       }
-      case 'traitChanged':
-        this.polite(`특성을 ${toward(e.name)} 바꿨다. ${e.description}`)
+      case 'traitChanged': {
+        // 함께 하기에서는 누가 바꿨는지가 정보다 — 동료의 눈이 좁아졌다면
+        // 그 사람이 무엇을 못 보는지 내가 알아야 알려 줄 수 있다
+        const mine = e.seat === this.mySeat()
+        this.polite(
+          mine
+            ? `특성을 ${toward(e.name)} 바꿨다. ${e.description}`
+            : `${josa(e.memberName, '이', '가')} 특성을 ${toward(e.name)} 바꿨다. ${e.description}`,
+        )
         break
+      }
       case 'equipChanged': {
         const who = this.isMine({ id: e.memberId, isPlayer: e.isPlayer })
           ? '나는'

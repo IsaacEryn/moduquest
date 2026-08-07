@@ -69,6 +69,7 @@ export class TraitPanel {
     this.dialog.setAttribute('aria-labelledby', 'traits-title')
     this.dialog.innerHTML = `
       <h2 id="traits-title">특성 고르기</h2>
+      <p class="trait-whose"></p>
       <p class="intro">이득과 대가가 한 묶음으로 붙은 플레이 스타일이다. 어느 것을 골라도
         끝까지 갈 수 있게 맞춰 두었으니, 더 센 쪽이 아니라 더 편한 쪽으로 고르면 된다.
         준비하는 자리(타이틀·쉼터)에서 언제든 다시 바꿀 수 있다.</p>
@@ -180,6 +181,11 @@ export class TraitPanel {
         '맞춰 두었으니, 더 센 쪽이 아니라 더 편한 쪽으로 고르면 된다. ' +
         '준비하는 자리(타이틀·쉼터)에서 언제든 다시 바꿀 수 있다.'
       : `${reason} 지금 특성은 ${this.game.trait.name}이다.`
+    // 함께 하기에서는 내 자리의 눈만 바꾼다 — 누구 것을 고르는 중인지 밝힌다
+    const whose = this.dialog.querySelector<HTMLElement>('.trait-whose')!
+    const me = this.game.party[this.game.localSeat]
+    whose.textContent = this.game.party.length > 1 && me ? `${me.name}의 특성이다.` : ''
+    whose.hidden = !whose.textContent
     this.dialog.showModal()
     // 다른 패널과 같은 규칙으로 첫 조작 지점에 포커스를 둔다 — 브라우저 기본 동작에
     // 기대면 패널마다 다르게 동작하고, 그 차이가 낭독으로 먼저 드러난다
