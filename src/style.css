@@ -54,7 +54,7 @@
   --grade-3: #e8c65c;
   /* 반투명 스크림·그림자 — 밝은 테마에서 방향이 뒤집힌다 */
   --overlay: rgba(0, 0, 0, 0.6);
-  --overlay-soft: var(--overlay-soft);
+  --overlay-soft: rgba(0, 0, 0, 0.4);
   --shadow: rgba(0, 0, 0, 0.25);
   /* 간격 6단 — 버튼 사이는 --sp-2(0.375rem) 아래로 내려가지 않는다(오탭 방지) */
   --sp-1: 0.25rem;
