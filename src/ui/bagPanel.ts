@@ -96,8 +96,14 @@ export class BagPanel {
   }
 
   /**
-   * 고른 물건을 누구에게 쓸지. 격자 바깥에 두는 이유는, 대상이 파티원이라
+   * 고른 물건으로 할 수 있는 일. 격자 바깥에 두는 이유는, 대상이 파티원이라
    * 물건 목록과 성격이 다르기 때문이다.
+   *
+   * **쓰는 것과 건네는 것을 갈래로 묶지 않는다.** 처음에는 갈래마다 건네기 줄을
+   * 따로 달았는데, 지금 바로 쓸 수 있는 물건(체력 물약)에서만 그것을 빠뜨렸다.
+   * 하필 "내게 필요 없지만 저 사람에게는 딱인 것"의 대표가 물약이라, 나눠 갖는
+   * 자리에서 가장 아쉬운 구멍이 거기 났다. 건네기는 갈래와 무관하므로 갈래 밖에서
+   * 한 번만 부른다 — 갈래가 늘어도 다시 빠지지 않는다.
    */
   private renderTargets(): void {
     this.targetsEl.replaceChildren()
@@ -107,26 +113,31 @@ export class BagPanel {
     const row = this.game.inventoryList.find((r) => r.id === selected.id)
     if (!row) return
 
+    this.renderUseRow(selected, row)
+    this.renderGiveRow(selected.id, selected.item.name)
+  }
+
+  /** 지금 이 물건을 쓸 수 있는가, 쓸 수 없다면 왜인가 */
+  private renderUseRow(
+    selected: { id: string; item: { name: string; kind: string } },
+    row: { usableInField: boolean; usableInBattle: boolean },
+  ): void {
+    const note = (text: string): void => {
+      const p = document.createElement('p')
+      p.className = 'bag-note'
+      p.textContent = text
+      this.targetsEl.append(p)
+    }
     if (row.usableInBattle && !row.usableInField) {
       // 마력·기술 대기는 전투 밖에 존재하지 않는다 — 이유를 밝히는 것이 규칙 설명이다
-      const note = document.createElement('p')
-      note.className = 'bag-note'
-      note.textContent = '전투에서만 쓸 수 있다.'
-      this.targetsEl.append(note)
+      note('전투에서만 쓸 수 있다.')
       return
     }
     if (selected.item.kind === 'equipment') {
-      const note = document.createElement('p')
-      note.className = 'bag-note'
-      note.textContent = '장비는 상태창에서 입는다.'
-      this.targetsEl.append(note)
-      this.renderGiveRow(selected.id, selected.item.name)
+      note('장비는 상태창에서 입는다.')
       return
     }
-    if (!row.usableInField) {
-      this.renderGiveRow(selected.id, selected.item.name)
-      return
-    }
+    if (!row.usableInField) return
 
     const group = document.createElement('div')
     group.className = 'target-row'
