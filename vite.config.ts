@@ -20,8 +20,18 @@ export default defineConfig({
       },
     },
   },
-  // 개발 서버 포트는 환경이 정해줄 수 있게 열어 둔다
-  server: { port: Number(process.env.PORT) || 5173 },
+  /*
+    개발 서버 포트는 환경이 정해줄 수 있게 열어 둔다.
+
+    감시 대상에서도 워크트리를 뺀다. 그 안의 사본이 바뀔 때마다 이쪽 서버가
+    통째로 새로고침돼서, 멀티 플레이를 띄워 두고 확인하는 중에 한쪽 창이
+    타이틀로 튕겼다 — 세션이 끊기고 그 자리는 대행으로 넘어간다.
+    내 화면이 남의 작업에 흔들리지 않아야 한다.
+  */
+  server: {
+    port: Number(process.env.PORT) || 5173,
+    watch: { ignored: ['**/.claude/**'] },
+  },
   preview: { port: Number(process.env.PORT) || 4173 },
 
   test: {
