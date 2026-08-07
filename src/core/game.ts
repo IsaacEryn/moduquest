@@ -1286,7 +1286,8 @@ export class Game {
         encounter.monsters,
         this.data.monsters,
         this.bus,
-        this.data.progression.victoryHealRatio,
+        // 회복은 스테이지가 정한다 — 뒤로 갈수록 인색해져 물약이 쓸모를 갖는다
+        this.data.progression.victoryHealRatio[this.stageIndex] ?? 0.3,
       )
       // 화면(전투 UI)이 먼저 준비돼야 시작 안내가 로그·낭독에 실린다
       this.setMode('battle')

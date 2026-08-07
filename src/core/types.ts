@@ -167,10 +167,13 @@ export interface ProgressionData {
   /** 직업별 레벨당 성장 */
   growth: Record<string, { hp: number; mp: number; atk: number; def: number; spd: number }>
   /**
-   * 승리했을 때 돌아오는 최대 체력의 비율. 쓰러졌던 동료도 이만큼 안고 일어난다.
-   * 밸런스 수치는 코드가 아니라 데이터가 쥔다는 원칙에 이것도 포함된다.
+   * 승리했을 때 돌아오는 최대 체력의 비율 — 스테이지마다 다르다.
+   *
+   * 앞 스테이지는 넉넉하게 돌려주고 뒤로 갈수록 인색해진다. 물약이 쓸모를 갖는
+   * 자리가 여기다. 한 수로 두었을 때는 이겼다 하면 늘 가득 차서, 물약이 마시는
+   * 것이 아니라 파는 것이 됐다.
    */
-  victoryHealRatio: number
+  victoryHealRatio: number[]
   /**
    * NPC·몹 턴 사이 간격(ms). 낭독이 따라올 시간을 주는 값이라 밸런스이자 접근성이다 —
    * 여기 있어야 화면을 고치지 않고도 조절할 수 있다.
