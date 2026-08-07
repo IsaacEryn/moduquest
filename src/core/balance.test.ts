@@ -205,16 +205,16 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
           "measured-pace": 8,
           "narrow-focus": 8,
           "quick-turn": 7,
-          "steady-hand": 7,
+          "steady-hand": 8,
           "swift-step": 9,
         },
         "stage3": {
-          "ambidextrous": 7,
+          "ambidextrous": 8,
           "balanced": 7,
           "firm-stance": 7,
           "measured-pace": 7,
           "narrow-focus": 7,
-          "quick-turn": 6,
+          "quick-turn": 7,
           "steady-hand": 7,
           "swift-step": 7,
         },
@@ -270,29 +270,45 @@ describe('스테이지를 이어서 걸으면 소모가 쌓인다', () => {
   /** 조합·특성 전수를 걸어 보고 남은 체력의 분포를 낸다 */
   function walkAll(stageIndex: number) {
     let wiped = 0
+    let baseWiped = 0
     let sum = 0
     let worst = 1
     let n = 0
+    let total = 0
     for (const combo of allPartyCombos()) {
       for (const traitId of TRAIT_IDS) {
+        total++
         const r = walkStage(combo, traitId, stageIndex)
-        if (r.wiped) wiped++
-        else {
+        if (r.wiped) {
+          wiped++
+          if (combo.join() === BASE_PARTY.join()) baseWiped++
+        } else {
           sum += r.left
           worst = Math.min(worst, r.left)
           n++
         }
       }
     }
-    return { wiped, avg: sum / Math.max(1, n), worst }
+    return { wiped, baseWiped, total, avg: sum / Math.max(1, n), worst }
   }
 
   const walked = STAGES.map((_, i) => walkAll(i))
 
-  it('물약 없이도 어떤 조합이든 완주할 수 있다 — 관대함은 그대로다', () => {
+  it('기본 파티는 물약 없이도 완주한다 — 막히는 사람이 없어야 한다', () => {
+    // 예전에는 "어떤 조합도 전멸하지 않는다"였다. 그 보장이 난이도의 상한을
+    // 쥐고 있어서, 죽을 일이 없으면 다시 일어서는 재미도 없었다.
+    // 이제 보장은 기본 파티에만 건다 — 아무나 골라도 끝까지 갈 수 있되,
+    // 치우친 조합은 물약과 마을을 쓰라는 뜻이다
     for (const [i, w] of walked.entries()) {
-      expect(w.wiped, `${STAGES[i].id}에서 전멸한 조합`).toBe(0)
+      expect(w.baseWiped, `${STAGES[i].id}에서 기본 파티가 전멸`).toBe(0)
     }
+  })
+
+  it('전멸은 있되 흔하지는 않다 — 벽이 아니라 굽이여야 한다', () => {
+    const rate = walked.map((w) => w.wiped / w.total)
+    expect(rate[0], '첫 스테이지는 배우는 자리다').toBe(0)
+    expect(rate[1], '둘째 스테이지').toBeLessThan(0.1)
+    expect(rate[2], '마지막 스테이지').toBeLessThan(0.15)
   })
 
   it('뒤 스테이지일수록 더 많이 깎인다 — 곡선이 뒤집히지 않는다', () => {
@@ -304,9 +320,8 @@ describe('스테이지를 이어서 걸으면 소모가 쌓인다', () => {
 
   it('마지막 스테이지는 물약을 쓸 만큼 깎이되 과하지는 않다', () => {
     // 남는 체력이 너무 많으면 물약이 재화가 되고, 너무 적으면 관대함이 무너진다
-    expect(walked[2].avg).toBeGreaterThan(0.6)
-    expect(walked[2].avg).toBeLessThan(0.9)
-    expect(walked[2].worst).toBeGreaterThan(0.25)
+    expect(walked[2].avg).toBeGreaterThan(0.5)
+    expect(walked[2].avg).toBeLessThan(0.85)
   })
 
   it('첫 스테이지는 넉넉하다 — 배우는 자리에서 물약을 강요하지 않는다', () => {

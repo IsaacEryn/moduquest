@@ -110,4 +110,22 @@ describe('도움말의 수치는 데이터에서 온다', () => {
     expect(facts['drop-cycle']).toContain(slime.name)
     expect(facts['drop-cycle']).toContain(DATA.items[(slime.drops ?? [])[at]!].name)
   })
+
+  it('같은 등급의 장비는 최소 레벨이 하나다', () => {
+    /*
+      도움말은 등급마다 최소 레벨을 하나만 말한다("울림은 6레벨부터"). 그 문장이
+      참이려면 등급 안에서 값이 갈리지 않아야 한다. 한 벌만 4로 적혀 있던 적이
+      있었는데, 그때 도움말은 데이터와 어긋나지 않으면서도 사람에게는 틀린 말을 했다.
+    */
+    const byTier = new Map<number, Set<number>>()
+    for (const item of Object.values(DATA.items)) {
+      if (item.kind !== 'equipment' || !item.tier) continue
+      const seen = byTier.get(item.tier) ?? new Set<number>()
+      seen.add(item.minLevel ?? 1)
+      byTier.set(item.tier, seen)
+    }
+    for (const [tier, levels] of byTier) {
+      expect([...levels], `${tier}등급의 최소 레벨이 갈렸다`).toHaveLength(1)
+    }
+  })
 })

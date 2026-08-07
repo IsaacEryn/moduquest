@@ -62,17 +62,17 @@
     }
   },
   "victoryHealRatio": [
-    0.3,
-    0.18,
-    0.1
+    0.25,
+    0.15,
+    0.085
   ],
   "defeatPenalty": {
     "goldLossRate": 0.2,
     "reviveHpRatio": 0.5
   },
   "multiScaling": {
-    "hpPerExtraHuman": 0.4,
-    "atkPerExtraHuman": 0.1
+    "hpPerExtraHuman": 0.2,
+    "atkPerExtraHuman": 0.05
   },
   "turnDelayMs": 900,
   "itemStackMax": 99

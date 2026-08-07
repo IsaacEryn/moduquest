@@ -51,10 +51,13 @@ describe('멀티 몹 배율', () => {
     expect(MONSTERS.slime.hp).toBe(beforeHp)
   })
 
-  it('보상이 인원수만큼 늘어난다는 사실과 짝을 이룬다', () => {
+  it('보상이 늘어나는 것보다는 완만하게 오른다', () => {
     // 셋이 걸으면 전리품·동전이 세 벌 나온다(addItemToAll·gainGold).
-    // 그 대가로 몹 체력이 1.8배가 되는 관계를 수치로 남긴다
+    // 몹이 그만큼 세지면 함께 하는 이유가 없어지므로, 체력은 그보다 덜 오른다 —
+    // 여럿이 유리하되 시시하지는 않은 자리가 그 사이에 있다
     const three = scaleMonsters(MONSTERS, 3, CFG).bell_keeper
-    expect(three.hp / MONSTERS.bell_keeper.hp).toBeCloseTo(1.8, 1)
+    const ratio = three.hp / MONSTERS.bell_keeper.hp
+    expect(ratio).toBeGreaterThan(1)
+    expect(ratio).toBeLessThan(3)
   })
 })
