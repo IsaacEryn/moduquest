@@ -26,6 +26,7 @@ import { FieldHud } from './ui/fieldHud'
 import { HelpPanel } from './ui/helpPanel'
 import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
+import { initTheme, spriteModeFor } from './ui/theme'
 import { PartyPanel } from './ui/partyPanel'
 import { AUTOSAVE_ON } from './save/autosaveEvents'
 import { LocalSaveRepository, SwitchableSaveRepository } from './save/saveRepository'
@@ -63,6 +64,8 @@ let sessionLayoutKey: number | null = null
 
 const bus = new EventBus()
 const store = new OptionsStore(bus)
+// 테마는 패널을 연 적 없는 사람에게도 걸려야 한다 — 부팅에서 바로 적용
+initTheme(store, bus)
 const traitStore = new TraitStore()
 
 // 턴 타이머의 시계. 함께 하기가 시작되면 네트워크 시계로 갈아끼운다 —
@@ -196,10 +199,10 @@ const stageSelect = new StageSelect(game, {
   ...pauseHooks,
   onPick: (index) => port.startStage(index),
 })
-const bagPanel = new BagPanel(port, pauseHooks, () => store.options.lowStim)
+const bagPanel = new BagPanel(port, pauseHooks, () => spriteModeFor(store.options))
 const helpPanel = new HelpPanel(data, pauseHooks)
-const statusPanel = new StatusPanel(port, pauseHooks, () => store.options.lowStim)
-const townPanel = new TownPanel(port, pauseHooks, () => store.options.lowStim)
+const statusPanel = new StatusPanel(port, pauseHooks, () => spriteModeFor(store.options))
+const townPanel = new TownPanel(port, pauseHooks, () => spriteModeFor(store.options))
 // 필드 상단 상시 현황 — 창을 열지 않아도 체력과 지갑이 보인다
 const fieldHud = new FieldHud(game, bus)
 // 획득·레벨업 토스트 — 시각 전용, 낭독은 Announcer가 이미 한다
@@ -217,7 +220,7 @@ const screens = new Screens(
   () => statusPanel.open(),
   () => townPanel.open(),
   fieldHud,
-  () => store.options.lowStim,
+  () => spriteModeFor(store.options),
   () => void openCoop(),
 )
 

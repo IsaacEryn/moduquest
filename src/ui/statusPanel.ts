@@ -1,3 +1,4 @@
+import type { SpriteMode } from '../render/sprites'
 import { EQUIP_SLOTS, SLOT_KO, type Game } from '../core/game'
 import type { EquipSlot } from '../core/types'
 import { josa } from './announcer'
@@ -29,7 +30,7 @@ export class StatusPanel {
   constructor(
     private game: Game,
     private hooks: { onOpen?: () => void; onClose?: () => void },
-    private lowStim: () => boolean = () => false,
+    private spriteMode: () => SpriteMode = () => 'normal',
   ) {
     this.dialog = document.createElement('dialog')
     this.dialog.className = 'options status'
@@ -313,7 +314,7 @@ export class StatusPanel {
 
     const grid = new ItemGrid({
       label: '가진 장비',
-      lowStim: this.lowStim,
+      spriteMode: this.spriteMode,
       emptyText: '아직 장비가 없다.',
       actions: g.party.map((member) => ({
         label: (e) => {

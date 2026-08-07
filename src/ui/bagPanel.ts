@@ -1,3 +1,4 @@
+import type { SpriteMode } from '../render/sprites'
 import type { Game } from '../core/game'
 import { ItemGrid, type GridEntry } from './itemGrid'
 
@@ -18,7 +19,7 @@ export class BagPanel {
   constructor(
     private game: Game,
     private hooks: { onOpen?: () => void; onClose?: () => void },
-    lowStim: () => boolean = () => false,
+    spriteMode: () => SpriteMode = () => 'normal',
   ) {
     this.dialog = document.createElement('dialog')
     this.dialog.className = 'options bag'
@@ -36,7 +37,7 @@ export class BagPanel {
     this.targetsEl = this.dialog.querySelector<HTMLElement>('.use-targets')!
     this.grid = new ItemGrid({
       label: '가방에 든 물건',
-      lowStim,
+      spriteMode,
       actions: [],
       emptyText: '가방이 비어 있다. 아이템은 몹과 보물상자에서 얻는다.',
       onSelect: () => this.renderTargets(),

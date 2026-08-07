@@ -1,4 +1,5 @@
-import type { OptionsStore } from './optionsStore'
+import type { OptionsStore, Theme } from './optionsStore'
+import { THEMES } from './optionsStore'
 
 /** 접근성·소리 옵션 패널. <dialog>라 포커스 트랩과 ESC 닫기는 브라우저가 처리한다. */
 export class OptionsPanel {
@@ -21,6 +22,15 @@ export class OptionsPanel {
     this.dialog.className = 'options'
     this.dialog.innerHTML = `
       <h2 id="options-title">옵션</h2>
+      <fieldset class="opt-theme">
+        <legend>화면 테마</legend>
+        <div class="opt-theme-choices">
+          <span><input type="radio" name="opt-theme" id="opt-theme-system" value="system" /><label for="opt-theme-system">기기 설정 따르기</label></span>
+          <span><input type="radio" name="opt-theme" id="opt-theme-dark" value="dark" /><label for="opt-theme-dark">어둡게</label></span>
+          <span><input type="radio" name="opt-theme" id="opt-theme-light" value="light" /><label for="opt-theme-light">밝게</label></span>
+          <span><input type="radio" name="opt-theme" id="opt-theme-contrast" value="contrast" /><label for="opt-theme-contrast">고대비</label></span>
+        </div>
+      </fieldset>
       <div class="row">
         <label for="opt-captions">자막 표시</label>
         <input type="checkbox" id="opt-captions" />
@@ -40,8 +50,8 @@ export class OptionsPanel {
       <div class="row">
         <label for="opt-trail">지나온 길 표시</label>
         <input type="checkbox" id="opt-trail" />
-      </p>
-      <p class="form-row">
+      </div>
+      <div class="row">
         <label for="opt-letterkeys">글자 단축키 (W·A·S·D·R)</label>
         <input type="checkbox" id="opt-letterkeys" />
       </div>
@@ -61,6 +71,22 @@ export class OptionsPanel {
     `
     this.dialog.setAttribute('aria-labelledby', 'options-title')
     document.body.append(this.dialog)
+
+    // 테마는 고르는 즉시 적용 — 확정 버튼을 두면 입력이 하나 늘어난다
+    const THEME_KO: Record<Theme, string> = {
+      system: '기기 설정을 따르는',
+      dark: '어두운',
+      light: '밝은',
+      contrast: '고대비',
+    }
+    for (const t of THEMES) {
+      const radio = this.dialog.querySelector<HTMLInputElement>(`#opt-theme-${t}`)!
+      radio.addEventListener('change', () => {
+        if (!radio.checked) return
+        this.store.set('theme', t)
+        this.hooks.announce?.(`화면을 ${THEME_KO[t]} 테마로 바꿨다.`)
+      })
+    }
 
     this.bind('opt-captions', 'captions')
     this.bind('opt-lowstim', 'lowStim')
@@ -151,6 +177,7 @@ export class OptionsPanel {
     confirm.hidden = true
     confirm.textContent = ''
     const o = this.store.options
+    this.dialog.querySelector<HTMLInputElement>(`#opt-theme-${o.theme}`)!.checked = true
     this.dialog.querySelector<HTMLInputElement>('#opt-captions')!.checked = o.captions
     this.dialog.querySelector<HTMLInputElement>('#opt-lowstim')!.checked = o.lowStim
     this.dialog.querySelector<HTMLInputElement>('#opt-textlarge')!.checked = o.textLarge

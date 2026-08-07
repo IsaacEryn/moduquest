@@ -313,14 +313,19 @@ export function desaturate(hex: string, amount = 0.55): string {
   return `#${((mix(r) << 16) | (mix(g) << 8) | mix(b)).toString(16).padStart(6, '0')}`
 }
 
+export type { SpriteMode } from '../ui/theme'
+import type { SpriteMode } from '../ui/theme'
+
 const OUTLINE = '#0d1013'
+/** 고대비 외곽선 — 검은 바탕에서 실루엣을 세우는 쪽은 밝은 선이다 */
+const OUTLINE_HC = '#f2f5f7'
 
 /**
  * 픽셀 격자를 캔버스로 그려 텍스처 소스로 쓴다.
  * 바깥 테두리를 한 겹 두르는 이유는 배경색과 관계없이 실루엣이 살아 있어야
  * 저시력·인지 접근성에 유리하기 때문이다(색 대비에만 기대지 않는다).
  */
-export function drawSprite(def: SpriteDef, scale: number, lowStim: boolean): HTMLCanvasElement {
+export function drawSprite(def: SpriteDef, scale: number, mode: SpriteMode): HTMLCanvasElement {
   const size = def.pixels.length
   const canvas = document.createElement('canvas')
   canvas.width = (size + 2) * scale
@@ -330,7 +335,7 @@ export function drawSprite(def: SpriteDef, scale: number, lowStim: boolean): HTM
     y >= 0 && y < size && x >= 0 && x < size && !!def.palette[def.pixels[y][x]]
 
   // 1) 채워진 픽셀에 이웃한 빈 칸을 테두리로
-  ctx.fillStyle = OUTLINE
+  ctx.fillStyle = mode === 'hc' ? OUTLINE_HC : OUTLINE
   for (let y = -1; y <= size; y++) {
     for (let x = -1; x <= size; x++) {
       if (filled(x, y)) continue
@@ -345,7 +350,7 @@ export function drawSprite(def: SpriteDef, scale: number, lowStim: boolean): HTM
     for (let x = 0; x < row.length; x++) {
       const color = def.palette[row[x]]
       if (!color) continue
-      ctx.fillStyle = lowStim ? desaturate(color) : color
+      ctx.fillStyle = mode === 'low' ? desaturate(color) : color
       ctx.fillRect((x + 1) * scale, (y + 1) * scale, scale, scale)
     }
   })
@@ -357,15 +362,16 @@ export function drawTile(
   base: string,
   speck: string,
   size: number,
-  lowStim: boolean,
+  mode: SpriteMode,
 ): HTMLCanvasElement {
   const canvas = document.createElement('canvas')
   canvas.width = size
   canvas.height = size
   const ctx = canvas.getContext('2d')!
-  ctx.fillStyle = lowStim ? desaturate(base) : base
+  // 고대비 팔레트는 이미 목적에 맞는 색이라 그대로, 저자극만 바랜다
+  ctx.fillStyle = mode === 'low' ? desaturate(base) : base
   ctx.fillRect(0, 0, size, size)
-  ctx.fillStyle = lowStim ? desaturate(speck) : speck
+  ctx.fillStyle = mode === 'low' ? desaturate(speck) : speck
   const step = 4
   for (let y = 0; y < size; y += step) {
     for (let x = 0; x < size; x += step) {

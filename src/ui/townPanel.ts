@@ -1,3 +1,4 @@
+import type { SpriteMode } from '../render/sprites'
 import { UPGRADE_STAT_KO, type Game } from '../core/game'
 import type { UpgradeStat } from '../core/types'
 import { ItemGrid, type GridEntry } from './itemGrid'
@@ -33,7 +34,7 @@ export class TownPanel {
   constructor(
     private game: Game,
     private hooks: { onOpen?: () => void; onClose?: () => void },
-    lowStim: () => boolean = () => false,
+    spriteMode: () => SpriteMode = () => 'normal',
   ) {
     this.dialog = document.createElement('dialog')
     this.dialog.className = 'options town'
@@ -63,7 +64,7 @@ export class TownPanel {
     // 예전에는 이름과 값만 보여서 무엇이 좋은지 알려면 사 봐야 했다
     this.shopGrid = new ItemGrid({
       label: '상점 물건',
-      lowStim,
+      spriteMode,
       emptyText: '상점에 물건이 없다.',
       actions: [
         {
@@ -79,7 +80,7 @@ export class TownPanel {
 
     this.partGrid = new ItemGrid({
       label: '가방에 든 물건',
-      lowStim,
+      spriteMode,
       emptyText: '가방이 비어 있다.',
       actions: [
         {

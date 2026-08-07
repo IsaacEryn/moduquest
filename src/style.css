@@ -20,6 +20,7 @@
 
 :root {
   font-size: 16px;
+  color-scheme: dark;
   --bg: #101418;
   --panel: #1c232b;
   --panel-border: #3a4653;
@@ -46,6 +47,15 @@
   --hp: #7fd08a;
   --hp-low: #e8875f;
   --mp: #8fb8e8;
+  /* 경고 문장(잠김·부족) — --danger보다 옅게 눕는 자리 */
+  --danger-soft: #f2b8b5;
+  /* 아이템 등급 표식 */
+  --grade-2: #b9c6d4;
+  --grade-3: #e8c65c;
+  /* 반투명 스크림·그림자 — 밝은 테마에서 방향이 뒤집힌다 */
+  --overlay: rgba(0, 0, 0, 0.6);
+  --overlay-soft: var(--overlay-soft);
+  --shadow: rgba(0, 0, 0, 0.25);
   /* 간격 6단 — 버튼 사이는 --sp-2(0.375rem) 아래로 내려가지 않는다(오탭 방지) */
   --sp-1: 0.25rem;
   --sp-2: 0.375rem;
@@ -66,6 +76,72 @@
   /* 픽셀 글꼴은 제목과 숫자에만 — 본문 가독성은 양보하지 않는다 */
   --font-body: 'Pretendard', 'Apple SD Gothic Neo', system-ui, sans-serif;
   --font-display: 'Galmuri11', 'Pretendard', system-ui, sans-serif;
+}
+
+/*
+ * 밝은 테마 — 값은 다크의 역상이 아니라 같은 대비 목표의 재달성이다.
+ * 텍스트 4.5:1, 조작 테두리 3:1(WCAG 1.4.3·1.4.11). 게임 세계(캔버스)는
+ * 어두운 채로 남는다 — 픽셀아트 숲의 분위기는 작품의 일부다.
+ */
+html[data-theme='light'] {
+  color-scheme: light;
+  --bg: #f2f4f6;
+  --panel: #ffffff;
+  --panel-border: #c3ccd4;
+  /* 버튼 바탕 대비 3.2:1, 패널 대비 3.5:1 */
+  --control-border: #6b7a89;
+  --text: #1b2530;        /* 바탕 대비 14:1 */
+  --text-dim: #4c5a68;    /* 바탕 대비 6.9:1 */
+  --accent: #1e7a3c;      /* 흰 바탕 4.9:1 */
+  --danger: #b3421c;      /* 흰 바탕 5.3:1 */
+  --focus: #8a5a00;       /* 포커스 링 — 밝은 바탕 4.7:1 */
+  --line: #c3ccd4;
+  --btn-bg: #e6eaee;
+  --btn-hover: #d8dee5;
+  --btn-off-bg: #eef1f4;
+  --btn-off-border: #cdd5dc;
+  --log-bg: #e8ebee;
+  --hp: #1e7a3c;
+  --hp-low: #b3421c;
+  --mp: #205a9e;
+  --danger-soft: #8f2f1a;
+  --grade-2: #5b6c7d;
+  --grade-3: #8a6a00;
+  --overlay: rgba(20, 26, 32, 0.55);
+  --overlay-soft: rgba(20, 26, 32, 0.35);
+  --shadow: rgba(20, 26, 32, 0.2);
+}
+
+/*
+ * 고대비 — 목표는 미감이 아니라 시인성이다. 본문 7:1 이상, 경계는 순백.
+ * 캔버스도 이 테마에서는 고대비 팔레트로 함께 바뀐다(scenes.ts).
+ */
+html[data-theme='contrast'] {
+  color-scheme: dark;
+  --bg: #000000;
+  --panel: #0a0a0a;
+  --panel-border: #ffffff;
+  --control-border: #ffffff;
+  --text: #ffffff;        /* 21:1 */
+  --text-dim: #e6e6e6;    /* 15:1 */
+  --accent: #6cf28e;      /* 검정 대비 13:1 */
+  --danger: #ffb3a0;      /* 11:1 */
+  --focus: #00e5ff;       /* 포커스는 색상까지 다른 계열로 — 13:1 */
+  --line: #ffffff;
+  --btn-bg: #101010;
+  --btn-hover: #2a2a2a;
+  --btn-off-bg: #000000;
+  --btn-off-border: #9a9a9a;
+  --log-bg: #000000;
+  --hp: #6cf28e;
+  --hp-low: #ffb3a0;
+  --mp: #8fd4ff;
+  --danger-soft: #ffc9bb;
+  --grade-2: #ffffff;
+  --grade-3: #ffe066;
+  --overlay: rgba(0, 0, 0, 0.85);
+  --overlay-soft: rgba(0, 0, 0, 0.7);
+  --shadow: rgba(0, 0, 0, 0.9);
 }
 
 html.text-large {
@@ -452,7 +528,7 @@ dialog.options {
 }
 
 dialog.options::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay);
 }
 
 dialog.options h2 {
@@ -583,7 +659,7 @@ dialog.options.town section:first-of-type h3 {
   display: flex;
   gap: 0.25rem;
   margin-bottom: 0.6rem;
-  border-bottom: 1px solid var(--line, #3a4750);
+  border-bottom: 1px solid var(--line);
 }
 
 .status-tabs [role='tab'],
@@ -625,7 +701,7 @@ dialog.options.town section:first-of-type h3 {
 .status-member {
   min-width: 0;
   padding: 0.5rem 0.6rem;
-  border: 1px solid var(--line, #3a4750);
+  border: 1px solid var(--line);
   border-radius: 0.4rem;
 }
 
@@ -995,7 +1071,7 @@ details > summary::marker {
   padding: var(--sp-2) var(--sp-4);
   font-size: var(--fs-sm);
   animation: fade-up 0.3s both;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 8px var(--overlay-soft);
 }
 
 @media (max-width: 480px) {
@@ -1033,7 +1109,7 @@ details > summary::marker {
 /* 폼 오류는 색만으로 말하지 않는다 — 문장이 곧 정보다 */
 .coop .form-error {
   margin: var(--sp-2) 0 0;
-  color: #f2b8b5;
+  color: var(--danger-soft);
   min-height: 1.2em;
 }
 
@@ -1110,7 +1186,7 @@ details > summary::marker {
   max-height: 16rem;
   overflow-y: auto;
   padding: var(--sp-2);
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--shadow);
   border: 1px solid var(--line);
   border-radius: var(--r-md);
 }
@@ -1156,8 +1232,8 @@ details > summary::marker {
   height: 0;
   border-left: 0.6rem solid transparent;
 }
-.item-tile[data-tier='2']::before { border-top: 0.6rem solid #b9c6d4; }
-.item-tile[data-tier='3']::before { border-top: 0.6rem solid #e8c65c; }
+.item-tile[data-tier='2']::before { border-top: 0.6rem solid var(--grade-2); }
+.item-tile[data-tier='3']::before { border-top: 0.6rem solid var(--grade-3); }
 
 .item-tile.is-locked { opacity: 0.55; }
 
@@ -1169,7 +1245,7 @@ details > summary::marker {
   line-height: 1;
   padding: 1px 3px;
   border-radius: 3px;
-  background: rgba(0, 0, 0, 0.75);
+  background: var(--overlay);
   color: var(--text);
 }
 
@@ -1199,7 +1275,7 @@ details > summary::marker {
 .detail-effect { font-variant-numeric: tabular-nums; }
 .detail-flavor,
 .detail-hint { color: var(--text-dim); font-size: var(--fs-sm); }
-.detail-locked { color: #f2b8b5; font-size: var(--fs-sm); }
+.detail-locked { color: var(--danger-soft); font-size: var(--fs-sm); }
 
 .detail-actions {
   display: flex;
@@ -1334,7 +1410,7 @@ details > summary::marker {
 /* 자동 가입 방지가 뜨지 않을 때의 안내 — 색만으로 말하지 않는다 */
 .captcha-notice {
   margin: var(--sp-2) 0 0;
-  color: #f2b8b5;
+  color: var(--danger-soft);
   font-size: var(--fs-sm);
   line-height: 1.5;
 }
@@ -1408,4 +1484,30 @@ body[data-mode='title'] #admin-link:hover,
 body[data-mode='title'] #admin-link:focus-visible {
   color: var(--text);
   border-color: var(--focus);
+}
+
+/* 옵션의 테마 고르기 — 네 갈래 라디오 한 줄 */
+dialog.options fieldset.opt-theme {
+  border: 1px solid var(--panel-border);
+  border-radius: var(--r-md);
+  padding: var(--sp-2) var(--sp-3) var(--sp-3);
+  margin: 0 0 var(--sp-3);
+}
+
+dialog.options fieldset.opt-theme legend {
+  padding: 0 var(--sp-2);
+  color: var(--text-dim);
+  font-size: var(--fs-sm);
+}
+
+.opt-theme-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2) var(--sp-4);
+}
+
+.opt-theme-choices span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
 }

@@ -1,6 +1,14 @@
 import type { EventBus } from '../core/events'
 
+/**
+ * 화면 테마. system은 기기(OS·브라우저) 설정을 따른다 — 고대비를 켠 사람에게는
+ * 고대비를, 밝은 화면을 쓰는 사람에게는 밝은 화면을. 직접 고르면 그 선택이 이긴다.
+ */
+export const THEMES = ['system', 'dark', 'light', 'contrast'] as const
+export type Theme = (typeof THEMES)[number]
+
 export interface Options {
+  theme: Theme
   captions: boolean
   lowStim: boolean
   volume: number
@@ -21,6 +29,7 @@ export interface Options {
 const KEY = 'moduquest-options'
 
 const DEFAULTS: Options = {
+  theme: 'system',
   captions: true,
   lowStim: false,
   volume: 0.8,
@@ -36,6 +45,9 @@ function sanitize(raw: unknown): Options {
   const o = { ...DEFAULTS }
   if (raw && typeof raw === 'object') {
     const r = raw as Record<string, unknown>
+    if (typeof r.theme === 'string' && (THEMES as readonly string[]).includes(r.theme)) {
+      o.theme = r.theme as Theme
+    }
     if (typeof r.captions === 'boolean') o.captions = r.captions
     if (typeof r.lowStim === 'boolean') o.lowStim = r.lowStim
     if (typeof r.music === 'boolean') o.music = r.music
@@ -60,6 +72,7 @@ export class OptionsStore {
   constructor(private bus: EventBus) {
     this.options = this.load()
     this.followSystemMotion()
+    this.followSystemTheme()
   }
 
   /**
@@ -80,6 +93,22 @@ export class OptionsStore {
 
   /** 저자극 모드를 사람이 직접 만졌는가 — OS 추종을 멈추는 기준 */
   private userSetLowStim = false
+
+  /**
+   * 기기의 화면 설정(밝기·고대비)이 바뀌는 순간을 따라간다.
+   * 저자극과 달리 플래그가 없다 — "기기 설정 따르기"가 명시적 선택지라서,
+   * 사람이 다른 테마를 고르면 조건이 스스로 거짓이 된다. 값도 바꾸지 않는다:
+   * 저장된 것은 'system'이고 해석은 화면 쪽(theme.ts)의 몫이다.
+   */
+  private followSystemTheme(): void {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    for (const q of ['(prefers-color-scheme: light)', '(prefers-contrast: more)']) {
+      window.matchMedia(q).addEventListener?.('change', () => {
+        if (this.options.theme !== 'system') return
+        this.bus.emit({ type: 'optionsChanged' })
+      })
+    }
+  }
 
   private load(): Options {
     try {

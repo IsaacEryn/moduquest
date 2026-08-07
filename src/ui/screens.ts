@@ -1,6 +1,6 @@
 import type { EventBus, GameMode } from '../core/events'
 import type { Game } from '../core/game'
-import { SPRITES, drawSprite } from '../render/sprites'
+import { SPRITES, drawSprite, type SpriteMode } from '../render/sprites'
 import { josa } from './announcer'
 import type { BattleUI } from './battleUI'
 import { memberLabel } from './memberLabel'
@@ -33,7 +33,7 @@ export class Screens {
     private openStatus: () => void,
     private openTown: () => void,
     private hud: { el: HTMLElement; refresh: () => void },
-    private getLowStim: () => boolean,
+    private getSpriteMode: () => SpriteMode,
     private openCoop: () => void,
   ) {
     bus.on((e) => {
@@ -120,10 +120,10 @@ export class Screens {
     `
     // 키비주얼 — 게임 안 스프라이트가 곧 얼굴이다. 다섯 직업이 나란히 선다
     const art = s.querySelector('.title-art')!
-    const lowStim = this.getLowStim()
+    const mode = this.getSpriteMode()
     for (const key of ['warrior', 'rogue', 'archer', 'mage', 'healer']) {
       const def = SPRITES[key]
-      if (def) art.append(drawSprite(def, 4, lowStim))
+      if (def) art.append(drawSprite(def, 4, mode))
     }
 
     const doors = s.querySelector('.title-doors')!
@@ -215,7 +215,7 @@ export class Screens {
     box.replaceChildren()
     box.dataset.speaker = key ?? ''
     const def = key ? SPRITES[key] : undefined
-    if (def) box.append(drawSprite(def, 4, this.getLowStim()))
+    if (def) box.append(drawSprite(def, 4, this.getSpriteMode()))
   }
 
   private renderField(): void {

@@ -1,4 +1,4 @@
-import { drawSprite } from '../render/sprites'
+import { drawSprite, type SpriteMode } from '../render/sprites'
 import { iconForItem } from '../render/itemIcons'
 import type { ItemData } from '../core/types'
 import { categoryOf, describeItem, itemAriaLabel } from './itemText'
@@ -45,19 +45,19 @@ export class ItemGrid {
   private entries: GridEntry[] = []
   /** 지금 고른 칸의 id. 다시 그려도 유지한다 */
   private selectedId: string | null = null
-  private lowStim: () => boolean
+  private spriteMode: () => SpriteMode
 
   constructor(
     private opts: {
       label: string
       actions: GridAction[]
-      lowStim: () => boolean
+      spriteMode: () => SpriteMode
       /** 칸을 고를 때마다 알린다 — 낭독 문장은 부르는 쪽이 정한다 */
       onSelect?: (entry: GridEntry) => void
       emptyText?: string
     },
   ) {
-    this.lowStim = opts.lowStim
+    this.spriteMode = opts.spriteMode
     this.el = document.createElement('div')
     this.el.className = 'item-grid-wrap'
 
@@ -143,7 +143,7 @@ export class ItemGrid {
     )
 
     // 그림은 장식이다 — 뜻은 위의 aria-label이 전부 옮긴다
-    const icon = drawSprite(iconForItem(entry.id, entry.item), 3, this.lowStim())
+    const icon = drawSprite(iconForItem(entry.id, entry.item), 3, this.spriteMode())
     icon.setAttribute('aria-hidden', 'true')
     icon.className = 'tile-icon'
     b.append(icon)

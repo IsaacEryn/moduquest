@@ -5,7 +5,8 @@ import { EQUIP_SLOTS, type Game } from '../core/game'
 import { MAP_SIZE } from '../core/layout'
 import type { Combatant, Pos } from '../core/types'
 import type { Options } from '../ui/optionsStore'
-import { SPRITES, drawSprite, drawTile } from './sprites'
+import { spriteModeFor } from '../ui/theme'
+import { SPRITES, drawSprite, drawTile, type SpriteMode } from './sprites'
 import { memberLabel } from '../ui/memberLabel'
 
 const TILE = 32
@@ -50,6 +51,23 @@ const LOW_STIM: Palette = {
   fog: 0x111417,
 }
 
+/**
+ * 고대비: 목적이 미감이 아니라 시인성이다. 검은 바탕 위에 바닥과 벽의 명도차를
+ * 크게 벌리고, 목적지(쉼터·문)는 순색으로 세운다. 밝은 테마에서도 세계는 어둡게
+ * 남지만, 고대비를 켠 사람에게는 세계도 함께 바뀐다 — 그게 이 모드의 존재 이유다.
+ */
+const HIGH_CONTRAST: Palette = {
+  bg: 0x000000,
+  floor: 0x4a4a4a,
+  floorSpeck: 0x5a5a5a,
+  wall: 0x111111,
+  wallSpeck: 0x1c1c1c,
+  checkpoint: 0xffe066,
+  exit: 0x00e5ff,
+  trail: 0xbfbfbf,
+  fog: 0x000000,
+}
+
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
 
 /**
@@ -57,16 +75,25 @@ const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`
  * 캔버스는 aria-hidden — 의미 전달은 전부 DOM 레이어의 몫.
  */
 export function createRenderer(game: Game, bus: EventBus, options: Options): void {
-  const palette = () => (options.lowStim ? LOW_STIM : NORMAL)
+  const spriteMode = (): SpriteMode => spriteModeFor(options)
+  const palette = () => {
+    const mode = spriteMode()
+    if (mode === 'hc') return HIGH_CONTRAST
+    return mode === 'low' ? LOW_STIM : NORMAL
+  }
   const px = (p: Pos) => ({ x: p.x * TILE + TILE / 2, y: p.y * TILE + TILE / 2 })
 
-  /** 스프라이트·타일 텍스처를 만들어 등록한다. 저자극 모드는 팔레트가 달라 키를 나눈다 */
+  /** 모드별 텍스처 키 접미 — 팔레트가 다른 그림은 키도 달라야 캐시가 섞이지 않는다 */
+  const SUFFIX: Record<SpriteMode, string> = { normal: '', low: '-low', hc: '-hc' }
+
+  /** 스프라이트·타일 텍스처를 만들어 등록한다. 모드마다 팔레트가 달라 키를 나눈다 */
   function loadTextures(scene: Phaser.Scene): void {
-    const suffix = options.lowStim ? '-low' : ''
+    const mode = spriteMode()
+    const suffix = SUFFIX[mode]
     for (const [name, def] of Object.entries(SPRITES)) {
       const key = name + suffix
       if (scene.textures.exists(key)) continue
-      scene.textures.addCanvas(key, drawSprite(def, 2, options.lowStim))
+      scene.textures.addCanvas(key, drawSprite(def, 2, mode))
     }
     const pal = palette()
     const tiles: Array<[string, number, number]> = [
@@ -78,12 +105,12 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
       if (scene.textures.exists(key)) continue
       scene.textures.addCanvas(
         key,
-        drawTile(hex(base), hex(speck), TILE, options.lowStim),
+        drawTile(hex(base), hex(speck), TILE, mode),
       )
     }
   }
 
-  const texKey = (name: string) => name + (options.lowStim ? '-low' : '')
+  const texKey = (name: string) => name + SUFFIX[spriteMode()]
 
   /**
    * 장비 형상까지 반영한 텍스처 키를 돌려주고, 없으면 그 자리에서 만든다.
@@ -108,7 +135,7 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
           if (palette[k]) palette[k] = rc.secondary ?? rc.primary
         }
       }
-      scene.textures.addCanvas(key, drawSprite({ ...def, palette }, 2, options.lowStim))
+      scene.textures.addCanvas(key, drawSprite({ ...def, palette }, 2, spriteMode()))
     }
     return key
   }
@@ -427,7 +454,8 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
     width: MAP_SIZE.width * TILE,
     height: MAP_SIZE.height * TILE,
     pixelArt: true,
-    backgroundColor: NORMAL.bg,
+    // 시작 배경도 현재 모드를 따른다 — 테마 전환은 redraw의 setBackgroundColor가 맡는다
+    backgroundColor: palette().bg,
     // 크기는 CSS가 결정한다(반응형·리플로우 대응). 내부 해상도는 384×320 고정
     scale: { mode: Phaser.Scale.NONE },
     scene: [FieldScene, BattleScene],
