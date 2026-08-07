@@ -89,7 +89,7 @@ export async function setBan(actor: string, row: ProfileRow, days: number | null
   await audit(actor, days === null ? 'unban' : 'ban', row.user_id, { days, until })
 }
 
-/** 계정 삭제 — service_role이 필요한 유일한 일이라 서버 함수를 부른다 */
+/** 계정 삭제 — 서버 전용 열쇠가 필요한 유일한 일이라 서버 함수를 부른다 */
 export async function deleteUser(target: string): Promise<void> {
   const { data, error } = await supabase().functions.invoke('admin-delete-user', {
     body: { target },
