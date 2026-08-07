@@ -143,16 +143,27 @@ export async function fetchAudit(page: number): Promise<Page<Record<string, unkn
   return { rows: data ?? [], total: count ?? 0 }
 }
 
-/** 로그인·가입 같은 인증 사건 — 서비스가 이미 남기는 기록을 관리자만 본다 */
-export async function fetchLoginLog(page: number): Promise<
-  { at: string; action: string; email: string | null; ip: string | null }[]
-> {
-  const { data, error } = await supabase().rpc('admin_login_log', {
-    limit_n: PAGE,
-    offset_n: page * PAGE,
-  })
-  if (error) throw new Error('로그인 기록을 불러오지 못했다.')
-  return (data ?? []) as { at: string; action: string; email: string | null; ip: string | null }[]
+export interface LoginRow {
+  email: string
+  nickname: string
+  last_sign_in: string | null
+  signed_up: string
+  confirmed_at: string | null
+}
+
+/**
+ * 계정별 로그인 현황 — 누가 언제 마지막으로 들어왔고 메일 확인은 했는지.
+ *
+ * 사건 하나하나의 이력이 아니라 현황인 이유: 인증 서버의 감사 기록은 이
+ * 프로젝트에서 보존되지 않는다. 없는 것을 있는 척하느니 있는 것을 정확히 준다.
+ */
+export async function fetchLoginLog(page: number): Promise<Page<LoginRow>> {
+  const [{ data, error }, { data: total }] = await Promise.all([
+    supabase().rpc('admin_login_log', { limit_n: PAGE, offset_n: page * PAGE }),
+    supabase().rpc('admin_user_count'),
+  ])
+  if (error) throw new Error('로그인 현황을 불러오지 못했다.')
+  return { rows: (data ?? []) as LoginRow[], total: Number(total ?? 0) }
 }
 
 /** 계정별 마지막 로그인 — 사용자 목록의 "최근 접속" 열 */

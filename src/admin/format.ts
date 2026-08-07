@@ -109,15 +109,6 @@ export function auditTargetName(
   return String(targetId ?? '').slice(0, 8)
 }
 
-/** 인증 사건 이름을 우리말로 */
-export const LOGIN_ACTION_KO: Record<string, string> = {
-  login: '로그인',
-  logout: '로그아웃',
-  user_signedup: '가입',
-  user_confirmation_requested: '확인 메일 요청',
-  user_recovery_requested: '비밀번호 재설정 요청',
-  token_refreshed: '세션 갱신',
-}
 
 /**
  * 페이저가 말해야 하는 것 — 지금 몇 쪽인지, 전체가 몇 쪽인지, 무엇을 보고 있는지.

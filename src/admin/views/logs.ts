@@ -1,5 +1,5 @@
 import { PAGE, fetchAudit, fetchLog, fetchLoginLog, fetchProfiles, nicknameMap } from '../api'
-import { LOGIN_ACTION_KO, auditTargetName, describeAudit, fullTime, pagerState } from '../format'
+import { auditTargetName, describeAudit, fullTime, pagerState, relativeTime } from '../format'
 import { dataTable, errorLine, heading, note, pager } from '../layout'
 
 /**
@@ -8,7 +8,7 @@ import { dataTable, errorLine, heading, note, pager } from '../layout'
  */
 
 const TABS: { key: string; label: string }[] = [
-  { key: 'logins', label: '로그인' },
+  { key: 'logins', label: '로그인 현황' },
   { key: 'signups', label: '가입' },
   { key: 'gifts', label: '선물' },
   { key: 'friends', label: '친구' },
@@ -22,8 +22,8 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
   const active = TABS.some((t) => t.key === tab) ? tab : 'logins'
 
   const rerender = async () => {
-    /** 이 탭의 전체 건수. 로그인 기록만은 서버가 총계를 주지 않아 -1로 둔다 */
-    let total = -1
+    /** 이 탭의 전체 건수 — 쪽 이동이 "몇 쪽 중 몇 쪽"을 말하는 근거 */
+    let total = 0
     content.replaceChildren(heading('로그'))
 
     const tabsNav = document.createElement('nav')
@@ -45,16 +45,18 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
       let count = 0
 
       if (active === 'logins') {
-        const rows = await fetchLoginLog(page)
+        const { rows, total: n } = await fetchLoginLog(page)
         count = rows.length
+        total = n
         table = dataTable(
-          '로그인 기록',
-          ['시각', '사건', '계정', '접속 주소'],
+          '계정별 로그인 현황',
+          ['닉네임', '계정', '마지막 로그인', '가입', '메일 확인'],
           rows.map((r) => [
-            fullTime(r.at),
-            LOGIN_ACTION_KO[r.action] ?? r.action,
-            r.email ?? '-',
-            r.ip ?? '-',
+            r.nickname,
+            r.email,
+            r.last_sign_in ? relativeTime(r.last_sign_in) : '한 번도 없음',
+            fullTime(r.signed_up),
+            r.confirmed_at ? '확인됨' : '아직',
           ]),
         )
       } else if (active === 'signups') {
@@ -141,20 +143,8 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
       content.replaceChildren(heading('로그'), tabsNav, table)
       if (count === 0) content.append(note(page === 0 ? '기록이 없다.' : '더 이상 없다.'))
 
-      // 총계를 아는 탭은 "몇 쪽 중 몇 쪽"까지 말한다. 로그인 기록만은 총계를
-      // 못 받으므로 한 쪽 가득 찼는지로 다음 쪽 유무를 짐작한다
-      const state =
-        total >= 0
-          ? pagerState(page, total, PAGE)
-          : {
-              page,
-              pages: count === PAGE ? page + 2 : page + 1,
-              label: count === 0 ? '기록 없음' : `${page * PAGE + 1}–${page * PAGE + count}번째`,
-              hasPrev: page > 0,
-              hasNext: count === PAGE,
-            }
       content.append(
-        pager(state, (next) => {
+        pager(pagerState(page, total, PAGE), (next) => {
           page = next
           void rerender()
         }),
