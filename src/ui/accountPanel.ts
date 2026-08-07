@@ -8,6 +8,7 @@ import {
 } from '../net/auth'
 import { checkNickname, NICKNAME_MAX } from '../net/nickname'
 import { AuthForm, errorLine, field } from './authForm'
+import type { EventBus } from '../core/events'
 
 /**
  * 계정 창 — 로그인·내 정보·비밀번호 변경, 그리고 (다음 단계에서) 탈퇴.
@@ -31,6 +32,8 @@ export class AccountPanel {
       onOpen?: () => void
       onClose?: () => void
       announce: (text: string) => void
+      /** 사건 통로 — 로그인 성공 같은 것이 소리·자막으로 이어진다 */
+      bus?: EventBus
       /** 로그인·로그아웃 — main이 저장소·타이틀 배지를 갈아 끼운다 */
       onProfileChanged: (profile: Profile | null) => void | Promise<void>
     },
@@ -92,6 +95,7 @@ export class AccountPanel {
   private renderAuth(): void {
     this.authForm ??= new AuthForm({
       announce: this.hooks.announce,
+      bus: this.hooks.bus,
       onSignedIn: async (profile) => {
         this.profile = profile
         await this.hooks.onProfileChanged(profile)

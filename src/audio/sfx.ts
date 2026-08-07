@@ -19,6 +19,8 @@ interface ToneSpec {
   type?: OscillatorType
   /** 최대 음량(0~1) */
   gain?: number
+  /** 시작을 늦춘다(초) — 음을 이어 붙여 짧은 가락을 만들 때 */
+  delay?: number
 }
 
 /**
@@ -63,7 +65,7 @@ export class Sfx {
     const ctx = this.ensureContext()
     if (!ctx || !this.master || this.options.volume === 0) return
 
-    const now = ctx.currentTime
+    const now = ctx.currentTime + (spec.delay ?? 0)
     const osc = ctx.createOscillator()
     osc.type = spec.type ?? 'triangle'
     osc.frequency.setValueAtTime(spec.from, now)
@@ -115,6 +117,23 @@ export class Sfx {
         this.chord([
           { from: 300, to: 220, duration: 0.18, type: 'square', gain: 0.12 },
           { from: 150, duration: 0.26, gain: 0.1 },
+        ])
+        break
+      case 'signedIn':
+        /*
+         * 옛날 모뎀이 회선을 잡던 순간을 0.5초로 줄였다. 거친 협상음이
+         * 한 번 훑고, 응답 톤(2100Hz — 실제 모뎀이 쓰던 주파수)이 잠깐
+         * 서고, 두 음이 겹치며 연결된다.
+         *
+         * 진짜 다이얼업은 십수 초를 시끄럽게 우는데 그대로 옮기면
+         * 낭독을 덮고 청각이 예민한 사람에게는 통증이 된다. 그래서
+         * 마지막 한 순간만 남겼고, 크기도 다른 소리보다 낮게 잡았다.
+         */
+        this.chord([
+          { from: 420, to: 1700, duration: 0.1, type: 'sawtooth', gain: 0.05 },
+          { from: 2100, duration: 0.08, type: 'sine', gain: 0.045, delay: 0.1 },
+          { from: 660, duration: 0.18, gain: 0.09, delay: 0.22 },
+          { from: 990, duration: 0.24, gain: 0.06, delay: 0.26 },
         ])
         break
       case 'equipChanged':

@@ -79,6 +79,8 @@ export type GameEvent =
   | { type: 'stageStart'; index: number; total: number; title: string; objective: string }
   | { type: 'stageClear'; index: number; total: number; hasNext: boolean }
   | { type: 'optionsChanged' }
+  /** 로그인이 방금 끝났다 — 소리와 자막이 짝으로 알린다 */
+  | { type: 'signedIn' }
 
 export type GameMode = 'title' | 'dialogue' | 'field' | 'battle' | 'clear'
 

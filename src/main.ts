@@ -291,6 +291,7 @@ async function openCoop(): Promise<void> {
     ])
     coopPanel = new CoopPanel({
       ...pauseHooks,
+      bus,
       announce: (t) => announcer.polite(t),
       // 멀티 플레이의 기록은 계정에 붙는다 — 누가 로그인해 있느냐가 곧 어느 자리냐다
       onProfileChanged: sharedOnProfileChanged,
@@ -576,6 +577,7 @@ async function openAccount(): Promise<void> {
     const { AccountPanel } = await import('./ui/accountPanel')
     accountPanel = new AccountPanel({
       ...pauseHooks,
+      bus,
       announce: (t) => announcer.polite(t),
       onProfileChanged: sharedOnProfileChanged,
     })

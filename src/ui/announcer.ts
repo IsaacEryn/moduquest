@@ -159,6 +159,10 @@ export class Announcer {
           )
         }
         break
+      case 'signedIn':
+        // 낭독은 로그인한 화면이 이미 이름과 함께 말한다 — 여기서는 소리의 자막만
+        this.caption('[접속됨]')
+        break
       case 'moveTokenChanged':
         this.polite(
           e.seat === this.mySeat()

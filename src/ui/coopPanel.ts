@@ -3,6 +3,7 @@ import type { PartySession } from '../net/session'
 import { AuthForm, errorLine, field } from './authForm'
 import { hasSupabaseConfig } from '../net/supabaseClient'
 import { josa } from './announcer'
+import type { EventBus } from '../core/events'
 
 type View = 'auth' | 'home' | 'room'
 
@@ -32,6 +33,8 @@ export class CoopPanel {
       onOpen?: () => void
       onClose?: () => void
       announce: (text: string) => void
+      /** 사건 통로 — 로그인 성공 같은 것이 소리·자막으로 이어진다 */
+      bus?: EventBus
       /**
        * 누가 로그인해 있는가가 바뀌었다. 멀티 플레이의 저장 자리는 계정에 붙으므로,
        * main이 이 신호를 받아 저장소를 갈아 끼운다 — 화면은 그 사실을 모른다.
@@ -243,6 +246,7 @@ export class CoopPanel {
   private renderAuth(): void {
     this.authForm ??= new AuthForm({
       announce: this.hooks.announce,
+      bus: this.hooks.bus,
       onSignedIn: async (profile) => {
         await this.setProfile(profile)
         this.hooks.announce(`${profile.nickname}로 로그인했다.`)

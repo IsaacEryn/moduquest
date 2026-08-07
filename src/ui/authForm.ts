@@ -8,6 +8,7 @@ import {
   type Profile,
 } from '../net/auth'
 import { captchaEnabled, mountCaptcha, type CaptchaWidget } from '../net/captcha'
+import type { EventBus } from '../core/events'
 
 /**
  * 로그인·가입 폼 — 한 벌을 두 문이 나눠 쓴다.
@@ -28,6 +29,8 @@ export class AuthForm {
       announce: (text: string) => void
       /** 로그인·가입이 끝났다 — 어디로 갈지는 문(호출자)이 정한다 */
       onSignedIn: (profile: Profile) => void | Promise<void>
+      /** 소리와 자막이 붙을 자리 — 문이 둘이라 사건은 한 곳으로 모은다 */
+      bus?: EventBus
     },
   ) {}
 
@@ -140,6 +143,8 @@ export class AuthForm {
         return
       }
       const finish = async (profile: Profile) => {
+        // 회선이 잡히는 소리 — 자막은 announcer가 같은 사건에서 붙인다
+        this.hooks.bus?.emit({ type: 'signedIn' })
         await this.hooks.onSignedIn(profile)
       }
       const task = signup
