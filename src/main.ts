@@ -522,22 +522,27 @@ let signedIn = false
 /** 마지막으로 서버에 밀어 둔 테마 — pull→set→optionsChanged 되울림을 끊는 기준 */
 let lastSyncedTheme: string | null = null
 
+/** 테마를 계정과 잇는다 — 서버 값이 있으면 그쪽이 이긴다(마지막 저장 기기 우선) */
+function startThemeSync(): void {
+  signedIn = true
+  void import('./net/settingsSync').then(async (sync) => {
+    const remote = await sync.pullTheme()
+    if (remote) {
+      lastSyncedTheme = remote
+      if (store.options.theme !== remote) store.set('theme', remote)
+    } else {
+      lastSyncedTheme = store.options.theme
+      await sync.pushTheme(store.options.theme)
+    }
+  })
+}
+
 async function sharedOnProfileChanged(profile: { userId: string } | null): Promise<void> {
-  signedIn = profile !== null
   if (profile) {
     await useAccountSaves(profile.userId)
-    // 테마는 계정을 따라온다 — 서버 값이 있으면 그쪽이 이긴다(마지막 저장 기기 우선)
-    void import('./net/settingsSync').then(async (sync) => {
-      const remote = await sync.pullTheme()
-      if (remote) {
-        lastSyncedTheme = remote
-        if (store.options.theme !== remote) store.set('theme', remote)
-      } else {
-        lastSyncedTheme = store.options.theme
-        await sync.pushTheme(store.options.theme)
-      }
-    })
+    startThemeSync()
   } else {
+    signedIn = false
     useDeviceSaves()
     lastSyncedTheme = null
   }
@@ -581,6 +586,13 @@ function refreshAdminLink(): void {
 
 refreshAdminLink()
 refreshAccountBadge(() => void openAccount())
+// 이미 로그인된 채로 켜졌으면 테마 동기화도 바로 잇는다.
+// 저장소 전환과 다르다 — 어느 문으로 들어갈지는 여전히 사람이 정한다
+if (
+  Object.keys(localStorage).some((k) => k.startsWith('sb-') && k.endsWith('-auth-token'))
+) {
+  startThemeSync()
+}
 
 // --- 편의 옵션 발견 유도 — 처음 한 번, 강요 없이 ---
 import('./ui/tips').then(({ Tips, WELCOME_ID, hasSeenTip, markTipSeen }) => {
