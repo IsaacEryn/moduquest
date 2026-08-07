@@ -1,6 +1,21 @@
 import items from '../../data/items.json'
-import { PAGE, fetchAudit, fetchLog, fetchLoginLog, fetchProfiles, nicknameMap } from '../api'
-import { auditTargetName, describeAudit, fullTime, pagerState, relativeTime } from '../format'
+import {
+  PAGE,
+  fetchAudit,
+  fetchLog,
+  fetchLoginLog,
+  fetchProfiles,
+  fetchWithdrawals,
+  nicknameMap,
+} from '../api'
+import {
+  WITHDRAW_REASON_KO,
+  auditTargetName,
+  describeAudit,
+  fullTime,
+  pagerState,
+  relativeTime,
+} from '../format'
 import { dataTable, errorLine, heading, note, pager } from '../layout'
 
 /**
@@ -15,6 +30,7 @@ const TABS: { key: string; label: string }[] = [
   { key: 'friends', label: '친구' },
   { key: 'invites', label: '초대' },
   { key: 'saves', label: '저장' },
+  { key: 'withdrawals', label: '탈퇴' },
   { key: 'audit', label: '운영 조치' },
 ]
 
@@ -114,6 +130,19 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
           '모험단 초대 기록',
           ['시각', '부른 사람', '불린 사람'],
           rows.map((r) => [fullTime(r.created_at as string), who(r.from_user), who(r.to_user)]),
+        )
+      } else if (active === 'withdrawals') {
+        const { rows, total: n } = await fetchWithdrawals(page)
+        count = rows.length
+        total = n
+        table = dataTable(
+          '탈퇴 기록',
+          ['시각', '사유', '남긴 말'],
+          rows.map((r) => [
+            fullTime(r.created_at),
+            WITHDRAW_REASON_KO[r.reason] ?? r.reason,
+            r.detail?.trim() || '—',
+          ]),
         )
       } else if (active === 'saves') {
         // snapshot 컬럼은 안 읽는다 — 행마다 최대 64KB

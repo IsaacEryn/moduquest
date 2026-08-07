@@ -164,6 +164,26 @@ export interface LoginRow {
  * 사건 하나하나의 이력이 아니라 현황인 이유: 인증 서버의 감사 기록은 이
  * 프로젝트에서 보존되지 않는다. 없는 것을 있는 척하느니 있는 것을 정확히 준다.
  */
+export interface WithdrawalRow {
+  reason: string
+  detail: string | null
+  created_at: string
+}
+
+/**
+ * 탈퇴 기록 — 사유와 떠나며 남긴 말.
+ * 계정 식별자가 없는 표라 누가 썼는지는 서버도 모른다.
+ */
+export async function fetchWithdrawals(page: number): Promise<Page<WithdrawalRow>> {
+  const [{ data, error }, stats] = await Promise.all([
+    supabase().rpc('admin_withdrawals', { limit_n: PAGE, offset_n: page * PAGE }),
+    supabase().rpc('admin_stats'),
+  ])
+  if (error) throw new Error('탈퇴 기록을 불러오지 못했다.')
+  const total = Number((stats.data as Record<string, unknown>)?.withdrawals_total ?? 0)
+  return { rows: (data ?? []) as WithdrawalRow[], total }
+}
+
 export async function fetchLoginLog(page: number): Promise<Page<LoginRow>> {
   const [{ data, error }, { data: total }] = await Promise.all([
     supabase().rpc('admin_login_log', { limit_n: PAGE, offset_n: page * PAGE }),

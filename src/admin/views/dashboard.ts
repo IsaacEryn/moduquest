@@ -180,6 +180,18 @@ export async function renderDashboard(content: HTMLElement): Promise<void> {
         ranked(reasons, (k) => WITHDRAW_REASON_KO[k] ?? k).map((r) => [r.name, `${r.n}건`]),
       ),
     )
+    // 떠나며 남긴 말은 통계보다 구체적이다 — 어디서 읽는지 함께 알린다
+    const notes = n('withdrawal_notes')
+    if (notes > 0) {
+      const p = document.createElement('p')
+      p.className = 'admin-note'
+      p.append(`떠나며 남긴 말이 ${notes}개 있다. `)
+      const a = document.createElement('a')
+      a.href = '#/logs/withdrawals'
+      a.textContent = '로그 → 탈퇴에서 읽는다'
+      p.append(a, '.')
+      sec.append(p)
+    }
     content.append(sec)
   }
 
