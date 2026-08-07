@@ -281,6 +281,30 @@ export class Field {
   }
 
   /**
+   * 졌을 때 이 구역에서 마지막으로 잡았던 잡몹 하나를 되살린다.
+   * 되살아난 조우의 몹 이름을 돌려주고, 되살릴 것이 없으면 null.
+   *
+   * 큰 싸움은 되살리지 않는다. 스테이지 보스는 area.boss라 encounters에 없어서
+   * 자연히 빠지지만, **울림 사제는 일반 조우 자리에 서 있는 관문**이라 몹의
+   * isBoss로 한 번 더 걸러야 한다 — 그러지 않으면 관문을 다시 뚫어야 한다.
+   *
+   * 처치 순서는 삽입 순서 그대로이고 저장을 왕복해도 보존되므로, 역순으로 훑어
+   * 찾은 첫 하나는 언제나 같다(무작위가 아니라 세는 규칙).
+   */
+  reviveLastDefeated(bossIds: Set<string>): string | null {
+    const ids = [...this.defeatedIdSet]
+    for (let i = ids.length - 1; i >= 0; i--) {
+      const id = ids[i]
+      const encounter = this.area.encounters.find((e) => e.id === id)
+      if (!encounter) continue
+      if (encounter.monsters.some((m) => bossIds.has(m))) continue
+      this.defeatedIdSet.delete(id)
+      return this.encounterName(encounter)
+    }
+    return null
+  }
+
+  /**
    * 죽었을 때 돌아갈 곳. 쉼터를 밟았으면 그 구역, 아니면 지금 구역의 입구다.
    * 스테이지 처음으로 되돌리지 않는 이유는 관대한 재시작 원칙 — 세 구역을
    * 다시 걷게 하는 건 벌이다.

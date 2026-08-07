@@ -950,3 +950,140 @@ describe('자리별 가방과 지갑', () => {
     expect(other.goldOf(1)).toBe(40)
   })
 })
+
+/**
+ * 졌을 때 치르는 값.
+ *
+ * 예전에는 죽어도 잃는 것이 없었다 — 전원 완전 회복에 페널티 0. 다시 도전하는 일에
+ * 무게가 없으면 이겼을 때의 성취도 없다. 그렇다고 세 구역을 다시 걷게 하는 것은
+ * 벌이라, 진행(경험치·장비·아이템)은 그대로 두고 값만 치른다.
+ */
+describe('패배 페널티', () => {
+  const goldsOf = (game: Game) => (game as unknown as { golds: number[] }).golds
+
+  /** 전투에 들어가 일부러 진다 */
+  function lose(game: Game, timer: ReturnType<typeof fakeScheduler>, shortId: string) {
+    stepInto(game, shortId)
+    skipDialogue(game)
+    // 한 대에 쓰러지도록 매 턴 눌러 둔다 — 힐러가 치유하면 안 죽어서 전투가 안 끝난다
+    let guard = 0
+    while (game.mode === 'battle' && guard++ < 300) {
+      for (const a of game.party) if (a.hp > 0) a.hp = 1
+      // 쓰러진 사람의 차례는 입력을 받지 않는다 — 그때는 타이머가 넘긴다
+      const actor = game.battle!.currentActor
+      // 자리마다 자기 입력만 받는다 — 좌석을 안 넘기면 남의 차례에 거절된다
+      if (actor.isPlayer && actor.hp > 0) {
+        game.playerAction({ kind: 'defend' }, actor.seat ?? 0)
+      } else timer.flush()
+    }
+    if (game.mode === 'battle') {
+      throw new Error(
+        `전투가 끝나지 않았다: 아군 ${game.party.map((a) => a.hp).join(',')} / ` +
+          `적 ${game.battle!.enemies.map((e) => e.hp).join(',')} / ` +
+          `차례 ${game.battle!.currentActor.name}`,
+      )
+    }
+  }
+
+  it('절반만 채우고 일어난다 — 바로 재도전하면 불리하다', () => {
+    const { game, timer } = makeGame()
+    game.start()
+    skipDialogue(game)
+    lose(game, timer, 'e1')
+    expect(game.mode).toBe('field')
+    for (const a of game.party) {
+      expect(a.hp).toBe(Math.max(1, Math.floor(a.maxHp * 0.5)))
+    }
+  })
+
+  it('자리마다 자기 지갑에서 동전을 잃는다', () => {
+    const { game, timer } = makeGame()
+    game.setSeatController(1, 'human')
+    game.start()
+    skipDialogue(game)
+    goldsOf(game)[0] = 100
+    goldsOf(game)[1] = 50
+    lose(game, timer, 'e1')
+    expect(game.goldOf(0)).toBe(80) // 20% 손실
+    expect(game.goldOf(1)).toBe(40)
+    // 컴퓨터가 맡은 자리는 지갑도 없다
+    expect(game.goldOf(2)).toBe(0)
+  })
+
+  it('진행은 되돌리지 않는다 — 경험치·장비·아이템은 그대로', () => {
+    const { game, timer } = makeGame()
+    game.start()
+    skipDialogue(game)
+    const add = (game as unknown as { addItem: (id: string, seat: number) => void }).addItem
+    add.call(game, 'wood_sword', 0)
+    game.equip('rogue', 'wood_sword')
+    const xpBefore = game.currentXp
+    const equipBefore = game.equipmentOf('rogue').weapon
+
+    lose(game, timer, 'e1')
+    expect(game.currentXp).toBe(xpBefore)
+    expect(game.equipmentOf('rogue').weapon).toBe(equipBefore)
+  })
+
+  it('이 구역에서 마지막으로 잡은 잡몹 하나가 되살아난다', () => {
+    const { game, timer } = makeGame()
+    game.start()
+    skipDialogue(game)
+    // 조우 하나를 이겨 두고, 다른 조우에서 진다
+    const beat = (shortId: string) => {
+      stepInto(game, shortId)
+      skipDialogue(game)
+      for (const e of game.battle!.enemies) e.hp = 1
+      let guard = 0
+      while (game.mode === 'battle' && guard++ < 300) {
+        if (game.battle!.currentActor.isPlayer) {
+          const t = game.battle!.enemies.find((x) => x.hp > 0)
+          if (!t) break
+          game.playerAction({ kind: 'attack', targetId: t.id })
+        } else timer.flush()
+      }
+      skipDialogue(game)
+    }
+    beat('e1')
+    const afterWin = game.field.defeatedIds.length
+    expect(afterWin).toBeGreaterThan(0)
+
+    lose(game, timer, 'e2')
+    // 잡아 둔 조우가 되돌아왔다
+    expect(game.field.defeatedIds.length).toBe(afterWin - 1)
+  })
+
+  it('되살릴 것이 없으면 아무 일도 없다 — 첫 조우에서 져도 조용하다', () => {
+    const { game, timer } = makeGame()
+    game.start()
+    skipDialogue(game)
+    expect(game.field.defeatedIds).toHaveLength(0)
+    lose(game, timer, 'e1')
+    expect(game.field.defeatedIds).toHaveLength(0)
+  })
+
+  it('관문은 되살아나지 않는다 — 울림 사제는 다시 뚫지 않아도 된다', () => {
+    // 사제는 area.boss가 아니라 일반 조우 자리에 서 있다. 몹의 isBoss로 한 번 더
+    // 거르지 않으면 죽을 때마다 관문이 되살아난다
+    const { game } = makeGame()
+    game.startStage(2)
+    const bossIds = (game as unknown as { bossIds: Set<string> }).bossIds
+    expect(bossIds.has('echo_priest')).toBe(true)
+  })
+
+  it('페널티는 저장에 남는다 — 되돌려도 되살아나지 않는다', () => {
+    const { game, timer } = makeGame()
+    game.start()
+    skipDialogue(game)
+    goldsOf(game)[0] = 100
+    lose(game, timer, 'e1')
+
+    const snap = game.snapshot()
+    expect(snap.golds[0]).toBe(80)
+    expect(snap.party[0].hp).toBe(game.party[0].hp)
+
+    const { game: other } = makeGame()
+    other.restore(snap)
+    expect(other.goldOf(0)).toBe(80)
+  })
+})

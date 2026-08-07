@@ -386,9 +386,20 @@ export class Announcer {
         break
       }
       case 'defeat':
-        this.assertive('파티가 쓰러졌다. 모두 회복하고 다시 시작한다.')
+        // 무엇을 잃었는지는 뒤따르는 defeatPenalty가 말한다 — 여기서 미리 적으면
+        // 수치를 고치는 순간 이 문장이 거짓말이 된다
+        this.assertive('파티가 쓰러졌다.')
         this.caption('[패배]')
         break
+      case 'defeatPenalty': {
+        const mine = e.goldLost[this.mySeat()] ?? 0
+        const parts = [
+          mine > 0 ? `동전 ${mine}냥을 잃고 상처 입은 채 일어난다.` : '상처 입은 채 일어난다.',
+        ]
+        if (e.revivedName) parts.push(`${josa(e.revivedName, '이', '가')} 되살아났다.`)
+        this.polite(parts.join(' '))
+        break
+      }
       case 'stageClear':
         this.assertive(
           e.hasNext

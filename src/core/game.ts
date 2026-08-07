@@ -949,6 +949,15 @@ export class Game {
    * 보상을 받는 자리들 — 사람이 앉은 자리마다 같은 것을 하나씩 받는다.
    * 솔로에서는 0번뿐이라 예전과 똑같이 한 벌이 나온다.
    */
+  /**
+   * 사람이 앉은 자리 수. 보상 분배·패배 손실·멀티 몹 배율이 전부 이 하나를 읽는다.
+   * 아무도 앉지 않은 찰나(전원 npc 전환)에도 1 아래로는 내려가지 않는다 —
+   * 0으로 나뉘거나 배율이 사라지는 자리를 만들지 않기 위해서다.
+   */
+  humanCount(): number {
+    return Math.max(1, this.seatControllers.filter((c) => c === 'human').length)
+  }
+
   private receivingSeats(): number[] {
     const seats = this.seatControllers
       .map((c, i) => (c === 'human' ? i : -1))
@@ -1684,14 +1693,36 @@ export class Game {
     }
   }
 
+  /**
+   * 졌을 때. 되돌아가 세 구역을 다시 걷게 하지는 않되(그건 벌이다) 그냥 일어나지도
+   * 않는다 — 다시 도전하는 일에 무게가 있어야 이겼을 때 성취가 된다.
+   *
+   * 값은 셋이다: 동전 일부, 절반만 채운 몸, 그리고 이 구역에서 마지막으로 잡았던
+   * 잡몹 하나가 되살아난다. 경험치·장비·아이템은 건드리지 않는다 — 진행 자체를
+   * 되돌리면 "이어서 하면서 느끼는 성취"가 아니라 시간을 빼앗는 일이 된다.
+   *
+   * 페널티는 **부활 위치를 정하기 전에** 전부 적용한다. 구역을 옮기고 나면 되살릴
+   * 조우의 기준 구역이 바뀌고, 자동저장의 첫 계기(mode 이벤트)도 이미 지나간다.
+   */
   private onDefeat(): void {
     this.endBattle()
-    // 관대한 재시작: 체크포인트에서 전원 완전 회복, 페널티 없음
+    const penalty = this.data.progression.defeatPenalty
     for (const a of this.party) {
-      a.hp = a.maxHp
+      a.hp = Math.max(1, Math.floor(a.maxHp * penalty.reviveHpRatio))
       a.cooldowns = a.skills.map(() => 0)
       a.defending = false
     }
+    // 지갑은 자리마다 따로다 — 잃는 것도 각자 자기 몫에서
+    const goldLost = this.partyJobs.map(() => 0)
+    for (const seat of this.receivingSeats()) {
+      const lost = Math.floor(this.goldOf(seat) * penalty.goldLossRate)
+      if (lost <= 0) continue
+      this.golds[seat] = this.goldOf(seat) - lost
+      goldLost[seat] = lost
+    }
+    const revivedName = this.field.reviveLastDefeated(this.bossIds)
+    this.bus.emit({ type: 'defeatPenalty', goldLost, revivedName })
+
     const target = this.field.respawnTarget()
     if (target.areaId !== this.field.areaId) {
       // enterArea가 낭독까지 맡는다 — 여기서 또 요약하면 같은 문장이 두 번 붙는다

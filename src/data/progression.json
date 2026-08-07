@@ -66,6 +66,10 @@
     0.18,
     0.1
   ],
+  "defeatPenalty": {
+    "goldLossRate": 0.2,
+    "reviveHpRatio": 0.5
+  },
   "turnDelayMs": 900,
   "itemStackMax": 99
 }

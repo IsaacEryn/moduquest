@@ -23,4 +23,14 @@ export default defineConfig({
   // 개발 서버 포트는 환경이 정해줄 수 있게 열어 둔다
   server: { port: Number(process.env.PORT) || 5173 },
   preview: { port: Number(process.env.PORT) || 4173 },
+
+  test: {
+    /*
+      작업용 워크트리(.claude/worktrees/)에는 저장소의 낡은 사본이 통째로 들어 있다.
+      기본 설정은 그것까지 훑어서, 내 컴퓨터에서는 테스트가 두 배로 세어지고
+      CI에서는 제대로 세어졌다 — 같은 명령이 장소에 따라 다른 수를 말한 셈이다.
+      그 수를 문서에 옮겨 적었다가 틀렸으므로, 세는 자리부터 못 어긋나게 막는다.
+    */
+    exclude: ['**/node_modules/**', '**/dist/**', '**/.claude/**'],
+  },
 })

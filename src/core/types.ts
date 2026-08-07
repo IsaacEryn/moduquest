@@ -248,6 +248,16 @@ export interface ProgressionData {
    */
   victoryHealRatio: number[]
   /**
+   * 졌을 때 치르는 값. 되돌아가 다시 걷게 하지는 않되(그건 벌이다) 그냥 일어나지도
+   * 않는다 — 다시 도전하는 일에 무게가 있어야 이겼을 때 성취가 된다.
+   */
+  defeatPenalty: {
+    /** 자리마다 이 비율만큼 동전을 잃는다 */
+    goldLossRate: number
+    /** 최대 체력의 이만큼만 채우고 일어난다 */
+    reviveHpRatio: number
+  }
+  /**
    * NPC·몹 턴 사이 간격(ms). 낭독이 따라올 시간을 주는 값이라 밸런스이자 접근성이다 —
    * 여기 있어야 화면을 고치지 않고도 조절할 수 있다.
    */

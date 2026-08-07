@@ -139,9 +139,25 @@ const TRAIT_IDS = Object.keys(TRAITS.traits)
 const BASE_PARTY = party.map((p) => p.job)
 
 describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 수 있어야 한다', () => {
-  // 조합 30 × 특성 7 × 세 스테이지의 조우 18(3+7+8) = 3,780 전투 전수.
-  // 결정적이라 늘 같은 답이다 — 수를 늘려도 수십 ms면 끝난다
-  // (스테이지를 늘리면 이 수도 따라 늘어난다. 조우 수를 세어 고칠 것)
+  /*
+    전투 전수 시뮬레이션. 결정적이라 늘 같은 답이고, 수를 늘려도 수십 ms면 끝난다.
+
+    규모를 아래 테스트가 세어 둔다. 예전에는 이 자리에 손으로 적은 곱셈이 있었는데
+    특성과 조우가 늘어난 뒤에도 옛 수가 남아, 그 수를 그대로 옮겨 적은 문서까지
+    함께 틀렸다. 세는 일을 사람에게 맡기지 않는다.
+  */
+  it('시뮬레이션 규모 — 문서가 인용하는 수', () => {
+    const combos = allPartyCombos().length
+    const encounters = STAGES.reduce((n, s) => n + allEncounters(s).length, 0)
+    const total = combos * TRAIT_IDS.length * encounters
+    expect({ combos, traits: TRAIT_IDS.length, encounters, total }).toEqual({
+      combos: 30,
+      traits: 8,
+      encounters: 19,
+      total: 4560,
+    })
+  })
+
   for (const [stageIndex, stage] of STAGES.entries()) {
     it(`${stage.id} — 전 조합 × 전 특성 승리 (진입 최소 레벨)`, () => {
       const failures: string[] = []

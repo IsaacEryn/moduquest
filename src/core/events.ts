@@ -43,6 +43,11 @@ export type GameEvent =
   | { type: 'downed'; target: Combatant }
   | { type: 'victory'; boss: boolean; revived: Combatant[] }
   | { type: 'defeat' }
+  /**
+   * 졌을 때 치른 값. 낭독이 사실을 말하려면 무엇을 잃었는지가 사건에 실려야 한다 —
+   * 손으로 적은 문구는 수치를 고치는 순간 거짓말이 된다.
+   */
+  | { type: 'defeatPenalty'; goldLost: number[]; revivedName: string | null }
   | { type: 'battleEnd' }
   | { type: 'battleSummary'; text: string }
   | { type: 'manaSpent'; actor: Combatant; cost: number; left: number }
