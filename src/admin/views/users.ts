@@ -1,11 +1,12 @@
 import {
   PAGE,
   deleteUser,
+  fetchLastSignin,
   fetchProfiles,
   fetchSaveActivity,
   lookupEmail,
-  resetNickname,
   setBan,
+  setNickname,
   type ProfileRow,
 } from '../api'
 import { banLabel, latestSaveByUser, relativeTime } from '../format'
@@ -24,10 +25,16 @@ export async function renderUsers(content: HTMLElement, actor: string): Promise<
     content.replaceChildren(heading('사용자'), note('불러오는 중…'))
     let rows: ProfileRow[]
     let saved: Map<string, string>
+    let signedIn: Map<string, string>
     try {
-      const [profiles, saves] = await Promise.all([fetchProfiles(page, search), fetchSaveActivity()])
+      const [profiles, saves, logins] = await Promise.all([
+        fetchProfiles(page, search),
+        fetchSaveActivity(),
+        fetchLastSignin(),
+      ])
       rows = profiles
       saved = latestSaveByUser(saves)
+      signedIn = logins
     } catch (e) {
       content.replaceChildren(heading('사용자'), errorLine((e as Error).message))
       return
@@ -87,11 +94,18 @@ export async function renderUsers(content: HTMLElement, actor: string): Promise<
       actions.className = 'admin-actions'
 
       actions.append(
-        button('닉네임 초기화', async () => {
-          if (!confirm(`"${row.nickname}"의 닉네임을 초기화할까?`)) return
+        button('닉네임 바꾸기', async () => {
+          // 무엇으로 바꿀지 물어보되, 비워서 넘기면 익명 꼴로 되돌린다 —
+          // 사칭 정리와 개별 교정이 같은 자리에서 끝난다
+          const typed = prompt(
+            `"${row.nickname}"의 새 닉네임 (12자까지).\n비워 두고 확인하면 익명 이름으로 되돌린다.`,
+            row.nickname,
+          )
+          if (typed === null) return
+          const next = typed.trim()
           try {
-            await resetNickname(actor, row)
-            say(`닉네임을 초기화했다: ${row.nickname}`)
+            const applied = await setNickname(actor, row, next || undefined)
+            say(`${row.nickname} → ${applied}로 바꿨다.`)
             await rerender()
           } catch (e) {
             say((e as Error).message)
@@ -176,17 +190,23 @@ export async function renderUsers(content: HTMLElement, actor: string): Promise<
       )
 
       const lastSave = saved.get(row.user_id)
+      const lastLogin = signedIn.get(row.user_id)
       return [
         name,
         row.friend_code,
         relativeTime(row.created_at),
+        lastLogin ? relativeTime(lastLogin) : '-',
         lastSave ? relativeTime(lastSave) : '-',
         actions,
       ] as (string | HTMLElement)[]
     })
 
     content.append(
-      dataTable('사용자 목록', ['닉네임', '친구 코드', '가입', '최근 저장', '조치'], tableRows),
+      dataTable(
+        '사용자 목록',
+        ['닉네임', '친구 코드', '가입', '최근 로그인', '최근 저장', '조치'],
+        tableRows,
+      ),
     )
     if (rows.length === 0) content.append(note('결과가 없다.'))
 

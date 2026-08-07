@@ -1,17 +1,38 @@
 /*
   운영 페이지 — 게임과 다른 문법의 화면이라 스타일도 독립이다.
-  CMS의 익숙한 꼴: 상단 바 + 좌측 메뉴 + 본문. 밝은 바탕, 촘촘한 표.
+  CMS의 익숙한 꼴: 상단 바 + 좌측 메뉴 + 본문.
+
+  밝은 바탕과 어두운 바탕 둘 다 지원한다. 색은 전부 토큰으로만 쓰고,
+  어두운 쪽 대비는 본문 기준 7:1 이상을 잡았다 — 운영자가 표를 오래 본다.
 */
 
 :root {
+  color-scheme: light dark;
   --a-bg: #f5f6f8;
   --a-panel: #ffffff;
   --a-line: #d9dce1;
   --a-text: #1d2430;
   --a-dim: #5a6472;
   --a-accent: #2456b3;
-  --a-warn: #b3541e;
-  --a-danger: #b02a2a;
+  --a-accent-text: #ffffff;
+  --a-warn: #9a4715;
+  --a-danger: #a52121;
+  --a-head: #eef0f4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --a-bg: #14181d;
+    --a-panel: #1c2229;
+    --a-line: #333d47;
+    --a-text: #e8edf2;
+    --a-dim: #a3afbb;
+    --a-accent: #6aa7ff;
+    --a-accent-text: #0d1116;
+    --a-warn: #ffb066;
+    --a-danger: #ff8a8a;
+    --a-head: #232a32;
+  }
 }
 
 * {
@@ -123,7 +144,8 @@ input:focus-visible {
 
 .admin-nav a[aria-current='page'] {
   background: var(--a-accent);
-  color: #fff;
+  color: var(--a-accent-text);
+  font-weight: 600;
 }
 
 .admin-content {
@@ -252,7 +274,7 @@ tbody tr:last-child td {
 }
 
 th {
-  background: var(--a-bg);
+  background: var(--a-head);
   font-weight: 600;
   position: sticky;
   top: 0;
@@ -264,12 +286,14 @@ th {
   padding: 0.05rem 0.45rem;
   border-radius: 99px;
   background: var(--a-accent);
-  color: #fff;
+  color: var(--a-accent-text);
   font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .admin-badge-warn {
   background: var(--a-warn);
+  color: var(--a-accent-text);
 }
 
 .admin-actions {
@@ -286,10 +310,13 @@ th {
   margin-bottom: 0.5rem;
 }
 
-.admin-search input {
+.admin-search input,
+select {
   padding: 0.35rem 0.6rem;
   border: 1px solid var(--a-line);
   border-radius: 6px;
+  background: var(--a-panel);
+  color: var(--a-text);
 }
 
 .admin-tabs {
@@ -311,7 +338,8 @@ th {
 .admin-tabs a[aria-current='page'] {
   background: var(--a-accent);
   border-color: var(--a-accent);
-  color: #fff;
+  color: var(--a-accent-text);
+  font-weight: 600;
 }
 
 .admin-pager {
@@ -320,16 +348,92 @@ th {
   margin-top: 0.75rem;
 }
 
-/* 좁은 화면 — 메뉴가 위로 접힌다 */
-@media (max-width: 40rem) {
+/* ── 좁은 화면 ── */
+
+/* 태블릿 — 메뉴가 위로 접혀 가로줄이 된다 */
+@media (max-width: 56rem) {
   .admin-shell {
     flex-direction: column;
   }
 
   .admin-nav {
+    flex: none;
     flex-direction: row;
     flex-wrap: wrap;
     border-right: none;
     border-bottom: 1px solid var(--a-line);
+    position: sticky;
+    top: 0;
+    z-index: 5;
+  }
+
+  .admin-content {
+    padding: 1rem;
+  }
+}
+
+/*
+  손에 쥐는 화면 — 표를 가로로 미는 대신 카드로 편다.
+  머리글은 각 칸 앞에 붙는 라벨이 대신한다(data-label). 운영자가
+  이동 중에도 목록을 읽을 수 있어야 한다.
+*/
+@media (max-width: 40rem) {
+  .admin-topbar {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .admin-content h1 {
+    font-size: 1.15rem;
+  }
+
+  .admin-table-wrap {
+    border: none;
+    background: none;
+  }
+
+  table,
+  tbody,
+  tr,
+  td {
+    display: block;
+    width: 100%;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody tr {
+    background: var(--a-panel);
+    border: 1px solid var(--a-line);
+    border-radius: 8px;
+    margin-bottom: 0.6rem;
+    padding: 0.5rem 0.75rem;
+  }
+
+  tbody td {
+    border-bottom: none;
+    padding: 0.2rem 0;
+    white-space: normal;
+  }
+
+  tbody td[data-label]::before {
+    content: attr(data-label) ': ';
+    color: var(--a-dim);
+    font-size: 0.8rem;
+  }
+
+  .admin-actions button,
+  .admin-actions select {
+    flex: 1 1 auto;
+  }
+
+  .admin-cards {
+    gap: 0.5rem;
+  }
+
+  .admin-card {
+    flex-basis: calc(50% - 0.25rem);
   }
 }

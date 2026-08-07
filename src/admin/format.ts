@@ -63,3 +63,58 @@ export function signupsToBars(rows: { day: string; n: number }[]): { day: string
 export function shouldCheckAdmin(storageKeys: string[]): boolean {
   return storageKeys.some((k) => k.startsWith('sb-') && k.endsWith('-auth-token'))
 }
+
+/**
+ * 감사 로그 한 줄을 사람이 읽는 문장으로.
+ *
+ * 예전에는 여기에 JSON을 그대로 찍었다. {"days":1,"until":"...Z"} 같은 것은
+ * 기록이 아니라 부스러기다 — 무슨 일이 있었는지 읽으려면 사람이 파싱을 해야 했다.
+ */
+export function describeAudit(
+  action: string,
+  detail: Record<string, unknown> | null,
+  targetName: string,
+): string {
+  const d = detail ?? {}
+  switch (action) {
+    case 'nickname_reset':
+      return `${d.from ?? '?'} → ${d.to ?? '?'}로 닉네임을 되돌렸다`
+    case 'nickname_set':
+      return `${d.from ?? '?'} → ${d.to ?? '?'}로 닉네임을 바꿨다`
+    case 'ban': {
+      const days = typeof d.days === 'number' ? `${d.days}일` : ''
+      const until = typeof d.until === 'string' ? ` (${fullTime(d.until)}까지)` : ''
+      return `${targetName}의 멀티 이용을 ${days} 정지했다${until}`
+    }
+    case 'unban':
+      return `${targetName}의 정지를 풀었다`
+    case 'delete_user':
+      return `${d.nickname ?? targetName}의 계정을 지웠다`
+    case 'email_lookup':
+      return `${targetName}의 이메일을 확인했다`
+    default:
+      return action
+  }
+}
+
+/** 삭제된 계정은 닉네임 맵에 없다 — 기록에 남긴 이름이라도 보여준다 */
+export function auditTargetName(
+  detail: Record<string, unknown> | null,
+  fromMap: string | undefined,
+  targetId: unknown,
+): string {
+  if (fromMap) return fromMap
+  const saved = (detail ?? {}).nickname
+  if (typeof saved === 'string' && saved) return `${saved} (지워진 계정)`
+  return String(targetId ?? '').slice(0, 8)
+}
+
+/** 인증 사건 이름을 우리말로 */
+export const LOGIN_ACTION_KO: Record<string, string> = {
+  login: '로그인',
+  logout: '로그아웃',
+  user_signedup: '가입',
+  user_confirmation_requested: '확인 메일 요청',
+  user_recovery_requested: '비밀번호 재설정 요청',
+  token_refreshed: '세션 갱신',
+}

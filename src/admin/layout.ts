@@ -9,7 +9,7 @@ import type { Route } from './router'
 const MENU: { hash: string; label: string; match: Route['view'] }[] = [
   { hash: '#/dashboard', label: '대시보드', match: 'dashboard' },
   { hash: '#/users', label: '사용자', match: 'users' },
-  { hash: '#/logs', label: '기록', match: 'logs' },
+  { hash: '#/logs', label: '로그', match: 'logs' },
   { hash: '#/resources', label: '게임 리소스', match: 'resources' },
 ]
 
@@ -128,12 +128,14 @@ export function dataTable(
   const tbody = document.createElement('tbody')
   for (const row of rows) {
     const trb = document.createElement('tr')
-    for (const cell of row) {
+    row.forEach((cell, i) => {
       const td = document.createElement('td')
+      // 좁은 화면에서 표가 카드로 펴질 때 머리글 대신 붙는 라벨
+      if (headers[i]) td.dataset.label = headers[i]
       if (typeof cell === 'string') td.textContent = cell
       else td.append(cell)
       trb.append(td)
-    }
+    })
     tbody.append(trb)
   }
   table.append(thead, tbody)

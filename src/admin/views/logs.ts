@@ -1,5 +1,5 @@
-import { PAGE, fetchAudit, fetchLog, fetchProfiles, nicknameMap } from '../api'
-import { fullTime } from '../format'
+import { PAGE, fetchAudit, fetchLog, fetchLoginLog, fetchProfiles, nicknameMap } from '../api'
+import { LOGIN_ACTION_KO, auditTargetName, describeAudit, fullTime } from '../format'
 import { button, dataTable, errorLine, heading, note } from '../layout'
 
 /**
@@ -8,24 +8,25 @@ import { button, dataTable, errorLine, heading, note } from '../layout'
  */
 
 const TABS: { key: string; label: string }[] = [
+  { key: 'logins', label: '로그인' },
   { key: 'signups', label: '가입' },
   { key: 'gifts', label: '선물' },
   { key: 'friends', label: '친구' },
   { key: 'invites', label: '초대' },
-  { key: 'saves', label: '저장 갱신' },
+  { key: 'saves', label: '저장' },
   { key: 'audit', label: '운영 조치' },
 ]
 
 export async function renderLogs(content: HTMLElement, tab: string): Promise<void> {
   let page = 0
-  const active = TABS.some((t) => t.key === tab) ? tab : 'signups'
+  const active = TABS.some((t) => t.key === tab) ? tab : 'logins'
 
   const rerender = async () => {
-    content.replaceChildren(heading('기록'))
+    content.replaceChildren(heading('로그'))
 
     const tabsNav = document.createElement('nav')
     tabsNav.className = 'admin-tabs'
-    tabsNav.setAttribute('aria-label', '기록 종류')
+    tabsNav.setAttribute('aria-label', '로그 종류')
     for (const t of TABS) {
       const a = document.createElement('a')
       a.href = `#/logs/${t.key}`
@@ -41,7 +42,20 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
       let table: HTMLElement
       let count = 0
 
-      if (active === 'signups') {
+      if (active === 'logins') {
+        const rows = await fetchLoginLog(page)
+        count = rows.length
+        table = dataTable(
+          '로그인 기록',
+          ['시각', '사건', '계정', '접속 주소'],
+          rows.map((r) => [
+            fullTime(r.at),
+            LOGIN_ACTION_KO[r.action] ?? r.action,
+            r.email ?? '-',
+            r.ip ?? '-',
+          ]),
+        )
+      } else if (active === 'signups') {
         const rows = await fetchProfiles(page, '')
         count = rows.length
         table = dataTable(
@@ -101,27 +115,22 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
       } else {
         const rows = await fetchAudit(page)
         count = rows.length
-        const ACTION_KO: Record<string, string> = {
-          nickname_reset: '닉네임 초기화',
-          ban: '정지',
-          unban: '정지 해제',
-          delete_user: '계정 삭제',
-          email_lookup: '이메일 조회',
-        }
         table = dataTable(
           '운영 조치 기록',
-          ['시각', '관리자', '조치', '대상', '내용'],
-          rows.map((r) => [
-            fullTime(r.created_at as string),
-            who(r.actor),
-            ACTION_KO[r.action as string] ?? String(r.action),
-            who(r.target),
-            r.detail ? JSON.stringify(r.detail) : '',
-          ]),
+          ['시각', '관리자', '한 일'],
+          rows.map((r) => {
+            const detail = (r.detail ?? null) as Record<string, unknown> | null
+            const target = auditTargetName(detail, names.get(r.target as string), r.target)
+            return [
+              fullTime(r.created_at as string),
+              who(r.actor),
+              describeAudit(r.action as string, detail, target),
+            ]
+          }),
         )
       }
 
-      content.replaceChildren(heading('기록'), tabsNav, table)
+      content.replaceChildren(heading('로그'), tabsNav, table)
       if (count === 0) content.append(note(page === 0 ? '기록이 없다.' : '더 이상 없다.'))
 
       const pager = document.createElement('div')
@@ -142,7 +151,7 @@ export async function renderLogs(content: HTMLElement, tab: string): Promise<voi
         )
       content.append(pager)
     } catch (e) {
-      content.replaceChildren(heading('기록'), tabsNav, errorLine((e as Error).message))
+      content.replaceChildren(heading('로그'), tabsNav, errorLine((e as Error).message))
     }
   }
 

@@ -65,16 +65,37 @@ async function audit(
   await supabase().from('admin_audit').insert({ actor, action, target, detail: detail ?? null })
 }
 
-/** 닉네임 초기화 — 사칭·부적절 닉네임을 익명 꼴로 되돌린다 */
-export async function resetNickname(actor: string, row: ProfileRow): Promise<void> {
-  const fresh = `모험가${row.friend_code.slice(0, 4)}`
+/**
+ * 닉네임을 바꾼다. next가 없으면 익명 꼴로 되돌린다(초기화).
+ * 서버의 길이 제약·사칭 차단 제약이 최종 판정자다 — 여기서는 미리 걸러 주기만 한다.
+ */
+export async function setNickname(
+  actor: string,
+  row: ProfileRow,
+  next?: string,
+): Promise<string> {
+  const fresh = (next ?? `모험가${row.friend_code.slice(0, 4)}`).trim()
+  if (!fresh) throw new Error('닉네임이 비어 있다.')
+  if ([...fresh].length > 12) throw new Error('닉네임은 12자까지다.')
   const { error, data } = await supabase()
     .from('profiles')
     .update({ nickname: fresh })
     .eq('user_id', row.user_id)
     .select('user_id')
-  if (error || (data?.length ?? 0) === 0) throw new Error('닉네임을 바꾸지 못했다.')
-  await audit(actor, 'nickname_reset', row.user_id, { from: row.nickname, to: fresh })
+  if (error) {
+    // 서버의 사칭 차단 제약에 걸린 경우를 알아볼 수 있게 옮긴다
+    throw new Error(
+      error.message.includes('nickname_not_staff')
+        ? '운영자를 사칭하는 이름이라 서버가 거절했다.'
+        : '닉네임을 바꾸지 못했다.',
+    )
+  }
+  if ((data?.length ?? 0) === 0) throw new Error('닉네임을 바꾸지 못했다.')
+  await audit(actor, next ? 'nickname_set' : 'nickname_reset', row.user_id, {
+    from: row.nickname,
+    to: fresh,
+  })
+  return fresh
 }
 
 /** 멀티 이용 정지 — days가 null이면 해제 */
@@ -114,6 +135,27 @@ export async function fetchAudit(page: number): Promise<Record<string, unknown>[
     .order('created_at', { ascending: false })
     .range(page * PAGE, page * PAGE + PAGE - 1)
   return data ?? []
+}
+
+/** 로그인·가입 같은 인증 사건 — 서비스가 이미 남기는 기록을 관리자만 본다 */
+export async function fetchLoginLog(page: number): Promise<
+  { at: string; action: string; email: string | null; ip: string | null }[]
+> {
+  const { data, error } = await supabase().rpc('admin_login_log', {
+    limit_n: PAGE,
+    offset_n: page * PAGE,
+  })
+  if (error) throw new Error('로그인 기록을 불러오지 못했다.')
+  return (data ?? []) as { at: string; action: string; email: string | null; ip: string | null }[]
+}
+
+/** 계정별 마지막 로그인 — 사용자 목록의 "최근 접속" 열 */
+export async function fetchLastSignin(): Promise<Map<string, string>> {
+  const { data } = await supabase().rpc('admin_last_signin')
+  const rows = (data ?? []) as { user_id: string; last_sign_in_at: string | null }[]
+  return new Map(
+    rows.filter((r) => r.last_sign_in_at).map((r) => [r.user_id, r.last_sign_in_at as string]),
+  )
 }
 
 /** 로그 탭들의 공통 읽기 — 테이블·컬럼만 다르고 페이지 방식은 같다 */

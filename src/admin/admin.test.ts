@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 import {
+  auditTargetName,
   banLabel,
+  describeAudit,
   latestSaveByUser,
   relativeTime,
   shouldCheckAdmin,
@@ -89,3 +91,32 @@ describe('표시용 변환', () => {
   })
 })
 
+
+describe('운영 조치를 사람 말로', () => {
+  it('닉네임 변경은 무엇이 무엇으로 바뀌었는지 말한다', () => {
+    expect(describeAudit('nickname_reset', { from: '캡차시험', to: '모험가7FC2' }, '모험가7FC2'))
+      .toBe('캡차시험 → 모험가7FC2로 닉네임을 되돌렸다')
+    expect(describeAudit('nickname_set', { from: '가', to: '나' }, '나'))
+      .toBe('가 → 나로 닉네임을 바꿨다')
+  })
+
+  it('정지는 기간과 기한을 읽을 수 있게 적는다 — ISO 원문을 보여주지 않는다', () => {
+    const text = describeAudit('ban', { days: 7, until: '2026-08-14T04:19:28.434Z' }, '이순신')
+    expect(text).toContain('이순신의 멀티 이용을 7일 정지했다')
+    expect(text).not.toContain('T04:19')
+    expect(describeAudit('unban', { days: null, until: null }, '이순신'))
+      .toBe('이순신의 정지를 풀었다')
+  })
+
+  it('삭제는 기록에 남긴 이름으로 말한다 — 계정이 이미 없기 때문이다', () => {
+    expect(describeAudit('delete_user', { nickname: '모험가7FC2' }, '알 수 없음'))
+      .toBe('모험가7FC2의 계정을 지웠다')
+  })
+
+  it('지워진 계정의 대상 이름은 기록에서 되살린다', () => {
+    expect(auditTargetName({ nickname: '모험가7FC2' }, undefined, 'b4ab2a57-x'))
+      .toBe('모험가7FC2 (지워진 계정)')
+    expect(auditTargetName(null, '이순신', 'uuid')).toBe('이순신')
+    expect(auditTargetName(null, undefined, 'b4ab2a57-aaaa')).toBe('b4ab2a57')
+  })
+})
