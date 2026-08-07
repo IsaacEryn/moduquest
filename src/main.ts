@@ -26,6 +26,7 @@ import { FieldHud } from './ui/fieldHud'
 import { HelpPanel } from './ui/helpPanel'
 import { OptionsPanel } from './ui/options'
 import { OptionsStore } from './ui/optionsStore'
+import { refreshAccountBadge } from './ui/accountBadge'
 import { initTheme, spriteModeFor } from './ui/theme'
 import { PartyPanel } from './ui/partyPanel'
 import { AUTOSAVE_ON } from './save/autosaveEvents'
@@ -283,13 +284,7 @@ async function openCoop(): Promise<void> {
       ...pauseHooks,
       announce: (t) => announcer.polite(t),
       // 멀티 플레이의 기록은 계정에 붙는다 — 누가 로그인해 있느냐가 곧 어느 자리냐다
-      onProfileChanged: (profile) => {
-        if (profile) void useAccountSaves(profile.userId)
-        else useDeviceSaves()
-        // 누가 들어와 있는지가 바뀌면 운영 링크도 다시 판단한다 —
-        // 로그아웃했는데 남의 문이 그대로 보이면 안 된다
-        refreshAdminLink()
-      },
+      onProfileChanged: sharedOnProfileChanged,
       createSession: async (me) => {
         activeSession = await PartySession.host(game, data, bus, sessionHooks, me)
         return activeSession
@@ -338,6 +333,7 @@ async function openCoop(): Promise<void> {
           await panel.open()
         })()
       },
+      openAccount: () => void openAccount(),
       openFriends: (me) => {
         void (async () => {
           const [{ FriendPanel }, { sendPartyInvite }] = await Promise.all([
@@ -518,6 +514,33 @@ screens.showTitle()
  * 로그인 흔적이 있을 때만 확인을 시작한다. 없으면 여기서 끝 —
  * 서버 요청 0건이고 운영 관련 코드가 내려오지도 않는다.
  */
+/**
+ * 로그인 상태가 바뀔 때 갈아 끼워야 하는 것들 — 저장소·운영 링크·계정 배지.
+ * 어느 문(멀티 플레이 창·계정 창)으로 드나들었든 같은 길을 지난다.
+ */
+async function sharedOnProfileChanged(profile: { userId: string } | null): Promise<void> {
+  if (profile) await useAccountSaves(profile.userId)
+  else useDeviceSaves()
+  refreshAdminLink()
+  refreshAccountBadge(() => void openAccount())
+}
+
+let accountPanel: import('./ui/accountPanel').AccountPanel | null = null
+
+/** 계정 창 — 로그인·내 정보. 창을 겹쳐 열지 않는 관례를 따른다 */
+async function openAccount(): Promise<void> {
+  coopPanel?.close()
+  if (!accountPanel) {
+    const { AccountPanel } = await import('./ui/accountPanel')
+    accountPanel = new AccountPanel({
+      ...pauseHooks,
+      announce: (t) => announcer.polite(t),
+      onProfileChanged: sharedOnProfileChanged,
+    })
+  }
+  await accountPanel.open()
+}
+
 function refreshAdminLink(): void {
   // 이미 붙은 링크는 먼저 거둔다 — 계정이 바뀌었을 수 있다
   document.getElementById('admin-link')?.remove()
@@ -529,6 +552,7 @@ function refreshAdminLink(): void {
 }
 
 refreshAdminLink()
+refreshAccountBadge(() => void openAccount())
 
 /**
  * 확인 메일의 링크를 눌러 돌아온 참이면 함께 하기를 바로 연다.

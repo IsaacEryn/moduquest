@@ -1468,10 +1468,6 @@ details > summary::marker {
 
 body[data-mode='title'] #admin-link {
   display: block;
-  position: absolute;
-  top: var(--sp-3);
-  right: var(--sp-3);
-  z-index: 10;
   padding: var(--sp-1) var(--sp-3);
   border: 1px solid var(--panel-border);
   border-radius: 6px;
@@ -1510,4 +1506,79 @@ dialog.options fieldset.opt-theme legend {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
+}
+
+/* 타이틀 우측 상단 — 계정 배지와 운영 링크가 나란히 선다 */
+#title-links {
+  display: none;
+}
+
+body[data-mode='title'] #title-links {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  position: absolute;
+  top: var(--sp-3);
+  right: var(--sp-3);
+  z-index: 10;
+}
+
+#account-badge {
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--control-border);
+  border-radius: 6px;
+  background: var(--btn-bg);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+/* 로그인돼 있으면 점 하나가 함께 말한다 — 색만으로 구분하지 않도록 이름도 바뀐다 */
+#account-badge.signed-in::before {
+  content: '●';
+  color: var(--accent);
+  margin-right: var(--sp-2);
+  font-size: 0.7em;
+}
+
+/* 계정 창 조각들 */
+.account-rows {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--sp-2) var(--sp-4);
+  margin: 0 0 var(--sp-4);
+}
+
+.account-rows dt {
+  color: var(--text-dim);
+}
+
+.account-rows dd {
+  margin: 0;
+  font-weight: 600;
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.account-actions button {
+  flex: 1 1 8rem;
+}
+
+.account-back {
+  margin-top: var(--sp-4);
+}
+
+.account-leave {
+  margin-top: var(--sp-5);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line);
+  text-align: right;
+}
+
+.account-danger {
+  color: var(--danger);
 }

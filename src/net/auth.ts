@@ -23,6 +23,9 @@ export type SignUpResult =
 function friendly(message: string): string {
   const m = message.toLowerCase()
   if (m.includes('invalid login credentials')) return '이메일이나 비밀번호가 맞지 않다.'
+  if (m.includes('different from the old password') || m.includes('same_password')) {
+    return '새 비밀번호가 이전 비밀번호와 같다.'
+  }
   if (m.includes('email not confirmed')) {
     return '아직 메일 확인이 끝나지 않았다. 메일함의 링크를 먼저 누르자.'
   }
@@ -118,6 +121,21 @@ export async function signIn(
   if (profile) return profile
   // 트리거가 없던 시절에 만든 계정 — 닉네임을 다시 받아야 한다
   return { userId: data.user.id, nickname: '', friendCode: '' }
+}
+
+/**
+ * 비밀번호 변경. 현재 비밀번호를 먼저 재검증한다 — 자리를 비운 사이에
+ * 다른 사람이 바꿔 버리는 사고를 막는 최소한의 문턱이다.
+ */
+export async function changePassword(current: string, next: string): Promise<void> {
+  const sb = supabase()
+  const { data } = await sb.auth.getSession()
+  const email = data.session?.user?.email
+  if (!email) throw new Error('로그인이 필요하다.')
+  const { error: verify } = await sb.auth.signInWithPassword({ email, password: current })
+  if (verify) throw new Error('현재 비밀번호가 맞지 않다.')
+  const { error } = await sb.auth.updateUser({ password: next })
+  if (error) throw new Error(friendly(error.message))
 }
 
 export async function signOut(): Promise<void> {
