@@ -118,7 +118,7 @@ describe('중복 직업 파티 — 코어가 받아들이고 갈라 다룬다', 
     expect(g.upgradeLevelOf('warrior2', 'atk')).toBe(0)
     const first = g.statBreakdownOf('warrior')!
     const second = g.statBreakdownOf('warrior2')!
-    expect(first.total.atk).toBeGreaterThan(second.total.atk)
+    expect(first.total.patk).toBeGreaterThan(second.total.patk)
   })
 
   it('중복 파티도 저장하고 그대로 돌아온다', () => {

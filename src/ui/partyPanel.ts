@@ -19,7 +19,10 @@ function describeJob(j: JobData): string {
     // 누가 앞에 서는지는 파티를 짤 때 알아야 하는 정보다
     `앞줄 ${j.frontOrder}번째. ` +
     `체력 ${j.hp}, 마력 ${j.mp}(라운드마다 ${j.mpRegen} 회복), ` +
-    `공격 ${j.atk}, 방어 ${j.def}, 속도 ${j.spd}. 기술: ${skills}`
+    // 무엇으로 싸우는가가 먼저다 — 파티를 짤 때 물리와 마법이 섞였는지 보게 한다
+    `${j.mainType === 'magic' ? '마법으로 싸운다' : '몸으로 싸운다'}. ` +
+    `공격 물리 ${j.patk} · 마법 ${j.matk}, 방어 물리 ${j.pdef} · 마법 ${j.mdef}, ` +
+    `속도 ${j.spd}. 기술: ${skills}`
   )
 }
 

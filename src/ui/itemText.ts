@@ -10,15 +10,17 @@ import type { ItemData, StatBlock } from '../core/types'
 /** 오른 것은 +, 깎인 것은 - 그대로 — 무거운 장비의 대가를 감추지 않는다 */
 export const signed = (v: number) => (v > 0 ? `+${v}` : `${v}`)
 
-const STAT_ORDER = ['체력', '마력', '공격', '방어', '속도'] as const
+const STAT_ORDER = ['체력', '마력', '물리 공격', '마법 공격', '물리 방어', '마법 방어', '속도'] as const
 
 function statBits(stats: StatBlock | undefined): string[] {
   if (!stats) return []
   const named: Record<string, number | undefined> = {
     체력: stats.hp,
     마력: stats.mp,
-    공격: stats.atk,
-    방어: stats.def,
+    '물리 공격': stats.patk,
+    '마법 공격': stats.matk,
+    '물리 방어': stats.pdef,
+    '마법 방어': stats.mdef,
     속도: stats.spd,
   }
   return STAT_ORDER.filter((k) => (named[k] ?? 0) !== 0).map(

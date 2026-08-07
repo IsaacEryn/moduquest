@@ -41,12 +41,14 @@ function buildPartyOf(jobIds: string[], traitId: string, level: number): Combata
     const lv = level - 1
     const base = {
       hp: j.hp + (grow?.hp ?? 0) * lv,
-      atk: j.atk + (grow?.atk ?? 0) * lv,
-      def: j.def + (grow?.def ?? 0) * lv,
+      patk: j.patk + (grow?.patk ?? 0) * lv,
+      matk: j.matk + (grow?.matk ?? 0) * lv,
+      pdef: j.pdef + (grow?.pdef ?? 0) * lv,
+      mdef: j.mdef + (grow?.mdef ?? 0) * lv,
       spd: j.spd + (grow?.spd ?? 0) * lv,
     }
     const maxMp = j.mp + (grow?.mp ?? 0) * lv
-    const s = isPlayer ? applyStats(base, trait, TRAITS.limits) : base
+    const s = isPlayer ? applyStats(base, trait, TRAITS.limits, j.mainType) : base
     const c: Combatant = {
       id: job,
       name: j.name,
@@ -57,8 +59,11 @@ function buildPartyOf(jobIds: string[], traitId: string, level: number): Combata
       mp: maxMp,
       maxMp,
       mpRegen: j.mpRegen,
-      atk: s.atk,
-      def: s.def,
+      mainType: j.mainType,
+      patk: s.patk,
+      matk: s.matk,
+      pdef: s.pdef,
+      mdef: s.mdef,
       spd: s.spd,
       skills: j.skills.filter((sk) => (sk.unlockLevel ?? 1) <= level),
       cooldowns: [],
@@ -172,27 +177,27 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
           "firm-stance": 9,
           "measured-pace": 6,
           "narrow-focus": 7,
-          "quick-turn": 6,
+          "quick-turn": 7,
           "steady-hand": 7,
           "swift-step": 9,
         },
         "stage2": {
-          "balanced": 7,
-          "firm-stance": 8,
-          "measured-pace": 7,
-          "narrow-focus": 7,
-          "quick-turn": 6,
-          "steady-hand": 7,
-          "swift-step": 8,
-        },
-        "stage3": {
-          "balanced": 9,
+          "balanced": 8,
           "firm-stance": 9,
           "measured-pace": 8,
-          "narrow-focus": 9,
+          "narrow-focus": 8,
           "quick-turn": 7,
           "steady-hand": 7,
           "swift-step": 9,
+        },
+        "stage3": {
+          "balanced": 7,
+          "firm-stance": 7,
+          "measured-pace": 7,
+          "narrow-focus": 7,
+          "quick-turn": 7,
+          "steady-hand": 7,
+          "swift-step": 7,
         },
       }
     `)

@@ -1,4 +1,4 @@
-import type { Combatant, TraitData, TraitsFile } from './types'
+import type { Combatant, DamageType, TraitData, TraitsFile } from './types'
 
 /**
  * 특성 적용은 순수 함수다 — 같은 입력이면 같은 결과.
@@ -15,22 +15,35 @@ export function resolveTraitId(traits: TraitsFile, id?: string | null): string {
 
 export interface TraitStats {
   hp: number
-  atk: number
-  def: number
+  patk: number
+  matk: number
+  pdef: number
+  mdef: number
   spd: number
 }
 
-/** 기본 능력치에 특성 보정을 더한다. 하한은 limits.minStat */
+/**
+ * 기본 능력치에 특성 보정을 더한다. 하한은 limits.minStat.
+ *
+ * 특성 데이터에는 여전히 `atk`·`def` 한 쌍만 있다. 특성은 플레이 스타일이지 속성이
+ * 아니므로 물리·마법으로 갈라 적지 않는다 — 대신 여기서 **공격 보정은 주력 타입에,
+ * 방어 보정은 양쪽에** 얹는다. 그래야 마법사가 어떤 특성을 골라도 손해가 아니고,
+ * "누구나 아무거나 고를 수 있다"가 수치 위에서도 참이 된다.
+ */
 export function applyStats(
   base: TraitStats,
   trait: TraitData,
   limits: TraitsFile['limits'],
+  mainType: DamageType,
 ): TraitStats {
   const floor = (v: number) => Math.max(limits.minStat, v)
+  const magic = mainType === 'magic'
   return {
     hp: floor(base.hp + trait.stats.hp),
-    atk: floor(base.atk + trait.stats.atk),
-    def: floor(base.def + trait.stats.def),
+    patk: floor(base.patk + (magic ? 0 : trait.stats.atk)),
+    matk: floor(base.matk + (magic ? trait.stats.atk : 0)),
+    pdef: floor(base.pdef + trait.stats.def),
+    mdef: floor(base.mdef + trait.stats.def),
     spd: floor(base.spd + trait.stats.spd),
   }
 }

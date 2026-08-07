@@ -15,6 +15,7 @@ import type {
   GameData,
   ItemData,
   JobData,
+  DamageType,
   PlayerAction,
   SaveSnapshot,
   SkillData,
@@ -245,8 +246,11 @@ export class Game {
         mp: s.mp,
         maxMp: s.mp,
         mpRegen: j.mpRegen,
-        atk: s.atk,
-        def: s.def,
+        mainType: j.mainType,
+        patk: s.patk,
+        matk: s.matk,
+        pdef: s.pdef,
+        mdef: s.mdef,
         spd: s.spd,
         skills: this.unlockedSkills(j),
         cooldowns: [],
@@ -433,7 +437,8 @@ export class Game {
 
   /** 다른 파티원 장비의 오라 합 — 함께 걷는 사람이 나를 강하게 한다 */
   private auraFor(memberId: string): StatBlock {
-    const out = { hp: 0, mp: 0, atk: 0, def: 0, spd: 0 }
+    const out = { hp: 0, mp: 0, patk: 0, matk: 0, pdef: 0, mdef: 0, spd: 0 }
+    const main = this.mainTypeOf(memberId)
     for (const other of this.memberIds) {
       if (other === memberId) continue
       for (const item of this.equippedItems(other)) {
@@ -441,9 +446,16 @@ export class Game {
         if (!a) continue
         out.hp += a.hp ?? 0
         out.mp += a.mp ?? 0
-        out.atk += a.atk ?? 0
-        out.def += a.def ?? 0
         out.spd += a.spd ?? 0
+        // 공격은 받는 사람의 주력으로, 방어는 양쪽으로 — 특성·강화와 같은 규칙이다
+        if (a.atk) {
+          if (main === 'magic') out.matk += a.atk
+          else out.patk += a.atk
+        }
+        if (a.def) {
+          out.pdef += a.def
+          out.mdef += a.def
+        }
       }
     }
     return out
@@ -592,17 +604,40 @@ export class Game {
     return this.materials
   }
 
-  /** 강화 단계를 실제 능력치로 편다 — 단계는 저장하고, 곱한 값은 저장하지 않는다 */
+  /**
+   * 강화 단계를 실제 능력치로 편다 — 단계는 저장하고, 곱한 값은 저장하지 않는다.
+   *
+   * 마을에서 파는 것은 "공격"과 "방어" 두 이름뿐이다. 물리·마법으로 갈라 여섯 칸을
+   * 만들면 마을 화면과 낭독이 그만큼 길어지는데, 통일 규칙(공격은 주력에, 방어는
+   * 양쪽에)이 있으니 갈라 놓을 이유가 없다.
+   */
   private upgradeStatsFor(memberId: string): StatBlock {
     const up = this.upgrades.get(memberId)
     if (!up) return {}
     const gain = this.data.economy.upgrade.gainPerLevel
+    const main = this.mainTypeOf(memberId)
     const out: StatBlock = {}
     for (const stat of this.data.economy.upgrade.stats) {
       const level = up[stat] ?? 0
-      if (level > 0) out[stat] = level * (gain[stat] ?? 0)
+      if (level <= 0) continue
+      const amount = level * (gain[stat] ?? 0)
+      if (stat === 'atk') {
+        if (main === 'magic') out.matk = (out.matk ?? 0) + amount
+        else out.patk = (out.patk ?? 0) + amount
+      } else if (stat === 'def') {
+        out.pdef = (out.pdef ?? 0) + amount
+        out.mdef = (out.mdef ?? 0) + amount
+      } else {
+        out[stat] = (out[stat] ?? 0) + amount
+      }
     }
     return out
+  }
+
+  /** 이 자리가 무엇으로 싸우는가 — 직업이 정한다 */
+  mainTypeOf(memberId: string): DamageType {
+    const job = this.jobOfMember(memberId)
+    return (job ? this.data.jobs[job]?.mainType : undefined) ?? 'physical'
   }
 
   /**

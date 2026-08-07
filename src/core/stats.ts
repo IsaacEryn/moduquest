@@ -17,8 +17,10 @@ import type {
 export interface FullStats {
   hp: number
   mp: number
-  atk: number
-  def: number
+  patk: number
+  matk: number
+  pdef: number
+  mdef: number
   spd: number
 }
 
@@ -33,15 +35,17 @@ export interface StatBreakdown {
   total: FullStats
 }
 
-const ZERO: FullStats = { hp: 0, mp: 0, atk: 0, def: 0, spd: 0 }
+const ZERO: FullStats = { hp: 0, mp: 0, patk: 0, matk: 0, pdef: 0, mdef: 0, spd: 0 }
 
 function add(a: FullStats, b: StatBlock | undefined): FullStats {
   if (!b) return a
   return {
     hp: a.hp + (b.hp ?? 0),
     mp: a.mp + (b.mp ?? 0),
-    atk: a.atk + (b.atk ?? 0),
-    def: a.def + (b.def ?? 0),
+    patk: a.patk + (b.patk ?? 0),
+    matk: a.matk + (b.matk ?? 0),
+    pdef: a.pdef + (b.pdef ?? 0),
+    mdef: a.mdef + (b.mdef ?? 0),
     spd: a.spd + (b.spd ?? 0),
   }
 }
@@ -93,8 +97,10 @@ export function computeMemberStats(input: {
   const base: FullStats = {
     hp: job.hp + (growth?.hp ?? 0) * lv,
     mp: job.mp + (growth?.mp ?? 0) * lv,
-    atk: job.atk + (growth?.atk ?? 0) * lv,
-    def: job.def + (growth?.def ?? 0) * lv,
+    patk: job.patk + (growth?.patk ?? 0) * lv,
+    matk: job.matk + (growth?.matk ?? 0) * lv,
+    pdef: job.pdef + (growth?.pdef ?? 0) * lv,
+    mdef: job.mdef + (growth?.mdef ?? 0) * lv,
     spd: job.spd + (growth?.spd ?? 0) * lv,
   }
   let equip = ZERO
@@ -103,15 +109,8 @@ export function computeMemberStats(input: {
   const aura = add(ZERO, input.auraFromOthers)
 
   const sum = add(add(add(add(base, upgrade), equip), set), aura)
-  let total = sum
-  if (trait) {
-    // 특성 보정과 하한(limits.minStat)은 마지막에 한 번만 — 마력은 특성이 건드리지 않는다
-    const t = applyStats(
-      { hp: sum.hp, atk: sum.atk, def: sum.def, spd: sum.spd },
-      trait,
-      limits,
-    )
-    total = { hp: t.hp, mp: sum.mp, atk: t.atk, def: t.def, spd: t.spd }
-  }
+  // 특성 보정과 하한(limits.minStat)은 마지막에 한 번만 — 마력은 특성이 건드리지 않는다.
+  // 특성의 공격 보정이 어느 쪽에 얹히는지는 직업의 주력 타입이 정한다(통일 규칙)
+  const total = trait ? { ...applyStats(sum, trait, limits, job.mainType), mp: sum.mp } : sum
   return { base, upgrade, equip, set, aura, total }
 }

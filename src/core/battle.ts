@@ -1,5 +1,5 @@
 import type { EventBus } from './events'
-import type { Combatant, MonsterData, PlayerAction, SkillData } from './types'
+import type { Combatant, DamageType, MonsterData, PlayerAction, SkillData } from './types'
 
 export type StepResult = 'waiting-player' | 'continue' | 'victory' | 'defeat'
 
@@ -33,9 +33,15 @@ export class Battle {
         isPlayer: false,
         hp: m.hp,
         maxHp: m.hp,
-        atk: m.atk,
-        def: m.def,
+        mainType: m.attackType ?? 'physical',
+        patk: m.patk,
+        matk: m.matk,
+        pdef: m.pdef,
+        mdef: m.mdef,
         spd: m.spd,
+        resist: m.resist,
+        pattern: m.pattern,
+        turnsTaken: 0,
         mp: 0,
         maxMp: 0,
         mpRegen: 0,
@@ -218,12 +224,26 @@ export class Battle {
           const pool = this.opponentsOf(actor).filter((c) => c.hp > 0)
           if (pool.length === 0) return false
           for (const target of pool) {
-            this.attack(actor, target, skill.multiplier ?? 1, skill.pierce ?? 0, skill.name)
+            this.attack(
+              actor,
+              target,
+              skill.multiplier ?? 1,
+              skill.pierce ?? 0,
+              skill.name,
+              skill.damageType,
+            )
           }
         } else {
           const target = this.findAlive(this.opponentsOf(actor), targetId)
           if (!target) return false
-          this.attack(actor, target, skill.multiplier ?? 1, skill.pierce ?? 0, skill.name)
+          this.attack(
+            actor,
+            target,
+            skill.multiplier ?? 1,
+            skill.pierce ?? 0,
+            skill.name,
+            skill.damageType,
+          )
         }
         break
       }
@@ -365,7 +385,9 @@ export class Battle {
         target = this.pick(alive, (c) => c.hp / c.maxHp)
         break
       case 'breaker':
-        target = this.pick(alive, (c) => c.def)
+        // 자기가 때리는 쪽의 방어가 가장 얇은 사람 — 마법으로 치는 몹은 마법 방어를 본다.
+        // "가장 아프게 들어가는 쪽"이라는 정의가 타입이 갈린 뒤에도 참이 되게 한다
+        target = this.pick(alive, (c) => (actor.mainType === 'magic' ? c.mdef : c.pdef))
         break
       case 'front':
         target = Battle.frontOf(alive)
@@ -389,8 +411,13 @@ export class Battle {
   }
 
   /**
-   * 피해 계산 순서: 흘림 판정 → 기본 피해(관통 반영) → 방어 시 절반 → 최소 1.
+   * 피해 계산 순서: 흘림 판정 → 기본 피해(관통 반영) → 상성 배율 → 방어 시 절반 → 최소 1.
    * 흘림은 최소 1 규칙의 유일한 예외다.
+   *
+   * 물리와 마법은 서로 다른 방어에 막히고, 관통도 자기 쪽만 뚫는다 —
+   * 급소 찌르기(관통 99)는 물리 방어를 전부 무시하지만 마법 방어에는 손대지 못한다.
+   * 상성 배율은 방어를 뺀 뒤에 곱한다. "이 몹은 마법 피해를 1.3배로 받는다"가
+   * 화면에 적힌 그대로 계산되어야 낭독과 실제가 어긋나지 않는다.
    */
   private attack(
     actor: Combatant,
@@ -398,17 +425,24 @@ export class Battle {
     multiplier = 1,
     extraPierce = 0,
     skillName?: string,
+    damageType?: DamageType,
   ): void {
     if (this.tryDeflect(target)) {
       this.bus.emit({ type: 'deflected', actor, target })
       return
     }
+    const type = damageType ?? actor.mainType
+    const magic = type === 'magic'
+    const atk = magic ? actor.matk : actor.patk
+    const def = magic ? target.mdef : target.pdef
     const pierce = (actor.pierce ?? 0) + extraPierce
-    const effectiveDef = Math.max(0, target.def - pierce)
-    let damage = Math.max(1, Math.floor(actor.atk * multiplier) - effectiveDef)
+    const effectiveDef = Math.max(0, def - pierce)
+    let damage = Math.max(1, Math.floor(atk * multiplier) - effectiveDef)
+    const resist = target.resist ? target.resist[type] : 1
+    if (resist !== 1) damage = Math.max(1, Math.floor(damage * resist))
     if (target.defending) damage = Math.max(1, Math.floor(damage / 2))
     target.hp = Math.max(0, target.hp - damage)
-    this.bus.emit({ type: 'attacked', actor, target, damage, skillName })
+    this.bus.emit({ type: 'attacked', actor, target, damage, skillName, damageType: type })
     if (target.hp === 0) this.bus.emit({ type: 'downed', target })
   }
 

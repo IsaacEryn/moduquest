@@ -1,4 +1,4 @@
-import type { Combatant, DialogueLine, Dir, EquipSlot, Pos } from './types'
+import type { Combatant, DamageType, DialogueLine, Dir, EquipSlot, Pos } from './types'
 
 export type GameEvent =
   | { type: 'mode'; mode: GameMode }
@@ -14,7 +14,15 @@ export type GameEvent =
   | { type: 'seatControlChanged'; seat: number; controller: 'human' | 'npc'; memberName: string }
   // 함께 하기 — 길잡이(이동 토큰)가 다른 자리로 넘어갔다
   | { type: 'moveTokenChanged'; seat: number; memberName: string }
-  | { type: 'attacked'; actor: Combatant; target: Combatant; damage: number; skillName?: string }
+  | {
+      type: 'attacked'
+      actor: Combatant
+      target: Combatant
+      damage: number
+      skillName?: string
+      /** 물리인가 마법인가 — 자막과 소리가 여기서 갈린다 */
+      damageType: DamageType
+    }
   | { type: 'healed'; actor: Combatant; target: Combatant; amount: number }
   | { type: 'taunted'; actor: Combatant; duration: number }
   | { type: 'defended'; actor: Combatant }

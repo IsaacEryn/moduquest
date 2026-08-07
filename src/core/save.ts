@@ -4,7 +4,15 @@ import { memberIdsOf } from './partyIds'
 import { resolveTraitId } from './traits'
 import type { EquipSlot, GameData, SaveSnapshot, StageData } from './types'
 
-export const SAVE_VERSION = 5
+/**
+ * 저장 형식. 버전이 다르면 그 기록은 불러오지 않는다(sanitizeSnapshot이 null).
+ *
+ * 6: 공격·방어가 물리와 마법으로 갈렸다. 저장에 능력치가 직접 들어 있지는 않지만
+ *    강화 단계가 이전 계산을 전제하고 있어서, 옛 기록을 그대로 펴면 강화한 적 없는
+ *    쪽이 올라가거나 올린 쪽이 사라진다. 조용히 어긋난 파티로 계속 노는 것보다
+ *    빈 칸에서 다시 시작하는 편이 낫다고 보았다.
+ */
+export const SAVE_VERSION = 6
 export const SLOT_COUNT = 3
 
 const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'shoes', 'gloves']
@@ -39,108 +47,22 @@ function clampInt(v: unknown, min: number, max: number, fallback: number): numbe
  * 읽을 수 없으면 null을 돌려주고, 호출자가 사용자에게 알린다.
  */
 /**
- * 옛 버전은 살려서 읽는다 — 기록을 지우지 않는 것이 관대한 설계다.
- * v1에는 파티 구성과 경험치가 없었으니 기본 구성과 스테이지 기준 경험치를 채운다.
+ * 옛 형식은 되살리지 않는다.
+ *
+ * v5까지는 단계마다 마이그레이션 함수를 두어 기록을 살려 왔다. 공격·방어가
+ * 물리와 마법으로 갈리면서 그 길을 닫았다 — 저장에 능력치가 직접 들어 있지는
+ * 않지만 강화 단계가 옛 계산을 전제하고 있어서, 억지로 펴면 올린 적 없는 쪽이
+ * 올라간 파티가 된다. 어긋난 채로 계속 노는 것보다 빈 칸이 정직하다.
+ *
+ * 그래서 도달할 수 없게 된 v1~v4 변환 함수도 함께 걷어냈다. 아무도 지나지 않는
+ * 길을 남겨 두면 다음 사람이 그 길이 살아 있다고 믿는다.
  */
-function migrateV1(r: Record<string, unknown>, data: GameData): Record<string, unknown> {
-  const stageIndex = clampInt(r.stageIndex, 0, data.stages.length - 1, 0)
-  const oldParty = Array.isArray(r.party) ? (r.party as Record<string, unknown>[]) : []
-  return {
-    ...r,
-    // 다음 단계(v2 마이그레이션)가 이어받도록 반드시 2를 적는다.
-    // 현재 버전을 적으면 "v3라고 주장하는 v2 모양"이 되어 체인이 끊긴다
-    schemaVersion: 2,
-    party: oldParty.map((p) => ({ job: p?.id, hp: p?.hp })),
-    xp: data.progression.stageEntryXp[stageIndex] ?? 0,
-  }
-}
-
-/** v2에는 장비가 없었다 — 빈 손으로 이어받는다 */
-function migrateV2(r: Record<string, unknown>): Record<string, unknown> {
-  const party = Array.isArray(r.party) ? (r.party as Record<string, unknown>[]) : []
-  return {
-    ...r,
-    schemaVersion: 3,
-    party: party.map((p) => ({ ...p, equipment: {} })),
-  }
-}
-
-/**
- * v3에는 구역이 없었다. 저장된 짧은 id가 이 스테이지에서 정확히 한 구역에만 있으면
- * 그 구역 것으로 승격하고, 여러 구역에 걸치면 어느 것인지 알 수 없으므로 버린다.
- * 구역이 하나뿐인 스테이지는 전부 살아나고, 다시 그린 스테이지는 저절로 정리된다.
- */
-function migrateV3(r: Record<string, unknown>, data: GameData): Record<string, unknown> {
-  const stageIndex = clampInt(r.stageIndex, 0, data.stages.length - 1, 0)
-  const stage = data.stages[stageIndex]
-  const rawField = (r.field ?? {}) as Record<string, unknown>
-
-  /** 짧은 id → 그 id를 가진 구역들 */
-  const owners = (short: string, kind: 'enc' | 'chest'): string[] =>
-    stage.areas
-      .filter((a) =>
-        kind === 'enc'
-          ? [...a.encounters, ...(a.boss ? [a.boss] : [])].some((e) => e.id === short)
-          : (a.chests ?? []).some((c) => c.id === short),
-      )
-      .map((a) => a.id)
-
-  let lost = false
-  const promote = (ids: unknown, kind: 'enc' | 'chest'): string[] => {
-    if (!Array.isArray(ids)) return []
-    const out: string[] = []
-    for (const id of ids) {
-      if (typeof id !== 'string') continue
-      const areas = owners(id, kind)
-      if (areas.length === 1) out.push(`${areas[0]}-${id}`)
-      else lost = true
-    }
-    return out
-  }
-
-  const defeated = promote(rawField.defeated, 'enc')
-  const openedChests = promote(rawField.openedChests, 'chest')
-  // 지도를 다시 그린 스테이지라면 옛 좌표와 쉼터 기록은 지금의 그것이 아니다
-  const keep = !lost && stage.areas.length === 1
-  return {
-    ...r,
-    // 다음 단계가 이어받도록 반드시 4를 적는다. 현재 버전을 적으면 체인이 끊긴다
-    schemaVersion: 4,
-    layoutKey: 0,
-    variants: [],
-    field: {
-      ...rawField,
-      areaId: stage.areas[0].id,
-      enteredFrom: null,
-      defeated,
-      openedChests,
-      checkpointReached: keep && rawField.checkpointReached === true,
-      pos: keep ? rawField.pos : undefined,
-    },
-  }
-}
-
-/** v4에는 마을이 없었다 — 빈 지갑으로 이어받는다 */
-function migrateV4(r: Record<string, unknown>): Record<string, unknown> {
-  return {
-    ...r,
-    // 다음 단계가 이어받도록 반드시 5를 적는다. 현재 버전을 적으면 체인이 끊긴다
-    schemaVersion: 5,
-    gold: 0,
-    materials: 0,
-    upgrades: [],
-  }
-}
 
 export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | null {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
-  let r = raw as Record<string, unknown>
+  const r = raw as Record<string, unknown>
 
-  if (r.schemaVersion === 1) r = migrateV1(r, data)
-  if (r.schemaVersion === 2) r = migrateV2(r)
-  if (r.schemaVersion === 3) r = migrateV3(r, data)
-  if (r.schemaVersion === 4) r = migrateV4(r)
-  // 모르는 상위 버전은 되살리려 하지 않는다 — 조용히 새 게임을 시작하면 사라진 걸 모른다
+  // 옛 형식도, 모르는 상위 버전도 되살리지 않는다
   if (r.schemaVersion !== SAVE_VERSION) return null
 
   const stageIndex = clampInt(r.stageIndex, 0, data.stages.length - 1, 0)

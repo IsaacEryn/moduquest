@@ -1,5 +1,15 @@
 /** 스킬 동작은 kind가 결정한다 — 새 스킬은 코드 수정 없이 데이터로 추가한다 */
 export type SkillKind = 'damage' | 'heal' | 'taunt'
+
+/**
+ * 피해의 종류. 물리는 물리 방어에, 마법은 마법 방어에 막힌다.
+ *
+ * 규칙 하나로 관통한다: **"공격을 올린다"고 적힌 것은 그 캐릭터의 주력 타입에 얹힌다.**
+ * 특성·마을 강화·동료 오라가 전부 그렇고, 타입을 명시하는 것은 장비뿐이다.
+ * 그래서 마법사가 어떤 특성을 골라도 함정이 되지 않는다 — "누구나 아무거나 고를 수
+ * 있다"는 원칙이 스탯이 늘어난 뒤에도 살아 있는 것은 이 규칙 덕분이다.
+ */
+export type DamageType = 'physical' | 'magic'
 /**
  * 대상 선택 UI가 어느 목록을 보여줄지 결정한다.
  * -all은 대상 선택 없이 그쪽 전원에게 — 대상별로 개별 계산해 결정성을 지킨다
@@ -20,8 +30,10 @@ export interface SkillData {
   duration?: number
   multiplier?: number
   healRatio?: number
-  /** 이 스킬만의 추가 관통 — 치명타의 결정적 번역 */
+  /** 이 스킬만의 추가 관통 — 치명타의 결정적 번역. 대응하는 쪽 방어만 뚫는다 */
   pierce?: number
+  /** 생략하면 시전자의 주력 타입 — 전사의 강타는 물리, 마법사의 화살은 마법이다 */
+  damageType?: DamageType
 }
 
 export interface JobData {
@@ -41,12 +53,18 @@ export interface JobData {
   mp: number
   /** 라운드마다 돌아오는 마력 — 확률이 아니라 정해진 양이다 */
   mpRegen: number
-  atk: number
-  def: number
+  /**
+   * 이 직업이 무엇으로 싸우는가. 평타와 타입 없는 스킬이 이쪽으로 나가고,
+   * 특성·강화·오라의 공격 보정도 여기에 얹힌다.
+   */
+  mainType: DamageType
+  patk: number
+  matk: number
+  pdef: number
+  mdef: number
   spd: number
   /** 배열 순서가 NPC의 사용 우선순위다 */
   skills: SkillData[]
-  advantages: Record<string, number>
 }
 
 /**
@@ -57,15 +75,46 @@ export interface JobData {
  */
 export type MonsterAi = 'front' | 'weakest' | 'breaker'
 
+/**
+ * 몹이 받는 피해 배율. 1보다 크면 그 타입에 약하고, 작으면 강하다.
+ * 확률이 아니라 고정 배율이라 한 번 배우면 영원히 같다 — 그래서 전술이 된다.
+ */
+export interface Resist {
+  physical: number
+  magic: number
+}
+
+/**
+ * 보스의 큰 기술. every번째 턴마다 나가고, 그 직전 턴에 예고한다.
+ *
+ * 확률로 터지는 광역은 운이지만 세어서 오는 광역은 판단이다. 예고를 낭독·자막으로
+ * 함께 내보내므로, 화면의 연출을 못 보는 사람도 막을지 치유할지를 똑같이 고를 수 있다.
+ */
+export interface MonsterPattern {
+  /** 몇 번째 자기 턴마다 쓰는가 */
+  every: number
+  skill: SkillData
+  /** 직전 턴에 내보내는 예고 문구 */
+  warning: string
+}
+
 export interface MonsterData {
   name: string
   sprite: string
   /** 생략하면 front — 하급 몹의 기본값이다 */
   ai?: MonsterAi
   hp: number
-  atk: number
-  def: number
+  /** 무엇으로 때리는가 — 생략하면 물리 */
+  attackType?: DamageType
+  patk: number
+  matk: number
+  pdef: number
+  mdef: number
   spd: number
+  /** 생략하면 양쪽 1.0 — 치우침 없는 몸이다 */
+  resist?: Resist
+  /** 보스의 셈 기술. 하급 몹에게는 없다 */
+  pattern?: MonsterPattern
   /** 처치 시 파티가 얻는 경험치 — 고정값이라 결정적이다 */
   xp?: number
   /**
@@ -82,8 +131,29 @@ export interface MonsterData {
 
 export type ItemKind = 'consumable' | 'equipment' | 'keepsake'
 export type EquipSlot = 'weapon' | 'armor' | 'shoes' | 'gloves'
-/** 능력치 묶음 — 장비·세트·오라가 같은 모양을 쓴다 */
+/**
+ * 능력치 묶음 — 장비·세트·오라가 같은 모양을 쓴다.
+ * 여기서는 타입이 명시된다. 검은 물리 공격을, 지팡이는 마법 공격을 올린다.
+ */
 export interface StatBlock {
+  hp?: number
+  mp?: number
+  patk?: number
+  matk?: number
+  pdef?: number
+  mdef?: number
+  spd?: number
+}
+
+/**
+ * 오라가 주는 값 — 받는 사람이 여럿이라 타입을 명시하지 않는다.
+ *
+ * 장비는 자기 주인이 정해져 있으니 "이 지팡이는 마법 공격을 올린다"라고 적을 수
+ * 있지만, 오라는 파티 전원에게 간다. 물리로 싸우는 동료와 마법으로 싸우는 동료가
+ * 나란히 받는 값이므로, 여기 적힌 공격은 **각자의 주력**에 얹힌다.
+ * 그래서 깃발 하나가 누구에게나 같은 만큼 힘이 된다.
+ */
+export interface AuraBlock {
   hp?: number
   mp?: number
   atk?: number
@@ -114,7 +184,7 @@ export interface ItemData {
   tier?: 1 | 2 | 3
   stats?: StatBlock
   /** 오라 — 착용자를 제외한 파티 전원에게 적용. "함께"의 수치화다 */
-  allyStats?: StatBlock
+  allyStats?: AuraBlock
   /** 이 레벨부터 착용할 수 있다 */
   minLevel?: number
   /** 이 직업들만 착용한다. 없으면 모두의 것 — 전용 장비는 그 직업다움을 세게 민다 */
@@ -165,7 +235,10 @@ export interface ProgressionData {
   /** 스테이지 진입 시 최소 보장 경험치 — 마이그레이션과 밸런스 검증의 기준선 */
   stageEntryXp: number[]
   /** 직업별 레벨당 성장 */
-  growth: Record<string, { hp: number; mp: number; atk: number; def: number; spd: number }>
+  growth: Record<
+    string,
+    { hp: number; mp: number; patk: number; matk: number; pdef: number; mdef: number; spd: number }
+  >
   /**
    * 승리했을 때 돌아오는 최대 체력의 비율 — 스테이지마다 다르다.
    *
@@ -402,9 +475,18 @@ export interface Combatant {
   mp: number
   maxMp: number
   mpRegen: number
-  atk: number
-  def: number
+  /** 평타와 타입 없는 스킬이 나가는 쪽 */
+  mainType: DamageType
+  patk: number
+  matk: number
+  pdef: number
+  mdef: number
   spd: number
+  /** 받는 피해 배율. 없으면 치우침 없음 */
+  resist?: Resist
+  /** 보스의 셈 기술과 지금까지 센 자기 턴 수 */
+  pattern?: MonsterPattern
+  turnsTaken?: number
   /** 지금 쓸 수 있는(언락된) 스킬들. cooldowns는 같은 인덱스로 대응한다 */
   skills: SkillData[]
   cooldowns: number[]

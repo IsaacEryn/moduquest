@@ -4,18 +4,18 @@ import { EventBus, type GameEvent } from './events'
 import type { Combatant, MonsterData } from './types'
 
 const MONSTERS: Record<string, MonsterData> = {
-  slime: { name: '슬라임', sprite: 'slime', hp: 40, atk: 10, def: 4, spd: 5 },
-  goblin: { name: '고블린', sprite: 'goblin', ai: 'weakest', hp: 60, atk: 12, def: 5, spd: 7 },
-  golem: { name: '돌 골렘', sprite: 'golem', hp: 160, atk: 16, def: 9, spd: 4, isBoss: true },
-  brute: { name: '망치잡이', sprite: 'golem', ai: 'breaker', hp: 90, atk: 14, def: 6, spd: 3 },
+  slime: { name: '슬라임', sprite: 'slime', hp: 40, patk: 10, matk: 0, pdef: 4, mdef: 4, spd: 5 },
+  goblin: { name: '고블린', sprite: 'goblin', ai: 'weakest', hp: 60, patk: 12, matk: 0, pdef: 5, mdef: 5, spd: 7 },
+  golem: { name: '돌 골렘', sprite: 'golem', hp: 160, patk: 16, matk: 0, pdef: 9, mdef: 9, spd: 4, isBoss: true },
+  brute: { name: '망치잡이', sprite: 'golem', ai: 'breaker', hp: 90, patk: 14, matk: 0, pdef: 6, mdef: 6, spd: 3 },
   boss_golem: {
     name: '큰 골렘', sprite: 'golem', ai: 'breaker',
-    hp: 160, atk: 16, def: 9, spd: 4, isBoss: true,
+    hp: 160, patk: 16, matk: 0, pdef: 9, mdef: 9, spd: 4, isBoss: true,
   },
 }
 
 function ally(partial: Partial<Combatant> & { id: string }): Combatant {
-  return {
+  const base: Combatant = {
     name: partial.id,
     side: 'ally',
     isPlayer: false,
@@ -24,14 +24,18 @@ function ally(partial: Partial<Combatant> & { id: string }): Combatant {
     mp: 50,
     maxMp: 50,
     mpRegen: 5,
-    atk: 10,
-    def: 5,
+    mainType: 'physical',
+    patk: 10,
+    matk: 0,
+    pdef: 5,
+    mdef: 5,
     spd: 5,
     skills: [],
     cooldowns: [],
     defending: false,
-    ...partial,
+    id: partial.id,
   }
+  return { ...base, ...partial }
 }
 
 function rogue(): Combatant {
@@ -42,8 +46,10 @@ function rogue(): Combatant {
     frontOrder: 2,
     hp: 90,
     maxHp: 90,
-    atk: 18,
-    def: 6,
+    patk: 18,
+    matk: 0,
+    pdef: 6,
+    mdef: 6,
     spd: 12,
     skills: [{
       id: 'ambush',
@@ -65,8 +71,10 @@ function warrior(): Combatant {
     frontOrder: 1,
     hp: 120,
     maxHp: 120,
-    atk: 14,
-    def: 10,
+    patk: 14,
+    matk: 0,
+    pdef: 10,
+    mdef: 10,
     spd: 6,
     skills: [{
       id: 'taunt',
@@ -88,8 +96,10 @@ function healer(): Combatant {
     frontOrder: 5,
     hp: 80,
     maxHp: 80,
-    atk: 8,
-    def: 7,
+    patk: 8,
+    matk: 0,
+    pdef: 7,
+    mdef: 7,
     spd: 9,
     skills: [{
       id: 'heal',
@@ -466,6 +476,17 @@ describe('흘리기와 관통', () => {
     expect(battle.enemies[0].hp).toBe(160 - (18 - (9 - 4)))
   })
 
+  it('관통은 때리는 쪽 방어를 뚫는다 — 마법사의 관통은 마법 방어를 연다', () => {
+    // 특성의 관통은 주력을 따라간다(통일 규칙). 물리 전용으로 두면 마법사가 고른
+    // "정확한 손"이 아무 일도 하지 않는 함정 선택이 된다
+    const caster = ally({ id: 'mage', name: '마법사', isPlayer: true, mainType: 'magic', matk: 20 })
+    caster.pierce = 4
+    const { battle } = setup([caster], ['golem']) // 픽스처는 양쪽 방어가 9다
+    advanceToPlayer(battle)
+    battle.playerAction({ kind: 'attack', targetId: battle.enemies[0].id })
+    expect(battle.enemies[0].hp).toBe(160 - (20 - (9 - 4)))
+  })
+
   it('전투가 새로 시작되면 흘리기 카운터가 초기화된다', () => {
     const r = rogue()
     r.guardEvery = 2
@@ -504,5 +525,95 @@ describe('승패', () => {
     // 방어해도 (10-6)/2=2 피해 → 체력 1 → 0
     expect(advanceToPlayer(battle)).toBe('defeat')
     expect(events.some((e) => e.type === 'defeat')).toBe(true)
+  })
+})
+
+/**
+ * 물리와 마법이 갈린 뒤의 규칙들. 여기가 무너지면 상성이 말뿐인 장식이 된다.
+ */
+describe('피해의 종류와 상성', () => {
+  const magicMob: MonsterData = {
+    name: '허깨비', sprite: 'shard', hp: 100,
+    attackType: 'magic', patk: 2, matk: 20, pdef: 4, mdef: 4, spd: 1,
+  }
+  const softToMagic: MonsterData = {
+    name: '무른 것', sprite: 'slime', hp: 100,
+    patk: 5, matk: 0, pdef: 10, mdef: 10, spd: 1,
+    resist: { physical: 0.5, magic: 2 },
+  }
+
+  it('마법 공격은 마법 방어에 막힌다 — 물리 방어는 쳐다보지 않는다', () => {
+    const caster = ally({ id: 'mage', isPlayer: true, mainType: 'magic', patk: 1, matk: 20 })
+    const wall: MonsterData = {
+      name: '벽', sprite: 'golem', hp: 100,
+      patk: 1, matk: 0, pdef: 18, mdef: 3, spd: 1,
+    }
+    const bus = new EventBus()
+    const battle = new Battle([caster], ['wall'], { wall }, bus)
+    battle.step()
+    battle.playerAction({ kind: 'attack', targetId: battle.enemies[0].id })
+    expect(battle.enemies[0].hp).toBe(100 - (20 - 3))
+  })
+
+  it('저항 배율은 방어를 뺀 뒤에 곱한다 — 화면에 적힌 그대로 계산된다', () => {
+    const hitter = ally({ id: 'rogue', isPlayer: true, patk: 20 })
+    const bus = new EventBus()
+    const battle = new Battle([hitter], ['soft'], { soft: softToMagic }, bus)
+    battle.step()
+    battle.playerAction({ kind: 'attack', targetId: battle.enemies[0].id })
+    // (20 − 10) × 0.5 = 5
+    expect(battle.enemies[0].hp).toBe(95)
+  })
+
+  it('약점을 때리면 더 아프다 — 같은 공격력이라도 결과가 갈린다', () => {
+    const body = ally({ id: 'rogue', isPlayer: true, patk: 20, matk: 20 })
+    const mind = ally({ id: 'mage', isPlayer: true, mainType: 'magic', patk: 20, matk: 20 })
+    const damageOf = (who: Combatant) => {
+      const bus = new EventBus()
+      const battle = new Battle([who], ['soft'], { soft: softToMagic }, bus)
+      battle.step()
+      battle.playerAction({ kind: 'attack', targetId: battle.enemies[0].id })
+      return 100 - battle.enemies[0].hp
+    }
+    // 같은 20으로 때려도 무른 쪽으로 들어가면 네 배가 된다: (20−10)×0.5 대 (20−10)×2
+    expect(damageOf(body)).toBe(5)
+    expect(damageOf(mind)).toBe(20)
+  })
+
+  it('마법으로 치는 몹은 마법 방어가 얇은 사람을 노린다', () => {
+    // breaker의 정의는 "가장 아프게 들어가는 쪽" — 타입이 갈린 뒤에도 그대로여야 한다
+    const tough = ally({ id: 'warrior', frontOrder: 1, pdef: 2, mdef: 12, spd: 1 })
+    const frail = ally({ id: 'mage', frontOrder: 3, pdef: 12, mdef: 2, spd: 1 })
+    const bus = new EventBus()
+    const battle = new Battle(
+      [tough, frail],
+      ['ghost'],
+      { ghost: { ...magicMob, ai: 'breaker', spd: 20 } },
+      bus,
+    )
+    battle.step()
+    expect(frail.hp).toBeLessThan(100)
+    expect(tough.hp).toBe(100)
+  })
+
+  it('스킬의 타입이 시전자의 주력을 이긴다 — 데이터가 적은 대로 나간다', () => {
+    const hybrid = ally({
+      id: 'rogue', isPlayer: true, patk: 30, matk: 10,
+      skills: [{
+        id: 'spell', name: '주문', kind: 'damage', targeting: 'enemy',
+        cooldown: 0, multiplier: 1, damageType: 'magic', description: '',
+      }],
+    })
+    hybrid.cooldowns = [0]
+    const wall: MonsterData = {
+      name: '벽', sprite: 'golem', hp: 100,
+      patk: 1, matk: 0, pdef: 0, mdef: 0, spd: 1,
+    }
+    const bus = new EventBus()
+    const battle = new Battle([hybrid], ['wall'], { wall }, bus)
+    battle.step()
+    battle.playerAction({ kind: 'skill', skillIndex: 0, targetId: battle.enemies[0].id })
+    // 물리 30을 두고도 마법 10으로 나간다
+    expect(battle.enemies[0].hp).toBe(90)
   })
 })

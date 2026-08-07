@@ -15,7 +15,16 @@ import { GIFT_DAILY_LIMIT } from '../net/giftPolicy'
  */
 
 const TIER_KO: Record<number, string> = { 1: '일반', 2: '정련', 3: '울림' }
-const STAT_KO: Record<string, string> = { hp: '체력', atk: '공격', def: '방어', spd: '속도' }
+const STAT_KO: Record<string, string> = {
+  hp: '체력',
+  atk: '공격',
+  def: '방어',
+  spd: '속도',
+  patk: '물리 공격',
+  matk: '마법 공격',
+  pdef: '물리 방어',
+  mdef: '마법 방어',
+}
 
 /** 등급별 최소 레벨 — 실제 장비 데이터가 정한다 */
 export function minLevelOfTier(data: GameData, tier: number): number | null {

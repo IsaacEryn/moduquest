@@ -260,30 +260,6 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
     expect(s?.party[0].hp).toBe(0)
   })
 
-  it('v2 기록은 빈 손으로 이어받는다', () => {
-    const v2 = {
-      schemaVersion: 2,
-      stageIndex: 1,
-      traitId: 'balanced',
-      field: { pos: { x: 1, y: 8 }, checkpointReached: false, defeated: [], openedChests: [] },
-      inventory: [{ item: 'potion_small', count: 2 }],
-      kills: [{ monster: 'slime', count: 3 }],
-      party: [
-        { job: 'rogue', hp: 44 },
-        { job: 'warrior', hp: 100 },
-        { job: 'healer', hp: 70 },
-      ],
-      xp: 60,
-      seenDialogues: [],
-      clearedStages: ['stage1'],
-      updatedAt: 500,
-    }
-    const s = sanitizeSnapshot(v2, DATA)
-    expect(s?.schemaVersion).toBe(SAVE_VERSION)
-    expect(s?.party.every((p) => Object.keys(p.equipment).length === 0)).toBe(true)
-    expect(s?.inventory).toEqual([{ item: 'potion_small', count: 2 }])
-    expect(s?.xp).toBe(60)
-  })
 
   it('장비 검증 — 슬롯 불일치와 레벨 미달은 가방으로 강등된다', () => {
     const base = valid() // xp 0 → 1레벨
@@ -318,30 +294,6 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
     expect(s?.inventory.some((e) => e.item === '없는장비')).toBe(false)
   })
 
-  it('v1 기록은 버리지 않고 살려서 읽는다', () => {
-    // 옛 형식: party가 {id, hp}이고 xp가 없다
-    const v1 = {
-      schemaVersion: 1,
-      stageIndex: 1,
-      traitId: 'swift-step',
-      field: { pos: { x: 1, y: 8 }, checkpointReached: true, defeated: [] },
-      party: [
-        { id: 'rogue', hp: 44 },
-        { id: 'warrior', hp: 100 },
-        { id: 'healer', hp: 70 },
-      ],
-      seenDialogues: [],
-      clearedStages: ['stage1'],
-      updatedAt: 500,
-    }
-    const s = sanitizeSnapshot(v1, DATA)
-    expect(s).not.toBeNull()
-    expect(s?.schemaVersion).toBe(SAVE_VERSION)
-    expect(s?.party.map((p) => p.job)).toEqual(['rogue', 'warrior', 'healer'])
-    expect(s?.party[0].hp).toBe(44)
-    // 스테이지 2 진행이었으니 그에 걸맞은 경험치를 보장받는다
-    expect(s?.xp).toBe(DATA.progression.stageEntryXp[1])
-  })
 
   it('복원할 때 체력이 최대치를 넘지 않는다', () => {
     const g = makeGame()
@@ -356,13 +308,13 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
     expect(s?.field.defeated).toEqual([])
   })
 
-  it('v4 기록은 빈 지갑으로 이어받는다', () => {
-    const { gold: _g, materials: _m, upgrades: _u, ...v4 } = valid()
-    const s = sanitizeSnapshot({ ...v4, schemaVersion: 4 }, DATA)
-    expect(s?.schemaVersion).toBe(SAVE_VERSION)
-    expect(s?.gold).toBe(0)
-    expect(s?.materials).toBe(0)
-    expect(s?.upgrades).toEqual([])
+
+  it('옛 형식 기록은 받아들이지 않는다 — 어긋난 채로 잇지 않는다', () => {
+    // 공격·방어가 물리와 마법으로 갈리면서 v5까지의 강화 단계는 뜻이 달라졌다.
+    // 억지로 펴면 올린 적 없는 쪽이 올라간 파티가 된다
+    for (const version of [1, 2, 3, 4, 5]) {
+      expect(sanitizeSnapshot({ ...valid(), schemaVersion: version }, DATA), `v${version}`).toBeNull()
+    }
   })
 
   it('말이 안 되는 지갑은 범위 안으로 당긴다', () => {

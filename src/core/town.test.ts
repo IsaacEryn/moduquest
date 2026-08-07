@@ -246,15 +246,15 @@ describe('성장 강화', () => {
     const cost = ECONOMY.upgrade.costs[0]
     fund(game, cost.gold, cost.materials)
     const id = game.player.id
-    const before = game.statBreakdownOf(id)!.total.atk
+    const before = game.statBreakdownOf(id)!.total.patk
 
     expect(game.upgrade(id, 'atk')).toBe(true)
     expect(game.currentGold).toBe(0)
     expect(game.currentMaterials).toBe(0)
     const after = game.statBreakdownOf(id)!
-    expect(after.total.atk).toBe(before + ECONOMY.upgrade.gainPerLevel.atk)
+    expect(after.total.patk).toBe(before + ECONOMY.upgrade.gainPerLevel.atk)
     // 내역에 출처가 따로 남아야 상태창이 "강화 +n"이라고 말할 수 있다
-    expect(after.upgrade.atk).toBe(ECONOMY.upgrade.gainPerLevel.atk)
+    expect(after.upgrade.patk).toBe(ECONOMY.upgrade.gainPerLevel.atk)
     expect(events.find((e) => e.type === 'upgraded')).toMatchObject({ level: 1, statName: '공격' })
   })
 
@@ -303,7 +303,7 @@ describe('성장 강화', () => {
     game.upgrade(mate, 'atk')
     expect(game.upgradeLevelOf(mate, 'atk')).toBe(1)
     expect(game.upgradeLevelOf(me, 'atk')).toBe(0)
-    expect(game.statBreakdownOf(me)!.upgrade.atk).toBe(0)
+    expect(game.statBreakdownOf(me)!.upgrade.patk).toBe(0)
   })
 })
 
@@ -381,7 +381,7 @@ describe('동전은 싸워서 번다', () => {
     expect(other.currentGold).toBe(game.currentGold)
     expect(other.currentMaterials).toBe(game.currentMaterials)
     expect(other.upgradeLevelOf(other.player.id, 'atk')).toBe(1)
-    expect(other.statBreakdownOf(other.player.id)!.upgrade.atk).toBe(
+    expect(other.statBreakdownOf(other.player.id)!.upgrade.patk).toBe(
       ECONOMY.upgrade.gainPerLevel.atk,
     )
   })

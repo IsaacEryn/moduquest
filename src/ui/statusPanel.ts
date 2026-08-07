@@ -7,8 +7,33 @@ import { ItemGrid } from './itemGrid'
 import { describeItem, signed } from './itemText'
 import { memberLabel } from './memberLabel'
 
-const STAT_KO = { atk: '공격', def: '방어', spd: '속도' } as const
-type CoreStat = keyof typeof STAT_KO
+/**
+ * 능력치를 말하는 순서와 묶음.
+ *
+ * 스탯이 다섯이 되면서 낭독 길이가 문제가 됐다. 예전에는 값마다 출처를 함께
+ * 읽어 주었는데("공격 21 (기본 18 + 장비 2 + 동료 1)"), 그대로 두 배로 늘리면
+ * 상태창 한 번 여는 데 문장 다섯 개를 들어야 한다.
+ *
+ * 그래서 둘로 나눴다. 요약 한 줄은 값만 짝지어 말하고("공격 물리 21 · 마법 2"),
+ * 어디서 왔는지는 펼쳐 보는 자리로 내렸다. 필요할 때만 듣게 하는 것이지
+ * 감추는 것이 아니다 — 접힘 상태는 낭독기가 먼저 알려 준다.
+ *
+ * 순서는 언제나 물리 → 마법으로 고정한다. 주력이 앞에 오도록 뒤집으면 직업마다
+ * 듣는 순서가 달라지고, 예측 가능성이 개인화보다 훨씬 값지다.
+ */
+const PAIRS = [
+  { label: '공격', keys: ['patk', 'matk'] },
+  { label: '방어', keys: ['pdef', 'mdef'] },
+] as const
+const TYPE_KO = ['물리', '마법'] as const
+type CoreStat = 'patk' | 'matk' | 'pdef' | 'mdef' | 'spd'
+const STAT_KO: Record<CoreStat, string> = {
+  patk: '물리 공격',
+  matk: '마법 공격',
+  pdef: '물리 방어',
+  mdef: '마법 방어',
+  spd: '속도',
+}
 
 /**
  * 상태창 — 파티의 레벨·경험치·능력치 내역과 장비를 한 곳에서 본다.
@@ -161,24 +186,48 @@ export class StatusPanel {
     vitals.textContent = `체력 ${c.hp}/${c.maxHp} · 마력 ${c.mp}/${c.maxMp}`
     section.append(h, vitals, gauge(c.hp, c.maxHp, 'hp'), gauge(c.mp, c.maxMp, 'mp'))
 
-    // 능력치 내역 — 출처가 있는 것만 말한다. "공격 21 (기본 18 + 장비 2 + 동료 1)"
+    // 요약 한 줄 — 값만 짝지어 짧게
     const stats = document.createElement('p')
-    stats.textContent = (Object.keys(STAT_KO) as CoreStat[])
-      .map((k) => {
-        const parts = [`기본 ${b.base[k]}`]
-        if (b.upgrade[k] !== 0) parts.push(`강화 +${b.upgrade[k]}`)
-        if (b.equip[k] !== 0) parts.push(`장비 ${b.equip[k] > 0 ? '+' : ''}${b.equip[k]}`)
-        if (b.set[k] !== 0) parts.push(`세트 +${b.set[k]}`)
-        if (b.aura[k] !== 0) parts.push(`동료 +${b.aura[k]}`)
-        const traitDelta =
-          b.total[k] - (b.base[k] + b.upgrade[k] + b.equip[k] + b.set[k] + b.aura[k])
-        if (traitDelta !== 0) parts.push(`특성 ${traitDelta > 0 ? '+' : ''}${traitDelta}`)
-        return parts.length > 1
-          ? `${STAT_KO[k]} ${b.total[k]} (${parts.join(' ')})`
-          : `${STAT_KO[k]} ${b.total[k]}`
-      })
-      .join(' · ')
-    section.append(stats)
+    stats.textContent = [
+      ...PAIRS.map(
+        (pair) =>
+          `${pair.label} ${pair.keys.map((k, i) => `${TYPE_KO[i]} ${b.total[k]}`).join(' · ')}`,
+      ),
+      `속도 ${b.total.spd}`,
+    ].join(' | ')
+
+    // 무엇으로 싸우는가 — 어느 무기를 들어야 하는지가 여기서 갈린다
+    const main = g.mainTypeOf(memberId)
+    const way = document.createElement('p')
+    way.className = 'status-note'
+    way.textContent =
+      main === 'magic'
+        ? '마법으로 싸운다 — 지팡이류가 마법 공격을 올린다.'
+        : '몸으로 싸운다 — 검·활·도끼류가 물리 공격을 올린다.'
+
+    // 어디서 왔는지는 펼쳐 보는 자리로. 출처가 하나뿐인 값은 줄을 만들지 않는다
+    const detail = document.createElement('details')
+    const summary = document.createElement('summary')
+    summary.textContent = '능력치 내역'
+    const list = document.createElement('ul')
+    list.className = 'stat-sources'
+    for (const k of Object.keys(STAT_KO) as CoreStat[]) {
+      const parts = [`기본 ${b.base[k]}`]
+      if (b.upgrade[k] !== 0) parts.push(`강화 +${b.upgrade[k]}`)
+      if (b.equip[k] !== 0) parts.push(`장비 ${signed(b.equip[k])}`)
+      if (b.set[k] !== 0) parts.push(`세트 +${b.set[k]}`)
+      if (b.aura[k] !== 0) parts.push(`동료 +${b.aura[k]}`)
+      const traitDelta =
+        b.total[k] - (b.base[k] + b.upgrade[k] + b.equip[k] + b.set[k] + b.aura[k])
+      if (traitDelta !== 0) parts.push(`특성 ${signed(traitDelta)}`)
+      if (parts.length === 1) continue
+      const li = document.createElement('li')
+      li.textContent = `${STAT_KO[k]} ${b.total[k]} — ${parts.join(' ')}`
+      list.append(li)
+    }
+    detail.append(summary, list)
+    section.append(stats, way)
+    if (list.childElementCount > 0) section.append(detail)
 
     // 세트·오라 — 지금 발동 중인 것만
     const eq = g.equipmentOf(memberId)
@@ -192,7 +241,17 @@ export class StatusPanel {
       if (!set || count < set.pieces) continue
       const p = document.createElement('p')
       p.className = 'status-note'
-      const bonus = (Object.entries({ 공격: set.bonus.atk, 방어: set.bonus.def, 속도: set.bonus.spd, 체력: set.bonus.hp, 마력: set.bonus.mp }) as [string, number | undefined][])
+      const bonus = (
+        Object.entries({
+          '물리 공격': set.bonus.patk,
+          '마법 공격': set.bonus.matk,
+          '물리 방어': set.bonus.pdef,
+          '마법 방어': set.bonus.mdef,
+          속도: set.bonus.spd,
+          체력: set.bonus.hp,
+          마력: set.bonus.mp,
+        }) as [string, number | undefined][]
+      )
         .filter(([, v]) => (v ?? 0) !== 0)
         .map(([k, v]) => `${k} ${signed(v as number)}`)
         .join(' ')

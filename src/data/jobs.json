@@ -7,8 +7,11 @@
     "hp": 120,
     "mp": 24,
     "mpRegen": 4,
-    "atk": 14,
-    "def": 10,
+    "mainType": "physical",
+    "patk": 16,
+    "matk": 2,
+    "pdef": 12,
+    "mdef": 6,
     "spd": 6,
     "skills": [
       {
@@ -30,10 +33,10 @@
         "mpCost": 10,
         "multiplier": 1.8,
         "unlockLevel": 3,
-        "description": "무겁게 한 번 내리친다."
+        "description": "무겁게 한 번 내리친다.",
+        "damageType": "physical"
       }
-    ],
-    "advantages": {}
+    ]
   },
   "rogue": {
     "name": "도적",
@@ -43,8 +46,11 @@
     "hp": 90,
     "mp": 28,
     "mpRegen": 5,
-    "atk": 18,
-    "def": 6,
+    "mainType": "physical",
+    "patk": 20,
+    "matk": 3,
+    "pdef": 7,
+    "mdef": 5,
     "spd": 12,
     "skills": [
       {
@@ -55,7 +61,8 @@
         "cooldown": 2,
         "mpCost": 8,
         "multiplier": 2,
-        "description": "두 배의 힘으로 공격한다."
+        "description": "두 배의 힘으로 공격한다.",
+        "damageType": "physical"
       },
       {
         "id": "vital-strike",
@@ -67,10 +74,10 @@
         "multiplier": 1.5,
         "pierce": 99,
         "unlockLevel": 3,
-        "description": "상대의 방어를 전부 무시하고 찌른다."
+        "description": "상대의 방어를 전부 무시하고 찌른다.",
+        "damageType": "physical"
       }
-    ],
-    "advantages": {}
+    ]
   },
   "archer": {
     "name": "궁수",
@@ -80,8 +87,11 @@
     "hp": 85,
     "mp": 30,
     "mpRegen": 5,
-    "atk": 15,
-    "def": 5,
+    "mainType": "physical",
+    "patk": 17,
+    "matk": 4,
+    "pdef": 6,
+    "mdef": 6,
     "spd": 11,
     "skills": [
       {
@@ -93,7 +103,8 @@
         "mpCost": 8,
         "multiplier": 1.5,
         "pierce": 4,
-        "description": "상대 방어를 4 무시하고 쏜다."
+        "description": "상대 방어를 4 무시하고 쏜다.",
+        "damageType": "physical"
       },
       {
         "id": "volley",
@@ -104,10 +115,10 @@
         "mpCost": 14,
         "multiplier": 1,
         "unlockLevel": 3,
-        "description": "적 모두에게 화살을 쏜다."
+        "description": "적 모두에게 화살을 쏜다.",
+        "damageType": "physical"
       }
-    ],
-    "advantages": {}
+    ]
   },
   "mage": {
     "name": "마법사",
@@ -117,8 +128,11 @@
     "hp": 75,
     "mp": 40,
     "mpRegen": 6,
-    "atk": 16,
-    "def": 4,
+    "mainType": "magic",
+    "patk": 4,
+    "matk": 22,
+    "pdef": 3,
+    "mdef": 12,
     "spd": 7,
     "skills": [
       {
@@ -129,7 +143,8 @@
         "cooldown": 1,
         "mpCost": 10,
         "multiplier": 1.6,
-        "description": "모은 마력을 한 곳에 쏜다."
+        "description": "모은 마력을 한 곳에 쏜다.",
+        "damageType": "magic"
       },
       {
         "id": "flame-wave",
@@ -140,10 +155,10 @@
         "mpCost": 16,
         "multiplier": 1.0,
         "unlockLevel": 3,
-        "description": "적 모두를 불꽃으로 덮는다."
+        "description": "적 모두를 불꽃으로 덮는다.",
+        "damageType": "magic"
       }
-    ],
-    "advantages": {}
+    ]
   },
   "healer": {
     "name": "힐러",
@@ -153,8 +168,11 @@
     "hp": 80,
     "mp": 36,
     "mpRegen": 5,
-    "atk": 8,
-    "def": 7,
+    "mainType": "magic",
+    "patk": 5,
+    "matk": 12,
+    "pdef": 6,
+    "mdef": 10,
     "spd": 9,
     "skills": [
       {
@@ -178,7 +196,6 @@
         "unlockLevel": 3,
         "description": "파티 모두를 조금씩 치료한다."
       }
-    ],
-    "advantages": {}
+    ]
   }
 }

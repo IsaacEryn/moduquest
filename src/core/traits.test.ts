@@ -41,15 +41,37 @@ describe('특성 해석', () => {
   })
 
   it('기본 특성은 아무것도 바꾸지 않는다', () => {
-    const base = { hp: 90, atk: 18, def: 6, spd: 12 }
+    const base = { hp: 90, patk: 18, matk: 3, pdef: 6, mdef: 5, spd: 12 }
     const t = resolveTrait(TRAITS, 'balanced')
-    expect(applyStats(base, t, TRAITS.limits)).toEqual(base)
+    expect(applyStats(base, t, TRAITS.limits, 'physical')).toEqual(base)
     expect(perceptionRadius(t, TRAITS.limits)).toBeNull()
+  })
+
+  it('공격 보정은 주력 쪽에만 얹히고, 방어 보정은 양쪽에 걸린다', () => {
+    // 특성은 플레이 스타일이지 속성이 아니다 — 마법사가 골라도 손해가 아니어야 한다
+    const base = { hp: 90, patk: 18, matk: 18, pdef: 6, mdef: 6, spd: 12 }
+    const t = resolveTrait(TRAITS, 'quick-turn') // atk +3, def -2, hp -10, spd +2
+    const body = applyStats(base, t, TRAITS.limits, 'physical')
+    expect(body.patk).toBe(21)
+    expect(body.matk).toBe(18)
+    const magic = applyStats(base, t, TRAITS.limits, 'magic')
+    expect(magic.matk).toBe(21)
+    expect(magic.patk).toBe(18)
+    // 방어는 어느 쪽 주력이든 똑같이 움직인다
+    expect(body.pdef).toBe(4)
+    expect(body.mdef).toBe(4)
+    expect(magic.pdef).toBe(4)
+    expect(magic.mdef).toBe(4)
   })
 
   it('능력치가 하한 아래로 내려가지 않는다', () => {
     const t = resolveTrait(TRAITS, 'steady-hand') // spd -3
-    const s = applyStats({ hp: 90, atk: 18, def: 6, spd: 4 }, t, TRAITS.limits)
+    const s = applyStats(
+      { hp: 90, patk: 18, matk: 3, pdef: 6, mdef: 5, spd: 4 },
+      t,
+      TRAITS.limits,
+      'physical',
+    )
     expect(s.spd).toBe(TRAITS.limits.minStat)
   })
 
@@ -65,9 +87,11 @@ describe('특성 적용', () => {
     const { game } = makeGame('swift-step') // atk -2, spd +3
     const player = game.player
     const warrior = game.party.find((c) => c.id === 'warrior')!
-    expect(player.atk).toBe(jobs.rogue.atk - 2)
+    // 도적은 몸으로 싸운다 — 특성의 공격 보정이 물리 쪽에만 얹힌다
+    expect(player.patk).toBe(jobs.rogue.patk - 2)
+    expect(player.matk).toBe(jobs.rogue.matk)
     expect(player.spd).toBe(jobs.rogue.spd + 3)
-    expect(warrior.atk).toBe(jobs.warrior.atk)
+    expect(warrior.patk).toBe(jobs.warrior.patk)
     expect(warrior.spd).toBe(jobs.warrior.spd)
   })
 
@@ -89,10 +113,10 @@ describe('특성 적용', () => {
 
   it('특성을 되돌리면 원래 능력치로 돌아온다', () => {
     const { game } = makeGame('balanced')
-    const before = { atk: game.player.atk, spd: game.player.spd }
+    const before = { patk: game.player.patk, spd: game.player.spd }
     game.setTrait('swift-step')
     game.setTrait('balanced')
-    expect(game.player.atk).toBe(before.atk)
+    expect(game.player.patk).toBe(before.patk)
     expect(game.player.spd).toBe(before.spd)
   })
 

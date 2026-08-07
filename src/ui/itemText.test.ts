@@ -15,7 +15,7 @@ describe('아이템 문구', () => {
 
   it('장비는 능력치를 부호까지 그대로 말한다', () => {
     const line = describeItem(ITEMS.wood_sword)
-    expect(line).toContain('공격 +2')
+    expect(line).toContain('물리 공격 +3')
   })
 
   it('깎이는 능력치도 감추지 않는다', () => {

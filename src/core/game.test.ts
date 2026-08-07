@@ -261,8 +261,8 @@ describe('경험치와 레벨', () => {
     expect(game.partyLevel).toBe(3)
     expect(game.player.skills.length).toBe(2)
     expect(game.player.skills[1].name).toBe('급소 찌르기')
-    // 성장이 능력치에 반영된다: 도적 공격 18 + 2×2레벨
-    expect(game.player.atk).toBe(18 + 2 * 2)
+    // 성장이 능력치에 반영된다: 도적 물리 공격 20 + 2×2레벨
+    expect(game.player.patk).toBe(20 + 2 * 2)
   })
 
   it('스테이지에 진입하면 그에 걸맞은 경험치가 보장된다', () => {
@@ -444,14 +444,14 @@ describe('장비', () => {
     const { game } = makeGame()
     const base = game.snapshot()
     game.restore({ ...base, inventory: [{ item: 'wood_sword', count: 1 }] })
-    const before = game.player.atk
+    const before = game.player.patk
 
     expect(game.equip('rogue', 'wood_sword')).toBe(true)
-    expect(game.player.atk).toBe(before + 2)
+    expect(game.player.patk).toBe(before + 3)
     expect(game.inventoryList.find((i) => i.id === 'wood_sword')).toBeUndefined()
 
     expect(game.unequip('rogue', 'weapon')).toBe(true)
-    expect(game.player.atk).toBe(before)
+    expect(game.player.patk).toBe(before)
     expect(game.inventoryList.find((i) => i.id === 'wood_sword')?.count).toBe(1)
   })
 
@@ -495,25 +495,25 @@ describe('장비', () => {
       ],
     })
     game.equip('rogue', 'echo_sword')
-    expect(game.statBreakdownOf('rogue')!.set.atk).toBe(0) // 1개는 세트가 아니다
+    expect(game.statBreakdownOf('rogue')!.set.patk).toBe(0) // 1개는 세트가 아니다
     game.equip('rogue', 'echo_armor')
     const b = game.statBreakdownOf('rogue')!
-    expect(b.set).toMatchObject({ atk: 2, def: 2 })
-    expect(game.player.atk).toBe(b.total.atk)
+    expect(b.set).toMatchObject({ patk: 3, matk: 0, pdef: 2, mdef: 1 })
+    expect(game.player.patk).toBe(b.total.patk)
   })
 
   it('오라 장비는 착용자가 아니라 동료를 강화한다', () => {
     const { game } = makeGame()
     const base = game.snapshot()
     game.restore({ ...base, xp: 70, inventory: [{ item: 'story_banner', count: 1 }] }) // 4레벨
-    const warriorBefore = game.party[1].atk
-    const rogueBefore = game.player.atk
+    const warriorBefore = game.party[1].patk
+    const rogueBefore = game.player.patk
     game.equip('warrior', 'story_banner')
     // 전사 자신은 깃발의 본체 수치(+1)만, 동료들은 오라(+1)를 받는다
-    expect(game.party[1].atk).toBe(warriorBefore + 1)
-    expect(game.statBreakdownOf('warrior')!.aura.atk).toBe(0)
-    expect(game.player.atk).toBe(rogueBefore + 1)
-    expect(game.statBreakdownOf('rogue')!.aura.atk).toBe(1)
+    expect(game.party[1].patk).toBe(warriorBefore + 1)
+    expect(game.statBreakdownOf('warrior')!.aura.patk).toBe(0)
+    expect(game.player.patk).toBe(rogueBefore + 1)
+    expect(game.statBreakdownOf('rogue')!.aura.patk).toBe(1)
   })
 
   it('특성을 바꿔도 성장과 장비가 유지된다 (회귀)', () => {
@@ -528,8 +528,8 @@ describe('장비', () => {
     })
     game.equip('rogue', 'wood_sword')
     expect(game.setTrait('swift-step')).toBe(true) // 속도 +3, 공격 -2
-    // 공격 = 기본 18 + 성장 2×3 + 나무 검 2 − 특성 2
-    expect(game.player.atk).toBe(18 + 6 + 2 - 2)
+    // 물리 공격 = 기본 20 + 성장 2×3 + 나무 검 3 − 특성 2
+    expect(game.player.patk).toBe(20 + 6 + 3 - 2)
     expect(game.player.spd).toBe(12 + 3 + 3)
   })
 
