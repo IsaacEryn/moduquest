@@ -3,6 +3,7 @@ import type { Game } from '../core/game'
 import { SPRITES, drawSprite } from '../render/sprites'
 import { josa } from './announcer'
 import type { BattleUI } from './battleUI'
+import { memberLabel } from './memberLabel'
 
 /** #ui 영역의 화면 전환: 타이틀·대화·필드·전투·클리어 */
 export class Screens {
@@ -381,7 +382,7 @@ export class Screens {
     if (ending) {
       // 엔딩 — 함께 걸어온 길의 요약. 문장은 전부 데이터에서 조립한다
       const summary = document.createElement('p')
-      const names = this.game.party.map((c) => (c.isPlayer ? `${c.name}(나)` : c.name))
+      const names = this.game.party.map((c) => memberLabel(this.game, c, ''))
       summary.textContent =
         `${names.join(', ')} — 세 곳을 함께 걸어 파티는 ${this.game.partyLevel}레벨이 되었다.`
       const keepsakes = this.game.inventoryList.filter((i) => i.kind === 'keepsake')

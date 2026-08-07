@@ -6,6 +6,7 @@ import { MAP_SIZE } from '../core/layout'
 import type { Combatant, Pos } from '../core/types'
 import type { Options } from '../ui/optionsStore'
 import { SPRITES, drawSprite, drawTile } from './sprites'
+import { memberLabel } from '../ui/memberLabel'
 
 const TILE = 32
 
@@ -315,7 +316,7 @@ export function createRenderer(game: Game, bus: EventBus, options: Options): voi
         })
       }
       this.add
-        .text(x, y + 20, c.isPlayer ? `${c.name} (나)` : c.name, {
+        .text(x, y + 20, memberLabel(game, c), {
           fontSize: '11px',
           color: '#b7c2cc',
         })

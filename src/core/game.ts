@@ -202,12 +202,17 @@ export class Game {
     this.seatControllers[seat] = controller
     const member = this.party[seat]
     if (member) member.isPlayer = controller === 'human'
-    this.bus.emit({
-      type: 'seatControlChanged',
-      seat,
-      controller,
-      memberName: member?.name ?? '',
-    })
+    // 아직 출발하지 않았으면 알리지 않는다. 로비 화면이 자리를 이미 보여주고 있고,
+    // 파티도 정해지기 전이라 여기서 부를 이름은 기본 구성의 이름이다 —
+    // 힐러 셋으로 떠나기로 한 자리를 "전사"라고 불렀다
+    if (this.mode !== 'title') {
+      this.bus.emit({
+        type: 'seatControlChanged',
+        seat,
+        controller,
+        memberName: member?.name ?? '',
+      })
+    }
     // 입력을 기다리던 자리가 비면 대기가 영원해진다 — AI가 바로 이어받는다
     if (
       controller === 'npc' &&

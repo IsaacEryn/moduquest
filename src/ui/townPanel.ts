@@ -1,6 +1,7 @@
 import { UPGRADE_STAT_KO, type Game } from '../core/game'
 import type { UpgradeStat } from '../core/types'
 import { ItemGrid, type GridEntry } from './itemGrid'
+import { memberLabel } from './memberLabel'
 
 const TOWN_TABS = [
   { id: 'shop', label: '사기' },
@@ -256,7 +257,7 @@ export class TownPanel {
       const li = document.createElement('li')
       li.className = 'bag-item'
       const head = document.createElement('p')
-      head.textContent = member.isPlayer ? `${member.name} (나)` : member.name
+      head.textContent = memberLabel(this.game, member)
       li.append(head)
 
       const group = document.createElement('div')

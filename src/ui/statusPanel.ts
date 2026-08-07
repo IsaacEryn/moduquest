@@ -4,6 +4,7 @@ import { josa } from './announcer'
 import { gauge } from './gauge'
 import { ItemGrid } from './itemGrid'
 import { describeItem, signed } from './itemText'
+import { memberLabel } from './memberLabel'
 
 const STAT_KO = { atk: '공격', def: '방어', spd: '속도' } as const
 type CoreStat = keyof typeof STAT_KO
@@ -121,7 +122,7 @@ export class StatusPanel {
       tab.setAttribute('aria-selected', String(selected))
       // 탭 묶음 전체가 Tab 키 한 번이다 — 안에서는 화살표로 옮긴다
       tab.tabIndex = selected ? 0 : -1
-      tab.textContent = member.isPlayer ? `${member.name} (나)` : member.name
+      tab.textContent = memberLabel(this.game, member)
       tab.addEventListener('click', () => this.selectMember(member.id))
       tab.addEventListener('keydown', (e) => {
         const step = e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0
@@ -154,7 +155,7 @@ export class StatusPanel {
     section.setAttribute('aria-label', `${c.name} 상태`)
 
     const h = document.createElement('h3')
-    h.textContent = c.isPlayer ? `${c.name} (나)` : c.name
+    h.textContent = memberLabel(this.game, c)
     const vitals = document.createElement('p')
     vitals.textContent = `체력 ${c.hp}/${c.maxHp} · 마력 ${c.mp}/${c.maxMp}`
     section.append(h, vitals, gauge(c.hp, c.maxHp, 'hp'), gauge(c.mp, c.maxMp, 'mp'))
@@ -204,7 +205,8 @@ export class StatusPanel {
         if (!item?.allyStats) continue
         const p = document.createElement('p')
         p.className = 'status-note'
-        const who = other.isPlayer ? '내가' : josa(other.name, '이', '가')
+        const who =
+          other.seat === this.game.localSeat ? '내가' : josa(other.name, '이', '가')
         p.textContent = `${item.name} — ${who} 들어 함께 강해진다.`
         section.append(p)
       }
@@ -278,7 +280,11 @@ export class StatusPanel {
         const id = eq[slot]
         if (!id) continue
         const list = wornBy.get(id) ?? []
-        list.push({ member: member.id, name: member.isPlayer ? '나' : member.name, slot })
+        list.push({
+            member: member.id,
+            name: member.seat === this.game.localSeat ? '나' : member.name,
+            slot,
+          })
         wornBy.set(id, list)
       }
     }
@@ -312,7 +318,7 @@ export class StatusPanel {
       actions: g.party.map((member) => ({
         label: (e) => {
           const mine = wornBy.get(e.id)?.some((w) => w.member === member.id)
-          const who = member.isPlayer ? '내가' : member.name
+          const who = member.seat === this.game.localSeat ? '내가' : member.name
           return mine ? `${who} 해제` : `${who} 입기`
         },
         can: (e) => {

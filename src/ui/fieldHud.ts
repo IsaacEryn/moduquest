@@ -1,6 +1,7 @@
 import type { EventBus } from '../core/events'
 import type { Game } from '../core/game'
 import { gauge, updateGauge } from './gauge'
+import { memberLabel } from './memberLabel'
 
 /**
  * 필드 상단 상시 현황 — 창을 열지 않아도 파티 체력과 지갑이 보인다.
@@ -43,7 +44,7 @@ export class FieldHud {
       const who = document.createElement('span')
       who.className = 'who'
       const name = document.createElement('b')
-      name.textContent = c.isPlayer ? `${c.name}(나)` : c.name
+      name.textContent = memberLabel(this.game, c, '')
       const num = document.createElement('span')
       num.textContent = c.hp <= 0 ? '쓰러짐' : `${c.hp}/${c.maxHp}`
       who.append(name, num)

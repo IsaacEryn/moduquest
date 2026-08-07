@@ -102,7 +102,7 @@ export class BagPanel {
     for (const member of this.game.party) {
       const b = document.createElement('button')
       b.type = 'button'
-      const name = member.isPlayer ? '나' : member.name
+      const name = member.seat === this.game.localSeat ? '나' : member.name
       b.textContent = `${name}에게 (체력 ${member.hp}/${member.maxHp})`
       // 가득 찬 동료에게는 쓸 수 없다 — 코어 규칙과 같은 이유를 버튼에도 보인다
       b.disabled = member.hp >= member.maxHp

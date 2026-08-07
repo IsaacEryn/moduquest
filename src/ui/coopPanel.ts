@@ -12,6 +12,7 @@ import {
 import { captchaEnabled, mountCaptcha, type CaptchaWidget } from '../net/captcha'
 import type { PartySession } from '../net/session'
 import { hasSupabaseConfig } from '../net/supabaseClient'
+import { josa } from './announcer'
 
 type View = 'auth' | 'confirm' | 'home' | 'room'
 
@@ -244,7 +245,7 @@ export class CoopPanel {
     box.append(h, list)
     this.hooks.announce(
       invites.length === 1
-        ? `${invites[0].fromNickname}가 모험단으로 불렀다.`
+        ? `${josa(invites[0].fromNickname, '이', '가')} 모험단으로 불렀다.`
         : `모험단 초대가 ${invites.length}개 와 있다.`,
     )
   }

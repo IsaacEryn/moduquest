@@ -145,3 +145,34 @@ describe('중복 직업 파티 — 코어가 받아들이고 갈라 다룬다', 
     expect(g2.equipmentOf('healer').weapon).toBeUndefined()
   })
 })
+
+describe('출발 전 좌석 알림', () => {
+  it('타이틀에서는 자리가 바뀌어도 말하지 않는다 — 부를 이름이 아직 없다', () => {
+    const bus = new EventBus()
+    const heard: string[] = []
+    bus.on((e) => {
+      if (e.type === 'seatControlChanged') heard.push(e.memberName)
+    })
+    const g = new Game(DATA, bus, scheduler)
+    g.setParty(['healer', 'healer', 'healer'])
+    g.setSeatController(1, 'human')
+    expect(heard).toEqual([])
+    // 자리 자체는 바뀌어 있다 — 말하지 않을 뿐이다
+    expect(g.seatControllerOf(1)).toBe('human')
+  })
+
+  it('출발한 뒤에는 확정된 파티의 이름으로 말한다', () => {
+    const bus = new EventBus()
+    const heard: string[] = []
+    bus.on((e) => {
+      if (e.type === 'seatControlChanged') heard.push(e.memberName)
+    })
+    const g = new Game(DATA, bus, scheduler)
+    g.setParty(['healer', 'healer', 'healer'])
+    g.start()
+    let guard = 0
+    while (g.mode === 'dialogue' && guard++ < 50) g.advanceDialogue()
+    g.setSeatController(1, 'human')
+    expect(heard).toEqual(['힐러 2'])
+  })
+})
