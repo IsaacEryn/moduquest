@@ -1487,7 +1487,10 @@ export class Game {
   }
 
   private onVictory(): void {
-    const wasBoss = this.battle?.isBossBattle ?? false
+    // 스테이지의 끝은 지도가 정한다. 몹의 isBoss로 판정하면 첫 처치 보상을 갖는
+    // 중간 관문(울림 사제)을 잡아도 스테이지가 끝나 버린다
+    const bossId = this.field.bossEncounterId
+    const wasBoss = bossId !== null && this.currentEncounter?.id === bossId
     // 처치한 몹들의 고정 경험치 — 무작위가 없다
     const gained =
       this.currentEncounter?.monsters.reduce(

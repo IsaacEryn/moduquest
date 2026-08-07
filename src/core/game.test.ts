@@ -70,7 +70,10 @@ function makeGame() {
  */
 function stepInto(game: Game, encounterId: string): void {
   const area = game.field.currentArea
-  const target = area.encounters.find((e) => e.id.endsWith(encounterId))!
+  // 보스는 encounters가 아니라 area.boss에 따로 있다
+  const target =
+    area.encounters.find((e) => e.id.endsWith(encounterId)) ??
+    (area.boss?.id.endsWith(encounterId) ? area.boss : undefined)!
   const dirs = [
     { d: 'south' as const, x: 0, y: -1 },
     { d: 'north' as const, x: 0, y: 1 },
@@ -794,5 +797,64 @@ describe('강한 기척', () => {
     expect(
       game.field.encounterName({ id: 'x', pos: { x: 0, y: 0 }, monsters: ['echo_priest'] }),
     ).toContain('강한 기척')
+  })
+})
+
+/**
+ * 스테이지의 끝은 지도가 정한다.
+ *
+ * 처음에는 몹 데이터의 isBoss로 판정했는데, 울림 사제처럼 첫 처치 보상을 갖는
+ * 중간 관문도 isBoss라서 지나가는 길에 스테이지가 끝나 버렸다. 넓은 길을 고른
+ * 사람이 보물을 보기도 전에 클리어 화면을 본 것이다.
+ */
+describe('스테이지를 끝내는 싸움', () => {
+  /** 그 조우를 이겼다고 치고 승리 처리를 태운다 */
+  function win(game: Game, timer: ReturnType<typeof fakeScheduler>, shortId: string) {
+    stepInto(game, shortId)
+    skipDialogue(game)
+    for (const e of game.battle!.enemies) e.hp = 1
+    let guard = 0
+    while (game.mode === 'battle' && guard++ < 300) {
+      if (game.battle!.currentActor.isPlayer) {
+        const target = game.battle!.enemies.find((x) => x.hp > 0)
+        if (!target) break
+        game.playerAction({ kind: 'attack', targetId: target.id })
+      } else {
+        timer.flush()
+      }
+    }
+  }
+
+  it('보스가 아닌 조우를 이기면 스테이지가 이어진다', () => {
+    const { game, timer } = makeGame()
+    game.start()
+    skipDialogue(game)
+    win(game, timer, 'e1')
+    expect(game.mode).not.toBe('clear')
+    expect(game.clearedStageIds).not.toContain(game.stage.id)
+  })
+
+  it('그 구역의 보스를 이겨야 클리어다', () => {
+    const { game, timer } = makeGame()
+    game.start()
+    skipDialogue(game)
+    win(game, timer, 'boss')
+    skipDialogue(game)
+    expect(game.clearedStageIds).toContain('stage1')
+  })
+
+  it('중간 관문은 스테이지 보스가 아니다 — 지도가 그렇게 말한다', () => {
+    // 사제가 선 구역에는 boss가 없고, 종지기 구역에만 있다.
+    // 이 관계가 깨지면 사제를 잡는 순간 스테이지가 끝난다
+    const { game } = makeGame()
+    game.startStage(2)
+    const stage = game.stage
+    const withBoss = stage.areas.filter((a) => a.boss)
+    expect(withBoss).toHaveLength(1)
+    expect(withBoss[0].boss!.monsters).toContain('bell_keeper')
+    const priestArea = stage.areas.find((a) =>
+      a.encounters.some((e) => e.monsters.includes('echo_priest')),
+    )!
+    expect(priestArea.boss, '울림 사제가 선 구역에 보스가 있으면 안 된다').toBeUndefined()
   })
 })

@@ -116,6 +116,17 @@ export class Field {
     return new Map(all.filter((e) => !this.defeatedIdSet.has(e.id)).map((e) => [e.id, e]))
   }
 
+  /**
+   * 이 구역의 보스 조우 id. 없으면 null.
+   *
+   * "스테이지가 끝나는 싸움인가"는 몹 데이터의 isBoss로 판정하면 안 된다 —
+   * 울림 사제처럼 첫 처치 보상을 갖는 중간 관문도 isBoss라서, 지나가는 길에
+   * 스테이지가 끝나 버린다. 끝을 정하는 것은 몹이 아니라 지도다.
+   */
+  get bossEncounterId(): string | null {
+    return this.area.boss?.id ?? null
+  }
+
   get atCheckpoint(): boolean {
     const cp = this.area.checkpoint
     return !!cp && this.pos.x === cp.x && this.pos.y === cp.y
