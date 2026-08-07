@@ -255,6 +255,27 @@ body[data-mode='clear'] #game {
     display: none;
   }
 
+  /*
+   * 지도가 숨는 화면에서는 격자용 규칙을 되돌린다.
+   * 두 단일 때 기록은 지도가 정한 높이를 따라가지만(height 0 + min-height 100%),
+   * 가운데 스택이 되면 기댈 높이가 없어져 기록이 26픽셀로 찌그러졌다.
+   * 폭도 마찬가지다 — 아랫줄 전체를 쓰던 조작판이 그대로 남으면
+   * 클리어 문장이 화면 끝까지 늘어져 읽는 눈이 줄을 놓친다.
+   */
+  body[data-mode='clear'] #app #text-log {
+    height: auto;
+    min-height: 10rem;
+    max-height: 14rem;
+    max-width: 48rem;
+    /* 두 단일 때는 지도 옆으로 늘어나야 하지만, 가운데 스택에서는
+       늘어나는 대신 패널과 같은 축에 서야 한다 */
+    align-self: center;
+  }
+
+  body[data-mode='clear'] #app #ui {
+    max-width: 48rem;
+  }
+
   #game {
     grid-area: game;
   }
@@ -849,6 +870,19 @@ html.low-stim * {
   font-size: var(--fs-lg);
   max-width: 30rem;
   margin: 0 auto var(--sp-4);
+}
+
+/*
+ * 클리어 화면 — 타이틀의 뼈대를 쓰되 여백은 제 몫으로 줄인다.
+ * 타이틀은 첫인상이라 넓은 여백이 어울리지만, 여기는 방금 싸움을 끝낸
+ * 사람이 다음 걸음을 고르는 자리다.
+ */
+.clear-screen {
+  padding: var(--sp-5) var(--sp-4);
+}
+
+.clear-screen .actions {
+  margin-top: var(--sp-5);
 }
 
 /* 마을 섹션 사이 숨 고르기 */

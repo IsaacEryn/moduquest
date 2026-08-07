@@ -369,7 +369,7 @@ export class Screens {
   private renderClear(): void {
     const ending = !this.game.hasNextStage
     const s = document.createElement('section')
-    s.className = 'panel title-screen'
+    s.className = 'panel title-screen clear-screen'
     s.innerHTML = `
       <h2></h2>
       <p class="clear-message"></p>
