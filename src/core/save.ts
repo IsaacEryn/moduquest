@@ -1,5 +1,6 @@
 import { allChestIds, allEncounters, resolveArea } from './layout'
 import { levelForXp } from './stats'
+import { memberIdsOf } from './partyIds'
 import { resolveTraitId } from './traits'
 import type { EquipSlot, GameData, SaveSnapshot, StageData } from './types'
 
@@ -247,7 +248,8 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     return out
   }
 
-  // 파티 구성: 실재하는 직업 · 정원수 · 중복 없음이 아니면 기본 구성으로 되돌린다
+  // 파티 구성: 실재하는 직업 · 정원수가 아니면 기본 구성으로 되돌린다.
+  // 중복 직업은 유효한 파티다 — 파티원 id가 자리에서 유도되므로 겹쳐도 갈리지 않는다
   const jobIds = new Set(Object.keys(data.jobs))
   const rawParty = Array.isArray(r.party) ? (r.party as Record<string, unknown>[]) : []
   let party = rawParty
@@ -260,10 +262,7 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
       hp: clampInt(p.hp, 0, 9999, 1),
       equipment: sanitizeEquipment(p.equipment),
     }))
-  if (
-    party.length !== data.party.length ||
-    new Set(party.map((p) => p.job)).size !== party.length
-  ) {
+  if (party.length !== data.party.length) {
     // 구성이 무너져도 장비는 살린다 — 유효한 장비 id를 가방으로 옮기고 빈 손으로 시작
     for (const p of party) for (const id of Object.values(p.equipment)) if (id) returned.push(id)
     party = data.party.map((p) => ({ job: p.job, hp: 9999, equipment: {} }))
@@ -281,16 +280,19 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     else inventory.push({ item: id, count: 1 })
   }
 
-  // 마을 지갑. 강화 단계는 (직업, 능력치) 한 쌍에 하나뿐이고 상한을 넘지 않는다
+  // 마을 지갑. 강화 단계는 (파티원, 능력치) 한 쌍에 하나뿐이고 상한을 넘지 않는다.
+  // job 필드에는 파티원 id가 들어 있다 — 중복 직업 파티에서는 warrior2 같은 값이라
+  // 직업 목록이 아니라 이 파티의 파티원 id 목록으로 실재를 검사한다
   const gold = clampInt(r.gold, 0, 99999, 0)
   const materials = clampInt(r.materials, 0, 9999, 0)
+  const memberIds = new Set(memberIdsOf(party.map((p) => p.job)))
   const upgradeStats = new Set<string>(data.economy.upgrade.stats)
   const maxUpgrade = data.economy.upgrade.maxLevel
   const seenUpgrades = new Set<string>()
   const upgrades = (Array.isArray(r.upgrades) ? r.upgrades : [])
     .filter((u): u is { job: string; stat: string; level: number } => {
       const row = u as { job?: unknown; stat?: unknown }
-      if (typeof row?.job !== 'string' || !jobIds.has(row.job)) return false
+      if (typeof row?.job !== 'string' || !memberIds.has(row.job)) return false
       if (typeof row?.stat !== 'string' || !upgradeStats.has(row.stat)) return false
       const key = `${row.job}-${row.stat}`
       if (seenUpgrades.has(key)) return false

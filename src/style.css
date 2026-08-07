@@ -1338,3 +1338,11 @@ details > summary::marker {
   font-size: var(--fs-sm);
   line-height: 1.5;
 }
+
+/* 파티 짜기에서 자리가 비켜 준 것을 알리는 줄 — 낭독과 화면이 같은 문장을 본다 */
+.party-status {
+  margin: var(--sp-3) 0 0;
+  min-height: 1.4em;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+}

@@ -1,7 +1,10 @@
 import type { Game } from '../core/game'
+import { josa } from './announcer'
 import type { JobData } from '../core/types'
 
 const SLOT_LABELS = ['나의 직업', '동료 1', '동료 2']
+// 문장의 주어 꼴 — "동료 1"의 1은 '일'로 읽혀 받침이 있으므로 조사가 다르다
+const SLOT_SUBJECTS = ['내가', '동료 1이', '동료 2가']
 
 function describeJob(j: JobData): string {
   const skills = j.skills
@@ -22,13 +25,22 @@ function describeJob(j: JobData): string {
 
 /**
  * 파티 짜기 — 나와 동료 둘의 직업을 고른다.
- * 같은 직업은 파티에 하나만: 역할이 다른 셋이 모이는 것이 이 게임의 정체성이다.
+ *
+ * 예전에는 다른 자리가 고른 직업을 잠갔다. 그러면 동료에게 배정된 직업을 내가
+ * 가지려면 동료부터 바꿔야 해서 순서가 강요됐고, 잠긴 라디오는 화살표 이동까지
+ * 끊어 접근성도 나빴다. 지금은 아무 칸도 잠그지 않는다 — 겹치게 고르면 겹친
+ * 자리가 내 이전 직업을 대신 맡아 비켜 준다.
+ *
+ * 멀티 플레이는 겹침 자체를 허용한다. 셋 다 힐러여도 그들의 모험이다.
  */
 export class PartyPanel {
   private dialog: HTMLDialogElement
   private prevFocus: Element | null = null
   private closed = true
   private selection: string[] = []
+  /** 같은 직업을 여러 자리에 허용하는가 — 멀티 플레이에서 켠다 */
+  private allowDuplicates = false
+  private status!: HTMLElement
 
   constructor(
     private game: Game,
@@ -43,14 +55,16 @@ export class PartyPanel {
     this.dialog.setAttribute('aria-labelledby', 'party-title')
     this.dialog.innerHTML = `
       <h2 id="party-title">파티 짜기</h2>
-      <p class="intro">나와 동료 둘의 직업을 고르자. 같은 직업은 파티에 하나만 들어간다.</p>
+      <p class="intro" id="party-intro"></p>
       <div class="party-groups"></div>
+      <p class="party-status" role="status"></p>
       <div class="slot-actions">
         <button type="button" id="party-start">이 파티로 시작</button>
         <button type="button" id="party-close">돌아가기</button>
       </div>
     `
     document.body.append(this.dialog)
+    this.status = this.dialog.querySelector('.party-status')!
 
     // 직업 설명은 한 번만 만들어 모든 그룹이 참조한다.
     // 눈으로 고르는 사람에게도 보여야 한다 — 숨기면 스크린리더 사용자만 스탯을 알게 된다.
@@ -88,10 +102,22 @@ export class PartyPanel {
         input.value = id
         input.setAttribute('aria-describedby', `job-desc-${id}`)
         input.addEventListener('change', () => {
-          if (input.checked) {
-            this.selection[slot] = id
-            this.refreshDisabled()
+          if (!input.checked) return
+          const prev = this.selection[slot]
+          if (!this.allowDuplicates && prev !== id) {
+            // 겹친 자리가 내 이전 직업을 대신 맡는다 — 순서를 강요하지 않는 교환
+            const other = this.selection.findIndex((job, s) => s !== slot && job === id)
+            if (other !== -1) {
+              this.selection[other] = prev
+              this.checkRadio(other, prev)
+              const jobName = this.game.jobs[prev]?.name ?? prev
+              this.status.textContent =
+                `${SLOT_SUBJECTS[other]} ${josa(jobName, '을', '를')} 대신 맡았다.`
+            } else {
+              this.status.textContent = ''
+            }
           }
+          this.selection[slot] = id
         })
         const lab = document.createElement('label')
         lab.htmlFor = input.id
@@ -111,35 +137,30 @@ export class PartyPanel {
     this.dialog.addEventListener('close', () => this.afterClose())
   }
 
-  /** 다른 자리에서 이미 고른 직업은 잠근다 — 중복이 생길 길 자체를 없앤다 */
-  private refreshDisabled(): void {
-    this.dialog.querySelectorAll<HTMLInputElement>('input[type="radio"]').forEach((input) => {
-      const slot = Number(input.name.split('-').at(-1))
-      const pickedElsewhere = this.selection.some(
-        (job, s) => s !== slot && job === input.value,
-      )
-      input.disabled = pickedElsewhere
-    })
+  private checkRadio(slot: number, job: string): void {
+    const input = this.dialog.querySelector<HTMLInputElement>(
+      `#party-${slot}-${CSS.escape(job)}`,
+    )
+    if (input) input.checked = true
   }
 
   get isOpen(): boolean {
     return this.dialog.open
   }
 
-  open(): void {
+  open(opts: { allowDuplicates?: boolean } = {}): void {
     this.closed = false
+    this.allowDuplicates = opts.allowDuplicates ?? false
     this.hooks.onOpen?.()
     this.prevFocus = document.activeElement
+    this.status.textContent = ''
+    this.dialog.querySelector('#party-intro')!.textContent = this.allowDuplicates
+      ? '나와 동료 둘의 직업을 고르자. 함께 하기에서는 같은 직업이 겹쳐도 된다.'
+      : '나와 동료 둘의 직업을 고르자. 겹치게 고르면 그 자리가 내 이전 직업을 대신 맡는다.'
     this.selection = [...this.game.currentPartyJobs]
-    this.selection.forEach((job, slot) => {
-      const input = this.dialog.querySelector<HTMLInputElement>(
-        `#party-${slot}-${CSS.escape(job)}`,
-      )
-      if (input) input.checked = true
-    })
-    this.refreshDisabled()
+    this.selection.forEach((job, slot) => this.checkRadio(slot, job))
     this.dialog.showModal()
-    this.dialog.querySelector<HTMLElement>('input:not([disabled])')?.focus()
+    this.dialog.querySelector<HTMLElement>('input')?.focus()
   }
 
   close(): void {

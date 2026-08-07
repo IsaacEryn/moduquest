@@ -3,6 +3,7 @@ import type { EventBus, GameMode } from './events'
 import { Field } from './field'
 import { SAVE_VERSION } from './save'
 import { nextVariant, resolveArea, type ResolvedArea } from './layout'
+import { memberIdsOf, memberNamesOf } from './partyIds'
 import { computeMemberStats, levelForXp, type StatBreakdown } from './stats'
 import { applyCombat, perceptionRadius, resolveTrait, resolveTraitId } from './traits'
 import type {
@@ -73,6 +74,20 @@ export class Game {
   private readonly monsterNames: Record<string, string>
   /** 현재 파티 구성. 0번이 플레이어다 */
   private partyJobs: string[]
+
+  /**
+   * 자리 순서에서 유도한 파티원 id. 중복 직업이 없으면 직업 id와 같다.
+   * 전투 대상·장비·강화·저장이 전부 이 id로 사람을 가리킨다.
+   */
+  private get memberIds(): string[] {
+    return memberIdsOf(this.partyJobs)
+  }
+
+  /** 파티원 id → 직업 id. 직업 데이터(전용 장비·성장 곡선)를 읽을 때 쓴다 */
+  private jobOfMember(memberId: string): string | null {
+    const at = this.memberIds.indexOf(memberId)
+    return at === -1 ? null : this.partyJobs[at]
+  }
 
   constructor(
     private data: GameData,
@@ -207,14 +222,16 @@ export class Game {
 
   private buildParty(): Combatant[] {
     const trait = this.trait
+    const ids = this.memberIds
+    const names = memberNamesOf(this.partyJobs, (job) => this.data.jobs[job].name)
     return this.partyJobs.map((job, index) => {
       // 사람이 앉은 자리인가 — 솔로는 0번뿐, 함께 하기에서는 좌석 배정이 정한다
       const isPlayer = this.seatControllers[index] === 'human'
       const j = this.data.jobs[job]
-      const s = this.breakdownFor(job).total
+      const s = this.breakdownFor(ids[index]).total
       const c: Combatant = {
-        id: job,
-        name: j.name,
+        id: ids[index],
+        name: names[index],
         side: 'ally',
         isPlayer,
         seat: index,
@@ -400,8 +417,8 @@ export class Game {
   private equipment = new Map<string, Partial<Record<EquipSlot, string>>>()
 
   /** 착용 중인 장비를 데이터로 해석한다 */
-  private equippedItems(job: string): ItemData[] {
-    const eq = this.equipment.get(job)
+  private equippedItems(memberId: string): ItemData[] {
+    const eq = this.equipment.get(memberId)
     if (!eq) return []
     return Object.values(eq)
       .filter((id): id is string => !!id)
@@ -410,10 +427,10 @@ export class Game {
   }
 
   /** 다른 파티원 장비의 오라 합 — 함께 걷는 사람이 나를 강하게 한다 */
-  private auraFor(job: string): StatBlock {
+  private auraFor(memberId: string): StatBlock {
     const out = { hp: 0, mp: 0, atk: 0, def: 0, spd: 0 }
-    for (const other of this.partyJobs) {
-      if (other === job) continue
+    for (const other of this.memberIds) {
+      if (other === memberId) continue
       for (const item of this.equippedItems(other)) {
         const a = item.allyStats
         if (!a) continue
@@ -428,24 +445,26 @@ export class Game {
   }
 
   /** 능력치 내역 — buildParty와 상태창이 같은 결과를 읽는다 */
-  private breakdownFor(job: string): StatBreakdown {
-    const isPlayer = this.partyJobs[0] === job
+  private breakdownFor(memberId: string): StatBreakdown {
+    const job = this.jobOfMember(memberId) ?? memberId
+    // 특성은 0번 자리의 것 — 같은 직업이 둘이어도 특성은 방장 자리에만 붙는다
+    const isTraitBearer = this.memberIds[0] === memberId
     return computeMemberStats({
       job: this.data.jobs[job],
       growth: this.data.progression.growth[job],
       level: this.partyLevel,
-      upgrade: this.upgradeStatsFor(job),
-      equipment: this.equippedItems(job),
-      auraFromOthers: this.auraFor(job),
+      upgrade: this.upgradeStatsFor(memberId),
+      equipment: this.equippedItems(memberId),
+      auraFromOthers: this.auraFor(memberId),
       sets: this.data.sets,
-      trait: isPlayer ? this.trait : null,
+      trait: isTraitBearer ? this.trait : null,
       limits: this.data.traits.limits,
     })
   }
 
   /** 상태창 표시용 — 계산과 표시가 어긋날 수 없도록 같은 함수를 쓴다 */
   statBreakdownOf(memberId: string): StatBreakdown | null {
-    if (!this.partyJobs.includes(memberId)) return null
+    if (!this.memberIds.includes(memberId)) return null
     return this.breakdownFor(memberId)
   }
 
@@ -489,14 +508,15 @@ export class Game {
     if (this.mode !== 'field' && this.mode !== 'title') {
       return { ok: false, reason: '지금은 장비를 바꿀 수 없다.' }
     }
-    if (!this.partyJobs.includes(memberId)) return { ok: false }
+    const job = this.jobOfMember(memberId)
+    if (!job) return { ok: false }
     const item = this.data.items[itemId]
     if (!item || item.kind !== 'equipment' || !item.slot) {
       return { ok: false, reason: '입을 수 있는 것이 아니다.' }
     }
     if ((this.inventory.get(itemId) ?? 0) <= 0) return { ok: false, reason: '가방에 없다.' }
     // 전용 장비 — 활을 든 마법사는 없다. 누구 것인지를 이유에 그대로 적는다
-    if (item.jobs && !item.jobs.includes(memberId)) {
+    if (item.jobs && !item.jobs.includes(job)) {
       const names = item.jobs.map((j) => this.data.jobs[j]?.name ?? j).join('·')
       return { ok: false, reason: `${names} 전용이다.` }
     }
@@ -568,8 +588,8 @@ export class Game {
   }
 
   /** 강화 단계를 실제 능력치로 편다 — 단계는 저장하고, 곱한 값은 저장하지 않는다 */
-  private upgradeStatsFor(job: string): StatBlock {
-    const up = this.upgrades.get(job)
+  private upgradeStatsFor(memberId: string): StatBlock {
+    const up = this.upgrades.get(memberId)
     if (!up) return {}
     const gain = this.data.economy.upgrade.gainPerLevel
     const out: StatBlock = {}
@@ -738,7 +758,7 @@ export class Game {
 
   canUpgrade(memberId: string, stat: UpgradeStat): { ok: boolean; reason?: string } {
     if (!this.canVisitTown().ok) return { ok: false, reason: '마을에서만 강화할 수 있다.' }
-    if (!this.partyJobs.includes(memberId)) return { ok: false }
+    if (!this.memberIds.includes(memberId)) return { ok: false }
     if (!this.data.economy.upgrade.stats.includes(stat)) return { ok: false }
     const cost = this.upgradeCostOf(memberId, stat)
     if (!cost) {
@@ -879,20 +899,23 @@ export class Game {
 
   /**
    * 파티 구성 변경. 타이틀에서만 — 모험 중에 동료를 갈아 끼우는 규칙은 없다.
-   * 세 명, 전부 실재하는 직업, 중복 없음이어야 받는다.
+   * 세 명, 전부 실재하는 직업이면 받는다. 같은 직업 셋도 파티다 —
+   * 함께 하는 세 사람이 모두 힐러를 쥐고 싶다면 그것도 그들의 모험이다.
    */
   setParty(jobs: string[]): boolean {
     if (this.mode !== 'title') return false
     if (jobs.length !== this.data.party.length) return false
-    if (new Set(jobs).size !== jobs.length) return false
     if (!jobs.every((j) => this.data.jobs[j])) return false
-    // 파티를 떠나는 직업의 장비는 가방으로 — 함께 담은 것을 잃지 않는다
-    for (const job of this.partyJobs) {
-      if (jobs.includes(job)) continue
-      const eq = this.equipment.get(job)
+    // 파티를 떠나는 자리의 장비는 가방으로 — 함께 담은 것을 잃지 않는다.
+    // 자리 비교는 직업이 아니라 파티원 id로 한다. 전사가 하나 남고 하나 떠나면
+    // 떠나는 쪽(warrior2)의 장비만 돌아온다
+    const nextIds = new Set(memberIdsOf(jobs))
+    for (const memberId of this.memberIds) {
+      if (nextIds.has(memberId)) continue
+      const eq = this.equipment.get(memberId)
       if (!eq) continue
       for (const id of Object.values(eq)) if (id) this.addItem(id)
-      this.equipment.delete(job)
+      this.equipment.delete(memberId)
     }
     this.partyJobs = [...jobs]
     this.party = this.buildParty()
@@ -1018,10 +1041,12 @@ export class Game {
       },
       inventory: [...this.inventory.entries()].map(([item, count]) => ({ item, count })),
       kills: [...this.kills.entries()].map(([monster, count]) => ({ monster, count })),
-      party: this.party.map((c) => ({
-        job: c.id,
-        hp: c.hp,
-        equipment: { ...(this.equipment.get(c.id) ?? {}) },
+      // job에는 실제 직업을 적는다 — 복원이 이 배열의 순서에서 파티원 id를
+      // 다시 유도하므로, 저장에는 유도의 재료(직업)만 있으면 된다
+      party: this.partyJobs.map((job, i) => ({
+        job,
+        hp: this.party[i]?.hp ?? 0,
+        equipment: { ...(this.equipment.get(this.memberIds[i]) ?? {}) },
       })),
       xp: this.xp,
       gold: this.gold,
@@ -1065,12 +1090,14 @@ export class Game {
     this.seenDialogues = new Set(s.seenDialogues)
     this.inventory = new Map(s.inventory.map((i) => [i.item, i.count]))
     this.kills = new Map(s.kills.map((k) => [k.monster, k.count]))
-    this.equipment = new Map(s.party.map((p) => [p.job, { ...p.equipment }]))
+    // 장비와 체력은 자리 순서로 잇는다 — 파티원 id가 자리에서 유도되므로
+    // 같은 직업이 둘이어도 각자의 장비가 각자에게 돌아간다
+    this.equipment = new Map(s.party.map((p, i) => [this.memberIds[i], { ...p.equipment }]))
     this.party = this.buildParty()
-    for (const saved of s.party) {
-      const c = this.party.find((p) => p.id === saved.job)
+    s.party.forEach((saved, i) => {
+      const c = this.party[i]
       if (c) c.hp = Math.min(c.maxHp, Math.max(0, saved.hp))
-    }
+    })
     this.layoutKey = s.layoutKey
     this.variantOf = new Map(s.variants.map((v) => [v.stage, v.variant]))
     // 복원은 순환하지 않는다 — 같은 기록은 언제나 같은 지도다

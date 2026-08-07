@@ -170,8 +170,9 @@ const slotPanel = new SlotPanel(game, saves, {
   announce: (text) => announcer.polite(text),
   onStart: (slot) => {
     activeSlot = slot
-    // 자리를 골랐으면 파티부터 짠다 — 확정하면 모험이 시작된다
-    partyPanel.open()
+    // 자리를 골랐으면 파티부터 짠다 — 확정하면 모험이 시작된다.
+    // 멀티 플레이는 같은 직업 겹침을 허용한다 — 셋 다 힐러여도 그들의 모험이다
+    partyPanel.open({ allowDuplicates: activeSession !== null })
   },
   onContinue: async (slot) => {
     const snapshot = await saves.load(slot)
@@ -297,11 +298,12 @@ async function openCoop(): Promise<void> {
       },
       describeSlots: async () => {
         const slots = await saves.list()
-        return slots.map((s) =>
-          s.empty
+        return slots.map((s) => ({
+          empty: s.empty,
+          label: s.empty
             ? `${s.slot + 1}번 자리 — 비어 있다`
             : `${s.slot + 1}번 자리 — 기록이 있다 (덮어쓰며 저장된다)`,
-        )
+        }))
       },
       openGifts: (me) => {
         void (async () => {

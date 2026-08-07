@@ -30,10 +30,11 @@ export class CoopPanel {
   /** 지금 화면에 떠 있는 자동 가입 방지 상자 */
   private captcha: CaptchaWidget | null = null
   /**
-   * 게스트가 고른 저장 자리. 로비를 다시 그려도 고른 값이 남아야 하고,
-   * 고르지 않았으면 반드시 null이어야 한다 — 이 값이 곧 자동저장의 목적지다
+   * 게스트가 고른 저장 자리 — 이 값이 곧 자동저장의 목적지다.
+   * undefined는 아직 고르지 않았다는 뜻으로, 자리 목록이 오면 첫 빈 자리가 된다.
+   * null은 사람이 직접 "저장하지 않는다"를 고른 것이라 그대로 존중한다.
    */
-  private guestSlot: number | null = null
+  private guestSlot: number | null | undefined = undefined
 
   constructor(
     private hooks: {
@@ -53,7 +54,7 @@ export class CoopPanel {
       hostStart: () => void
       /** 게스트의 저장 자리 — null이면 이번 모험을 저장하지 않는다 */
       setGuestSlot: (slot: number | null) => void
-      describeSlots: () => Promise<string[]>
+      describeSlots: () => Promise<{ label: string; empty: boolean }[]>
       /** 선물함 열기 — 세션과 무관한 비동기 우편 */
       openGifts: (me: Profile) => void
     },
@@ -463,8 +464,8 @@ export class CoopPanel {
       this.hooks
         .joinSession(code.value, { userId: me.userId, nickname: me.nickname })
         .then(() => {
-          // 새 모험단이다 — 지난 판의 저장 자리를 물려받지 않는다
-          this.guestSlot = null
+          // 새 모험단이다 — 지난 판의 저장 자리를 물려받지 않고 다시 고른다
+          this.guestSlot = undefined
           this.view = 'room'
           this.render()
           this.hooks.announce('모험단에 들어왔다. 방장이 출발하기를 기다린다.')
@@ -626,16 +627,23 @@ export class CoopPanel {
       // 손대지 않으면 직전 솔로 플레이의 자리가 그대로 남아 "저장하지 않는다"고
       // 적혀 있는 채로 그 자리를 덮어썼다. 로스터가 바뀌어 이 화면을 다시 그려도
       // 고른 값은 패널이 기억한다
-      this.hooks.setGuestSlot(this.guestSlot)
-      void this.hooks.describeSlots().then((descs) => {
-        descs.forEach((d, i) => {
+      void this.hooks.describeSlots().then((slots) => {
+        slots.forEach((s, i) => {
           const o = document.createElement('option')
           o.value = String(i)
-          o.textContent = d
+          o.textContent = s.label
           select.append(o)
         })
-        // 자리 목록이 채워진 뒤에야 고른 값을 되살릴 수 있다
+        // 아직 아무것도 고르지 않았다면 첫 빈 자리가 기본이다.
+        // "저장은 각자 자기 자리에 남는다"고 약속해 놓고 기본값이 반대면,
+        // 드롭다운을 지나친 사람의 모험이 조용히 사라진다 — 실제로 그랬다.
+        // 빈 자리가 없을 때만 "저장하지 않는다"로 두어 기록을 덮지 않는다
+        if (this.guestSlot === undefined) {
+          const empty = slots.findIndex((s) => s.empty)
+          this.guestSlot = empty === -1 ? null : empty
+        }
         select.value = this.guestSlot === null ? '' : String(this.guestSlot)
+        this.hooks.setGuestSlot(this.guestSlot)
       })
       select.addEventListener('change', () => {
         const v = select.value === '' ? null : Number(select.value)

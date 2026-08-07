@@ -187,6 +187,8 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
     )
     expect(broken?.party.map((p) => p.job)).toEqual(['rogue', 'warrior', 'healer'])
 
+    // 같은 직업이 겹치는 것은 깨진 게 아니라 유효한 파티다 — 함께 하기에서
+    // 세 사람이 같은 직업을 고를 수 있고, 그 저장도 그대로 살아야 한다
     const dup = sanitizeSnapshot(
       {
         ...valid(),
@@ -198,7 +200,7 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
       },
       DATA,
     )
-    expect(dup?.party.map((p) => p.job)).toEqual(['rogue', 'warrior', 'healer'])
+    expect(dup?.party.map((p) => p.job)).toEqual(['healer', 'healer', 'rogue'])
   })
 
   it('바꾼 파티 구성은 그대로 저장되고 복원된다', () => {
