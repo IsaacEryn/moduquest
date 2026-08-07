@@ -28,6 +28,13 @@ export interface Page<T> {
   total: number
 }
 
+/** 플레이 현황 — 저장 기록을 서버에서 집계한 것 */
+export async function fetchPlayStats(): Promise<Record<string, unknown>> {
+  const { data, error } = await supabase().rpc('admin_play_stats')
+  if (error) throw new Error('플레이 현황을 불러오지 못했다.')
+  return data as Record<string, unknown>
+}
+
 export async function fetchProfiles(page: number, search: string): Promise<Page<ProfileRow>> {
   let q = supabase()
     .from('profiles')

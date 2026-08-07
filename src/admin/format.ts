@@ -136,3 +136,39 @@ export function pagerState(page: number, total: number, per: number): PagerState
     hasNext: page + 1 < pages,
   }
 }
+
+/**
+ * 이름-개수 묶음을 많은 순으로 편다. 비율까지 함께 계산해 두면
+ * 화면은 막대 길이를 정하는 데만 쓰고 판단은 하지 않는다.
+ */
+export function ranked(
+  counts: Record<string, number>,
+  label: (key: string) => string = (k) => k,
+): { key: string; name: string; n: number; ratio: number; share: number }[] {
+  const entries = Object.entries(counts).filter(([, n]) => n > 0)
+  if (entries.length === 0) return []
+  const max = Math.max(...entries.map(([, n]) => n))
+  const total = entries.reduce((sum, [, n]) => sum + n, 0)
+  return entries
+    .sort((a, b) => b[1] - a[1])
+    .map(([key, n]) => ({
+      key,
+      name: label(key),
+      n,
+      ratio: max > 0 ? n / max : 0,
+      share: total > 0 ? n / total : 0,
+    }))
+}
+
+/** 경험치 목록 → 레벨 분포. 레벨 표는 게임 데이터에서 받는다 */
+export function levelSpread(
+  xps: number[],
+  toLevel: (xp: number) => number,
+): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const xp of xps) {
+    const key = String(toLevel(xp))
+    out[key] = (out[key] ?? 0) + 1
+  }
+  return out
+}

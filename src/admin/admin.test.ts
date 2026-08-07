@@ -4,7 +4,9 @@ import {
   banLabel,
   describeAudit,
   latestSaveByUser,
+  levelSpread,
   pagerState,
+  ranked,
   relativeTime,
   shouldCheckAdmin,
   signupsToBars,
@@ -149,5 +151,30 @@ describe('쪽 이동', () => {
   it('딱 떨어지면 빈 쪽을 만들지 않는다', () => {
     expect(pagerState(0, 50, 50).pages).toBe(1)
     expect(pagerState(0, 50, 50).hasNext).toBe(false)
+  })
+})
+
+describe('분포 정리', () => {
+  it('많은 순으로 세우고 최대값 기준 길이와 비중을 함께 준다', () => {
+    const rows = ranked({ warrior: 2, healer: 6, mage: 2 })
+    expect(rows.map((r) => r.key)).toEqual(['healer', 'warrior', 'mage'])
+    expect(rows[0].ratio).toBe(1)
+    expect(rows[1].ratio).toBe(2 / 6)
+    expect(rows[0].share).toBe(0.6)
+  })
+
+  it('0인 항목은 빼고, 전부 비면 빈 배열이다', () => {
+    expect(ranked({ a: 0, b: 0 })).toEqual([])
+    expect(ranked({})).toEqual([])
+  })
+
+  it('이름표를 갈아 끼울 수 있다 — 화면이 id를 보여줄 이유가 없다', () => {
+    const rows = ranked({ warrior: 1 }, () => '전사')
+    expect(rows[0].name).toBe('전사')
+  })
+
+  it('경험치를 레벨 분포로 접는다', () => {
+    const spread = levelSpread([0, 0, 100], (xp) => (xp >= 100 ? 2 : 1))
+    expect(spread).toEqual({ '1': 2, '2': 1 })
   })
 })
