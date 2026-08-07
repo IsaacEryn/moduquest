@@ -68,6 +68,34 @@ export class BagPanel {
   }
 
   /**
+   * 동료에게 건네는 줄. 가방이 자리마다 갈리면서 "내게 필요 없지만 저 사람에게는
+   * 딱인 것"이 생겼고, 그때 주고받는 것이 협동이 된다. 사람이 앉은 자리에만 보인다 —
+   * 컴퓨터가 맡은 자리는 받을 손이 없다.
+   */
+  private renderGiveRow(itemId: string, itemName: string): void {
+    const others = this.game.party.filter(
+      (m) => m.seat !== undefined && m.seat !== this.game.localSeat,
+    )
+    const givable = others.filter((m) => this.game.canGiveItem(itemId, m.seat!).ok)
+    if (givable.length === 0) return
+
+    const group = document.createElement('div')
+    group.className = 'target-row'
+    group.setAttribute('role', 'group')
+    group.setAttribute('aria-label', `${itemName} 건네기`)
+    for (const member of givable) {
+      const b = document.createElement('button')
+      b.type = 'button'
+      b.textContent = `${member.name}에게 주기`
+      b.addEventListener('click', () => {
+        if (this.game.giveItem(itemId, member.seat!)) this.renderList()
+      })
+      group.append(b)
+    }
+    this.targetsEl.append(group)
+  }
+
+  /**
    * 고른 물건을 누구에게 쓸지. 격자 바깥에 두는 이유는, 대상이 파티원이라
    * 물건 목록과 성격이 다르기 때문이다.
    */
@@ -92,9 +120,13 @@ export class BagPanel {
       note.className = 'bag-note'
       note.textContent = '장비는 상태창에서 입는다.'
       this.targetsEl.append(note)
+      this.renderGiveRow(selected.id, selected.item.name)
       return
     }
-    if (!row.usableInField) return
+    if (!row.usableInField) {
+      this.renderGiveRow(selected.id, selected.item.name)
+      return
+    }
 
     const group = document.createElement('div')
     group.className = 'target-row'

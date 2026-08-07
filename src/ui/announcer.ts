@@ -236,6 +236,16 @@ export class Announcer {
         this.caption('[흘림]')
         break
       }
+      case 'itemGiven': {
+        const mine = e.fromSeat === this.mySeat()
+        this.polite(
+          mine
+            ? `${josa(e.name, '을', '를')} ${e.toName}에게 건넸다.`
+            : `${josa(e.fromName, '이', '가')} ${e.toName}에게 ${josa(e.name, '을', '를')} 건넸다.`,
+        )
+        this.caption('[건넴]')
+        break
+      }
       case 'traitChanged': {
         // 함께 하기에서는 누가 바꿨는지가 정보다 — 동료의 눈이 좁아졌다면
         // 그 사람이 무엇을 못 보는지 내가 알아야 알려 줄 수 있다

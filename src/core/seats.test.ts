@@ -229,7 +229,7 @@ describe('결정성 — 같은 명령 열이면 같은 세계', () => {
   it('상태가 다르면 체크섬도 다르다', () => {
     const { game } = makeGame()
     const s1 = game.snapshot()
-    const s2 = { ...game.snapshot(), gold: 999 }
+    const s2 = { ...game.snapshot(), golds: [999, 0, 0] }
     expect(snapshotChecksum(s1)).not.toBe(snapshotChecksum(s2))
   })
 })

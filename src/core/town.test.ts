@@ -53,9 +53,9 @@ function atCheckpoint(game: Game) {
 /** 지갑을 채운다. 테스트가 전투를 반복하지 않아도 되도록 상점을 통해 넣는다 */
 function fund(game: Game, gold: number, materials: number) {
   // 동전은 처치로만 들어오므로 판매로 채운다 — 상점에 산 것을 되파는 경로
-  const seed = game as unknown as { gold: number; materials: number }
-  seed.gold = gold
-  seed.materials = materials
+  const seed = game as unknown as { golds: number[]; mats: number[] }
+  seed.golds[0] = gold
+  seed.mats[0] = materials
 }
 
 describe('마을에 들르는 자리', () => {
@@ -185,9 +185,10 @@ describe('분해', () => {
   it('추억의 물건과 오라 장비는 팔지도 분해하지도 못한다', () => {
     const { game } = makeGame()
     atCheckpoint(game)
-    const bag = game as unknown as { inventory: Map<string, number> }
-    bag.inventory.set('bell_shard', 1)
-    bag.inventory.set('story_banner', 1)
+    const bag = game as unknown as { bags: Map<string, number>[] }
+    bag.bags[0] = bag.bags[0] ?? new Map()
+    bag.bags[0].set('bell_shard', 1)
+    bag.bags[0].set('story_banner', 1)
 
     for (const id of ['bell_shard', 'story_banner']) {
       expect(game.sellValueOf(id), `${id}의 판매가`).toBeNull()

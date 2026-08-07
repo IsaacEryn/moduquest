@@ -168,7 +168,7 @@ describe('스냅샷은 서버가 받는 크기 안에 있다', () => {
     const worst: SaveSnapshot = {
       ...base,
       stageIndex: DATA.stages.length - 1,
-      inventory: everyItem,
+      bags: [everyItem, [], []],
       kills: everyMonster,
       clearedStages: DATA.stages.map((s) => s.id),
       variants: DATA.stages.map((s) => ({ stage: s.id, variant: 1 })),

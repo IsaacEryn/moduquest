@@ -58,6 +58,15 @@ export type GameEvent =
       removedName: string | null
     }
   | { type: 'itemGained'; names: string[] }
+  /** 동료에게 물건을 건넸다 — 가방이 갈린 뒤 생긴 협동의 자리 */
+  | {
+      type: 'itemGiven'
+      name: string
+      fromSeat: number
+      toSeat: number
+      fromName: string
+      toName: string
+    }
   | { type: 'chestOpened'; itemNames: string[] }
   | {
       type: 'itemUsed'

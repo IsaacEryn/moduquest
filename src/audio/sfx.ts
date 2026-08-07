@@ -152,6 +152,13 @@ export class Sfx {
           { from: 1175, duration: 0.34, gain: 0.09 },
         ])
         break
+      case 'itemGiven':
+        // 건네는 소리 — 얻는 소리와 결이 다르게 옆으로 흐른다
+        this.chord([
+          { from: 520, to: 700, duration: 0.1, type: 'triangle', gain: 0.09 },
+          { from: 780, duration: 0.09, type: 'sine', gain: 0.06, delay: 0.08 },
+        ])
+        break
       case 'itemGained':
         this.chord([
           { from: 698, duration: 0.14, gain: 0.12 },

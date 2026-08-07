@@ -573,7 +573,11 @@ export class Game {
   }
 
   /** 입을 수 있는지 — 거절 이유를 돌려줘 UI가 그대로 낭독한다 */
-  canEquip(memberId: string, itemId: string): { ok: boolean; reason?: string } {
+  canEquip(
+    memberId: string,
+    itemId: string,
+    seat = this.localSeat,
+  ): { ok: boolean; reason?: string } {
     if (this.mode !== 'field' && this.mode !== 'title') {
       return { ok: false, reason: '지금은 장비를 바꿀 수 없다.' }
     }
@@ -583,7 +587,7 @@ export class Game {
     if (!item || item.kind !== 'equipment' || !item.slot) {
       return { ok: false, reason: '입을 수 있는 것이 아니다.' }
     }
-    if ((this.inventory.get(itemId) ?? 0) <= 0) return { ok: false, reason: '가방에 없다.' }
+    if (this.countOf(itemId, seat) <= 0) return { ok: false, reason: '가방에 없다.' }
     // 전용 장비 — 활을 든 마법사는 없다. 누구 것인지를 이유에 그대로 적는다
     if (item.jobs && !item.jobs.includes(job)) {
       const names = item.jobs.map((j) => this.data.jobs[j]?.name ?? j).join('·')
@@ -643,17 +647,33 @@ export class Game {
 
   // --- 마을 경제 ---
 
-  private gold = 0
-  private materials = 0
+  /**
+   * 자리마다의 지갑과 가방. 함께 걷되 물건은 각자의 것이다.
+   *
+   * 하나를 공유하던 시절에는 떨어진 무기 하나를 두고 누가 가질지 다투게 되고,
+   * 내가 쓰려던 물약을 남이 마셔 버릴 수 있었다. 이제 보상은 사람이 앉은 자리마다
+   * 같은 것을 하나씩 받고, 남에게 주고 싶으면 직접 건넨다.
+   */
+  private golds: number[] = []
+  private mats: number[] = []
   /** 파티원(직업 id)별·능력치별 강화 단계. 올린 것만 들어간다 */
   private upgrades = new Map<string, Partial<Record<UpgradeStat, number>>>()
 
+  /** 내 지갑 — 화면이 "내 것"을 물을 때 */
   get currentGold(): number {
-    return this.gold
+    return this.goldOf(this.localSeat)
   }
 
   get currentMaterials(): number {
-    return this.materials
+    return this.materialsOf(this.localSeat)
+  }
+
+  goldOf(seat: number): number {
+    return this.golds[seat] ?? 0
+  }
+
+  materialsOf(seat: number): number {
+    return this.mats[seat] ?? 0
   }
 
   /**
@@ -717,34 +737,35 @@ export class Game {
         name: this.data.items[id].name,
         description: this.data.items[id].description,
         price,
-        owned: this.inventory.get(id) ?? 0,
+        owned: this.countOf(id, this.localSeat),
       }))
   }
 
-  canBuy(itemId: string): { ok: boolean; reason?: string } {
+  canBuy(itemId: string, seat = this.localSeat): { ok: boolean; reason?: string } {
     if (!this.canVisitTown().ok) return { ok: false, reason: '마을에서만 살 수 있다.' }
     const price = this.data.economy.shop.stock[itemId]
     if (price === undefined || !this.data.items[itemId]) {
       return { ok: false, reason: '상점에 없는 물건이다.' }
     }
-    if (this.gold < price) return { ok: false, reason: `동전이 ${price - this.gold}냥 모자라다.` }
+    const gold = this.goldOf(seat)
+    if (gold < price) return { ok: false, reason: `동전이 ${price - gold}냥 모자라다.` }
     const stackMax = this.data.progression.itemStackMax
-    if ((this.inventory.get(itemId) ?? 0) >= stackMax) {
+    if (this.countOf(itemId, seat) >= stackMax) {
       return { ok: false, reason: `가방에 ${stackMax}개까지만 넣을 수 있다.` }
     }
     return { ok: true }
   }
 
-  buy(itemId: string): boolean {
-    if (!this.canBuy(itemId).ok) return false
+  buy(itemId: string, seat = this.localSeat): boolean {
+    if (!this.canBuy(itemId, seat).ok) return false
     const price = this.data.economy.shop.stock[itemId]
-    this.gold -= price
+    this.golds[seat] = this.goldOf(seat) - price
     this.addItem(itemId)
     this.bus.emit({
       type: 'bought',
       name: this.data.items[itemId].name,
       price,
-      gold: this.gold,
+      gold: this.goldOf(seat),
     })
     return true
   }
@@ -787,27 +808,32 @@ export class Game {
     return '이 물건에는 해당하지 않는다.'
   }
 
-  canSell(itemId: string): { ok: boolean; reason?: string } {
+  canSell(itemId: string, seat = this.localSeat): { ok: boolean; reason?: string } {
     if (!this.canVisitTown().ok) return { ok: false, reason: '마을에서만 팔 수 있다.' }
-    if ((this.inventory.get(itemId) ?? 0) <= 0) return { ok: false, reason: '가방에 없다.' }
+    if (this.countOf(itemId, seat) <= 0) return { ok: false, reason: '가방에 없다.' }
     if (this.sellValueOf(itemId) === null) {
       return { ok: false, reason: this.partingReason(itemId) }
     }
     return { ok: true }
   }
 
-  sell(itemId: string): boolean {
-    if (!this.canSell(itemId).ok) return false
+  sell(itemId: string, seat = this.localSeat): boolean {
+    if (!this.canSell(itemId, seat).ok) return false
     const price = this.sellValueOf(itemId) as number
     this.consumeItem(itemId)
-    this.gold += price
-    this.bus.emit({ type: 'sold', name: this.data.items[itemId].name, price, gold: this.gold })
+    this.golds[seat] = this.goldOf(seat) + price
+    this.bus.emit({
+      type: 'sold',
+      name: this.data.items[itemId].name,
+      price,
+      gold: this.goldOf(seat),
+    })
     return true
   }
 
-  canDismantle(itemId: string): { ok: boolean; reason?: string } {
+  canDismantle(itemId: string, seat = this.localSeat): { ok: boolean; reason?: string } {
     if (!this.canVisitTown().ok) return { ok: false, reason: '마을에서만 분해할 수 있다.' }
-    if ((this.inventory.get(itemId) ?? 0) <= 0) return { ok: false, reason: '가방에 없다.' }
+    if (this.countOf(itemId, seat) <= 0) return { ok: false, reason: '가방에 없다.' }
     if (this.dismantleYieldOf(itemId) === null) {
       const item = this.data.items[itemId]
       if (item?.kind === 'consumable') return { ok: false, reason: '장비만 분해할 수 있다.' }
@@ -816,16 +842,16 @@ export class Game {
     return { ok: true }
   }
 
-  dismantle(itemId: string): boolean {
-    if (!this.canDismantle(itemId).ok) return false
+  dismantle(itemId: string, seat = this.localSeat): boolean {
+    if (!this.canDismantle(itemId, seat).ok) return false
     const gainedMaterials = this.dismantleYieldOf(itemId) as number
     this.consumeItem(itemId)
-    this.materials += gainedMaterials
+    this.mats[seat] = this.materialsOf(seat) + gainedMaterials
     this.bus.emit({
       type: 'dismantled',
       name: this.data.items[itemId].name,
       gained: gainedMaterials,
-      materials: this.materials,
+      materials: this.materialsOf(seat),
     })
     return true
   }
@@ -848,7 +874,7 @@ export class Game {
     return this.data.economy.upgrade.costs[level] ?? null
   }
 
-  canUpgrade(memberId: string, stat: UpgradeStat): { ok: boolean; reason?: string } {
+  canUpgrade(memberId: string, stat: UpgradeStat, seat = this.localSeat): { ok: boolean; reason?: string } {
     if (!this.canVisitTown().ok) return { ok: false, reason: '마을에서만 강화할 수 있다.' }
     if (!this.memberIds.includes(memberId)) return { ok: false }
     if (!this.data.economy.upgrade.stats.includes(stat)) return { ok: false }
@@ -856,21 +882,23 @@ export class Game {
     if (!cost) {
       return { ok: false, reason: `${this.data.economy.upgrade.maxLevel}단계까지 다 올렸다.` }
     }
-    if (this.gold < cost.gold) {
-      return { ok: false, reason: `동전이 ${cost.gold - this.gold}냥 모자라다.` }
+    const gold = this.goldOf(seat)
+    const materials = this.materialsOf(seat)
+    if (gold < cost.gold) {
+      return { ok: false, reason: `동전이 ${cost.gold - gold}냥 모자라다.` }
     }
-    if (this.materials < cost.materials) {
-      return { ok: false, reason: `강화 재료가 ${cost.materials - this.materials}개 모자라다.` }
+    if (materials < cost.materials) {
+      return { ok: false, reason: `강화 재료가 ${cost.materials - materials}개 모자라다.` }
     }
     return { ok: true }
   }
 
   /** 강화는 되돌릴 수 없다. 체력은 비율을 유지한다 — 강화가 곧 회복이 되지 않게 */
-  upgrade(memberId: string, stat: UpgradeStat): boolean {
-    if (!this.canUpgrade(memberId, stat).ok) return false
+  upgrade(memberId: string, stat: UpgradeStat, seat = this.localSeat): boolean {
+    if (!this.canUpgrade(memberId, stat, seat).ok) return false
     const cost = this.upgradeCostOf(memberId, stat) as { gold: number; materials: number }
-    this.gold -= cost.gold
-    this.materials -= cost.materials
+    this.golds[seat] = this.goldOf(seat) - cost.gold
+    this.mats[seat] = this.materialsOf(seat) - cost.materials
     const up = this.upgrades.get(memberId) ?? {}
     const level = (up[stat] ?? 0) + 1
     up[stat] = level
@@ -883,22 +911,50 @@ export class Game {
       statName: UPGRADE_STAT_KO[stat],
       level,
       gain: this.data.economy.upgrade.gainPerLevel[stat] ?? 0,
-      gold: this.gold,
-      materials: this.materials,
+      gold: this.goldOf(seat),
+      materials: this.materialsOf(seat),
     })
     return true
   }
 
+  /** 싸워서 번 동전은 사람이 앉은 자리마다 같은 만큼 — 누가 더 벌었나를 만들지 않는다 */
   private gainGold(amount: number): void {
     if (amount <= 0) return
-    this.gold += amount
-    this.bus.emit({ type: 'goldGained', amount, total: this.gold })
+    for (const seat of this.receivingSeats()) {
+      this.golds[seat] = this.goldOf(seat) + amount
+    }
+    this.bus.emit({ type: 'goldGained', amount, total: this.currentGold })
   }
 
   // --- 아이템·인벤토리 ---
 
-  /** 파티 공유 인벤토리. id → 개수 */
-  private inventory = new Map<string, number>()
+  /** 자리마다의 가방. id → 개수 */
+  private bags: Map<string, number>[] = []
+
+  private bagOf(seat: number): Map<string, number> {
+    let bag = this.bags[seat]
+    if (!bag) {
+      bag = new Map()
+      this.bags[seat] = bag
+    }
+    return bag
+  }
+
+  /** 그 자리가 이 물건을 몇 개 갖고 있나 */
+  countOf(id: string, seat = this.localSeat): number {
+    return this.bags[seat]?.get(id) ?? 0
+  }
+
+  /**
+   * 보상을 받는 자리들 — 사람이 앉은 자리마다 같은 것을 하나씩 받는다.
+   * 솔로에서는 0번뿐이라 예전과 똑같이 한 벌이 나온다.
+   */
+  private receivingSeats(): number[] {
+    const seats = this.seatControllers
+      .map((c, i) => (c === 'human' ? i : -1))
+      .filter((i) => i >= 0)
+    return seats.length ? seats : [0]
+  }
   /** 몹 종별 처치 수 — 드랍 순환의 카운터. 스테이지를 넘어도 이어진다 */
   private kills = new Map<string, number>()
 
@@ -913,7 +969,7 @@ export class Game {
     usableInField: boolean
     usableInBattle: boolean
   }[] {
-    return [...this.inventory.entries()]
+    return [...this.bagOf(this.localSeat).entries()]
       .filter(([, count]) => count > 0)
       .map(([id, count]) => {
         const item = this.data.items[id]
@@ -932,15 +988,59 @@ export class Game {
       })
   }
 
-  private addItem(id: string): void {
+  private addItem(id: string, seat = this.localSeat): void {
     if (!this.data.items[id]) return
-    this.inventory.set(id, (this.inventory.get(id) ?? 0) + 1)
+    const bag = this.bagOf(seat)
+    bag.set(id, (bag.get(id) ?? 0) + 1)
   }
 
-  private consumeItem(id: string): void {
-    const left = (this.inventory.get(id) ?? 0) - 1
-    if (left > 0) this.inventory.set(id, left)
-    else this.inventory.delete(id)
+  /** 사람이 앉은 자리마다 하나씩 — 전리품을 두고 다투지 않게 */
+  private addItemToAll(id: string): void {
+    for (const seat of this.receivingSeats()) this.addItem(id, seat)
+  }
+
+  /**
+   * 동료에게 물건을 건넨다 — 세션 안에서 곧바로 옮겨 간다(선물함은 세션 밖의 우편이다).
+   *
+   * 가방이 갈리면서 "내게 필요 없지만 저 사람에게는 딱인 것"이 생긴다. 그때
+   * 주고받는 것이 협동이 되도록, 규칙은 코어가 쥔다 — 화면의 버튼만 막으면
+   * 원격 입력이 들어오는 순간 구멍이 된다.
+   */
+  canGiveItem(itemId: string, toSeat: number, fromSeat = this.localSeat): { ok: boolean; reason?: string } {
+    const item = this.data.items[itemId]
+    if (!item) return { ok: false, reason: '없는 물건이다.' }
+    if (toSeat === fromSeat) return { ok: false, reason: '나에게는 줄 수 없다.' }
+    if (toSeat < 0 || toSeat >= this.partyJobs.length) return { ok: false, reason: '없는 자리다.' }
+    if (this.countOf(itemId, fromSeat) <= 0) return { ok: false, reason: '가방에 없다.' }
+    if (this.seatControllerOf(toSeat) !== 'human') {
+      return { ok: false, reason: '사람이 앉은 자리에만 건넬 수 있다.' }
+    }
+    if (this.countOf(itemId, toSeat) >= this.data.progression.itemStackMax) {
+      return { ok: false, reason: '상대 가방이 가득 찼다.' }
+    }
+    return { ok: true }
+  }
+
+  giveItem(itemId: string, toSeat: number, fromSeat = this.localSeat): boolean {
+    if (!this.canGiveItem(itemId, toSeat, fromSeat).ok) return false
+    this.consumeItem(itemId, fromSeat)
+    this.addItem(itemId, toSeat)
+    this.bus.emit({
+      type: 'itemGiven',
+      name: this.data.items[itemId].name,
+      fromSeat,
+      toSeat,
+      fromName: this.party[fromSeat]?.name ?? '',
+      toName: this.party[toSeat]?.name ?? '',
+    })
+    return true
+  }
+
+  private consumeItem(id: string, seat = this.localSeat): void {
+    const bag = this.bagOf(seat)
+    const left = (bag.get(id) ?? 0) - 1
+    if (left > 0) bag.set(id, left)
+    else bag.delete(id)
   }
 
   /**
@@ -974,11 +1074,11 @@ export class Game {
    * 필드에서 아이템 사용. 체력이 이미 가득이면 쓰지 않는다 —
    * 낭비를 규칙으로 막아야 실수 조작이 손해가 되지 않는다.
    */
-  useItemInField(itemId: string, targetId: string): boolean {
+  useItemInField(itemId: string, targetId: string, seat = this.localSeat): boolean {
     if (this.mode !== 'field') return false
     const item = this.data.items[itemId]
     if (item?.kind !== 'consumable' || !item.heal) return false
-    if ((this.inventory.get(itemId) ?? 0) <= 0) return false
+    if (this.countOf(itemId, seat) <= 0) return false
     const target = this.party.find((c) => c.id === targetId)
     if (!target || target.hp <= 0) return false
     const healed = Math.min(item.heal, target.maxHp - target.hp)
@@ -1132,7 +1232,9 @@ export class Game {
         defeated: this.field.defeatedIds,
         openedChests: this.field.openedChestIds,
       },
-      inventory: [...this.inventory.entries()].map(([item, count]) => ({ item, count })),
+      bags: this.partyJobs.map((_, seat) =>
+        [...this.bagOf(seat).entries()].map(([item, count]) => ({ item, count })),
+      ),
       kills: [...this.kills.entries()].map(([monster, count]) => ({ monster, count })),
       // job에는 실제 직업을 적는다 — 복원이 이 배열의 순서에서 파티원 id를
       // 다시 유도하므로, 저장에는 유도의 재료(직업)만 있으면 된다
@@ -1142,8 +1244,8 @@ export class Game {
         equipment: { ...(this.equipment.get(this.memberIds[i]) ?? {}) },
       })),
       xp: this.xp,
-      gold: this.gold,
-      materials: this.materials,
+      golds: this.partyJobs.map((_, seat) => this.goldOf(seat)),
+      materials: this.partyJobs.map((_, seat) => this.materialsOf(seat)),
       upgrades: [...this.upgrades.entries()].flatMap(([job, stats]) =>
         Object.entries(stats)
           .filter(([, level]) => (level ?? 0) > 0)
@@ -1172,8 +1274,8 @@ export class Game {
       (_, i) => resolveTraitId(this.data.traits, s.traitIds[i] ?? null),
     )
     this.xp = s.xp
-    this.gold = s.gold
-    this.materials = s.materials
+    this.golds = this.partyJobs.map((_, seat) => s.golds[seat] ?? 0)
+    this.mats = this.partyJobs.map((_, seat) => s.materials[seat] ?? 0)
     this.upgrades = new Map()
     for (const u of s.upgrades) {
       const up = this.upgrades.get(u.job) ?? {}
@@ -1183,7 +1285,9 @@ export class Game {
     this.partyJobs = s.party.map((p) => p.job)
     this.clearedStages = new Set(s.clearedStages)
     this.seenDialogues = new Set(s.seenDialogues)
-    this.inventory = new Map(s.inventory.map((i) => [i.item, i.count]))
+    this.bags = this.partyJobs.map(
+      (_, seat) => new Map((s.bags[seat] ?? []).map((i) => [i.item, i.count])),
+    )
     this.kills = new Map(s.kills.map((k) => [k.monster, k.count]))
     // 장비와 체력은 자리 순서로 잇는다 — 파티원 id가 자리에서 유도되므로
     // 같은 직업이 둘이어도 각자의 장비가 각자에게 돌아간다
@@ -1257,9 +1361,9 @@ export class Game {
    */
   start(): void {
     this.xp = 0
-    this.gold = 0
-    this.materials = 0
-    this.inventory.clear()
+    this.golds = []
+    this.mats = []
+    this.bags = []
     this.equipment.clear()
     this.upgrades.clear()
     this.kills.clear()
@@ -1336,7 +1440,7 @@ export class Game {
     // 상자는 밟는 순간 열린다 — 전투가 이어져도 이미 연 것이다
     const chest = this.field.openChestAt(this.field.pos)
     if (chest) {
-      for (const id of chest.items) this.addItem(id)
+      for (const id of chest.items) this.addItemToAll(id)
       this.bus.emit({
         type: 'chestOpened',
         itemNames: chest.items.map((id) => this.data.items[id]?.name ?? ''),
@@ -1385,7 +1489,10 @@ export class Game {
       areas > 1 && at >= 0
         ? `스테이지 ${this.stageIndex + 1}, 구역 ${at + 1}/${areas}`
         : `스테이지 ${this.stageIndex + 1}`
-    return `체력은 ${hp}. 동전 ${this.gold}냥, 재료 ${this.materials}개, 파티 ${this.partyLevel}레벨. ${where}.`
+    return (
+      `체력은 ${hp}. 동전 ${this.currentGold}냥, 재료 ${this.currentMaterials}개, ` +
+      `파티 ${this.partyLevel}레벨. ${where}.`
+    )
   }
 
   /**
@@ -1437,7 +1544,7 @@ export class Game {
     if (action.kind === 'item') {
       const item = this.data.items[action.itemId]
       if (item?.kind !== 'consumable') return
-      if ((this.inventory.get(action.itemId) ?? 0) <= 0) return
+      if (this.countOf(action.itemId, seat) <= 0) return
       const result = this.battle.playerUseItem(
         action.targetId,
         { heal: item.heal, mana: item.mana, cooldownCut: item.cooldownCut },
@@ -1552,7 +1659,7 @@ export class Game {
     this.gainXp(gained)
     // 동전은 경험치와 같은 수로 들어온다 — 몹마다 값을 따로 두지 않아 밸런스가 함께 움직인다
     this.gainGold(gained * this.data.economy.goldPerXp)
-    for (const id of dropped) this.addItem(id)
+    for (const id of dropped) this.addItemToAll(id)
     if (dropped.length > 0) {
       this.bus.emit({
         type: 'itemGained',

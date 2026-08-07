@@ -275,7 +275,10 @@ export class GiftPanel {
       const slot = Number(slotSel.value)
       const snapshot = await this.saves.load(slot)
       if (!snapshot) return
-      const giftable = snapshot.inventory.filter((e) => giftableReason(e.item, this.data).ok)
+      // 선물은 0번 자리 가방에서 오간다 — gifts.ts의 넣고 빼는 자리와 같아야 한다
+      const giftable = (snapshot.bags[0] ?? []).filter(
+        (e) => giftableReason(e.item, this.data).ok,
+      )
       if (giftable.length === 0) {
         const li = document.createElement('li')
         li.textContent = '이 기록에는 보낼 수 있는 물건이 없다.'

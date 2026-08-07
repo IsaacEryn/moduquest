@@ -26,7 +26,7 @@ export function canonicalSnapshot(s: SaveSnapshot): string {
       defeated: [...s.field.defeated].sort(),
       openedChests: [...s.field.openedChests].sort(),
     },
-    inventory: sortBy(s.inventory, (i) => i.item),
+    bags: s.bags.map((bag) => sortBy(bag, (i) => i.item)),
     kills: sortBy(s.kills, (k) => k.monster),
     party: s.party.map((p) => ({
       job: p.job,
@@ -34,7 +34,7 @@ export function canonicalSnapshot(s: SaveSnapshot): string {
       equipment: Object.fromEntries(Object.entries(p.equipment).sort()),
     })),
     xp: s.xp,
-    gold: s.gold,
+    golds: s.golds,
     materials: s.materials,
     upgrades: sortBy(s.upgrades, (u) => `${u.job}-${u.stat}`),
     seenDialogues: [...s.seenDialogues].sort(),

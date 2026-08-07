@@ -118,21 +118,26 @@ export function addToSnapshot(
   itemId: string,
   qty: number,
 ): { ok: boolean; reason?: string } {
-  const entry = snapshot.inventory.find((e) => e.item === itemId)
+  // 선물은 0번 자리 가방으로 간다. 저장 기록을 다시 불러오는 자리가 거기이고,
+  // 기록 자체에는 "이 사람이 몇 번 자리로 놀았는지"가 남아 있지 않다
+  const bag = snapshot.bags[0] ?? (snapshot.bags[0] = [])
+  const entry = bag.find((e) => e.item === itemId)
   const current = entry?.count ?? 0
   if (current + qty > 99) return { ok: false, reason: '가방에 이 물건이 이미 가득하다.' }
   if (entry) entry.count = current + qty
-  else snapshot.inventory.push({ item: itemId, count: qty })
+  else bag.push({ item: itemId, count: qty })
   return { ok: true }
 }
 
 /** 스냅샷의 가방에서 물건 하나를 뺀다 */
 export function removeFromSnapshot(snapshot: SaveSnapshot, itemId: string): boolean {
-  const entry = snapshot.inventory.find((e) => e.item === itemId)
+  // 보내는 쪽도 0번 자리 가방에서 뺀다 — 넣는 쪽과 같은 자리여야 왕복이 어긋나지 않는다
+  const bag = snapshot.bags[0]
+  const entry = bag?.find((e) => e.item === itemId)
   if (!entry || entry.count <= 0) return false
   entry.count -= 1
   if (entry.count === 0) {
-    snapshot.inventory = snapshot.inventory.filter((e) => e !== entry)
+    snapshot.bags[0] = bag.filter((e) => e !== entry)
   }
   return true
 }

@@ -65,6 +65,11 @@ export function createGamePort(game: Game, getSession: () => PartySession | null
     if (ok) propose({ kind: 'upgrade', memberId, stat })
     return ok
   })
+  reroutes.set('giveItem', (itemId: string, toSeat: number) => {
+    const ok = game.canGiveItem(itemId, toSeat).ok
+    if (ok) propose({ kind: 'giveItem', itemId, toSeat: toSeat as Seat })
+    return ok
+  })
   reroutes.set('setTrait', (traitId: string) => {
     // 자기 자리의 특성은 누구나 바꾼다 — 자리는 봉투가 나르므로 남의 눈은 못 건드린다
     const ok = game.canChangeTrait().ok

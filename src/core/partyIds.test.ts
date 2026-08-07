@@ -92,7 +92,7 @@ describe('중복 직업 파티 — 코어가 받아들이고 갈라 다룬다', 
     g.setParty(['warrior', 'warrior', 'healer'])
     const bag = g as unknown as {
       addItem: (id: string) => void
-      inventory: Map<string, number>
+      bags: Map<string, number>[]
     }
     bag.addItem('wood_sword')
     bag.addItem('wood_sword')
@@ -101,15 +101,15 @@ describe('중복 직업 파티 — 코어가 받아들이고 갈라 다룬다', 
     // 전사 하나가 떠난다 — warrior2의 검만 가방으로
     g.setParty(['warrior', 'healer', 'mage'])
     expect(g.equipmentOf('warrior').weapon).toBe('wood_sword')
-    expect(bag.inventory.get('wood_sword') ?? 0).toBe(1)
+    expect(bag.bags[0]?.get('wood_sword') ?? 0).toBe(1)
   })
 
   it('강화도 사람 단위다 — 첫 전사를 올려도 둘째 전사는 그대로다', () => {
     const g = makeGame()
     g.setParty(['warrior', 'warrior', 'healer'])
-    const wallet = g as unknown as { gold: number; materials: number }
-    wallet.gold = 999
-    wallet.materials = 99
+    const wallet = g as unknown as { golds: number[]; mats: number[] }
+    wallet.golds[0] = 999
+    wallet.mats[0] = 99
     // 강화는 마을에서만 — clear 상태로 우회
     const inner = g as unknown as { mode: string }
     inner.mode = 'clear'

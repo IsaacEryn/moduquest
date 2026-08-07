@@ -51,6 +51,9 @@ export function applyEnvelope(
     case 'setTrait':
       game.setTrait(cmd.traitId, seat)
       break
+    case 'giveItem':
+      game.giveItem(cmd.itemId, cmd.toSeat, seat)
+      break
     case 'startStage':
       game.startStage(cmd.index)
       break

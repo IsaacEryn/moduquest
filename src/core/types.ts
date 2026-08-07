@@ -417,7 +417,8 @@ export interface SaveSnapshot {
     defeated: string[]
     openedChests: string[]
   }
-  inventory: { item: string; count: number }[]
+  /** 자리마다의 가방. 파티 배열과 같은 순서다 */
+  bags: { item: string; count: number }[][]
   /** 몹 종별 처치 수 — 드랍 순환의 카운터 */
   kills: { monster: string; count: number }[]
   /**
@@ -427,10 +428,10 @@ export interface SaveSnapshot {
   party: { job: string; hp: number; equipment: Partial<Record<EquipSlot, string>> }[]
   /** 레벨은 저장하지 않는다 — 경험치에서 유도한다(단일 진실 원천) */
   xp: number
-  /** 마을에서 쓰는 동전 */
-  gold: number
-  /** 장비를 분해해 모은 강화 재료 */
-  materials: number
+  /** 자리마다의 동전 */
+  golds: number[]
+  /** 자리마다의 강화 재료 */
+  materials: number[]
   /** 파티원별·능력치별 강화 단계. 올린 것만 들어간다 */
   upgrades: { job: string; stat: string; level: number }[]
   seenDialogues: string[]

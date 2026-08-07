@@ -396,7 +396,7 @@ describe('함께 하기 — 새 모험은 모두에게 처음이다', () => {
     // 방장은 혼자 한참 걷다가 타이틀로 나온 참이다 — 모험단은 타이틀에서만 연다
     h.game.start()
     const snap = h.game.snapshot()
-    h.game.restore({ ...snap, xp: 200, gold: 500, materials: 30 })
+    h.game.restore({ ...snap, xp: 200, golds: [500, 0, 0], materials: [30, 0, 0] })
     expect(h.game.partyLevel).toBeGreaterThan(1)
     h.game.returnToTitle()
 

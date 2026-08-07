@@ -23,6 +23,8 @@ export type NetCommand =
   | { kind: 'upgrade'; memberId: string; stat: UpgradeStat }
   // 자기 자리의 특성만 바꾼다 — 누구인지는 봉투(Envelope.seat)가 이미 말한다
   | { kind: 'setTrait'; traitId: string }
+  // 내 가방에서 동료에게 건넨다. 보내는 자리도 봉투가 말한다
+  | { kind: 'giveItem'; itemId: string; toSeat: Seat }
   | { kind: 'startStage'; index: number } // 방장 전용
   | { kind: 'nextStage' } // 방장 전용
   | { kind: 'restartStage' } // 방장 전용
@@ -183,6 +185,8 @@ export function isNetCommand(v: unknown): v is NetCommand {
       return isId(c.memberId) && STATS.has(c.stat as string)
     case 'setTrait':
       return isId(c.traitId)
+    case 'giveItem':
+      return isId(c.itemId) && isSeat(c.toSeat)
     case 'startStage':
       return isInt(c.index, 0, 9)
     case 'token':

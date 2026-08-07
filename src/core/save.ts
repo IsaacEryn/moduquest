@@ -13,8 +13,10 @@ import type { EquipSlot, GameData, SaveSnapshot, StageData } from './types'
  * 7: 특성이 자리마다 갈렸다. 하나였던 traitId가 배열이 됐다 — 옛 기록의 특성 하나를
  *    모든 자리에 복사할 수도 있었지만, 그러면 동료들이 고르지 않은 대가를 지고
  *    시작한다. 빈 칸에서 각자 고르는 편이 정직하다.
+ * 8: 가방과 지갑도 자리마다 갈렸다. 하나를 공유하던 시절에는 떨어진 무기를 두고
+ *    누가 가질지 다투게 되고, 내가 쓰려던 물약을 남이 마셔 버릴 수 있었다.
  */
-export const SAVE_VERSION = 7
+export const SAVE_VERSION = 8
 export const SLOT_COUNT = 3
 
 const EQUIP_SLOTS: EquipSlot[] = ['weapon', 'armor', 'shoes', 'gloves']
@@ -132,15 +134,19 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
   // 두어, 규칙을 바꾸면 검증만 옛 수를 붙들고 있었다
   const stackMax = data.progression.itemStackMax
   const itemIds = new Set(Object.keys(data.items))
-  const seenItems = new Set<string>()
-  const inventory = (Array.isArray(r.inventory) ? r.inventory : [])
-    .filter((e): e is { item: string; count: number } => {
-      const item = (e as { item?: unknown })?.item
-      if (typeof item !== 'string' || !itemIds.has(item) || seenItems.has(item)) return false
-      seenItems.add(item)
-      return true
-    })
-    .map((e) => ({ item: e.item, count: clampInt(e.count, 1, stackMax, 1) }))
+  /** 가방 하나를 검사한다 — 자리마다 같은 규칙을 지난다 */
+  const cleanBag = (raw: unknown) => {
+    const seen = new Set<string>()
+    return (Array.isArray(raw) ? raw : [])
+      .filter((e): e is { item: string; count: number } => {
+        const item = (e as { item?: unknown })?.item
+        if (typeof item !== 'string' || !itemIds.has(item) || seen.has(item)) return false
+        seen.add(item)
+        return true
+      })
+      .map((e) => ({ item: e.item, count: clampInt(e.count, 1, stackMax, 1) }))
+  }
+  const rawBags = Array.isArray(r.bags) ? r.bags : []
 
   const monsterIds = new Set(Object.keys(data.monsters))
   const seenMonsters = new Set<string>()
@@ -197,18 +203,25 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
     ? [...new Set(r.seenDialogues.filter((k): k is string => scriptKeys.has(k as string)))]
     : []
 
-  // 무효 자리에서 밀려난 장비를 가방에 합류시킨다 — 파티 검증이 끝난 뒤에야 목록이 완성된다
+  const bags = party.map((_, seat) => cleanBag(rawBags[seat]))
+  // 무효 자리에서 밀려난 장비는 0번 자리 가방으로 — 주인을 잃은 물건이라
+  // 아무 데도 없는 것보다 한 자리에 모이는 편이 낫다
   for (const id of returned) {
-    const row = inventory.find((e) => e.item === id)
+    const bag = bags[0] ?? []
+    const row = bag.find((e) => e.item === id)
     if (row) row.count = Math.min(stackMax, row.count + 1)
-    else inventory.push({ item: id, count: 1 })
+    else bag.push({ item: id, count: 1 })
   }
 
   // 마을 지갑. 강화 단계는 (파티원, 능력치) 한 쌍에 하나뿐이고 상한을 넘지 않는다.
   // job 필드에는 파티원 id가 들어 있다 — 중복 직업 파티에서는 warrior2 같은 값이라
   // 직업 목록이 아니라 이 파티의 파티원 id 목록으로 실재를 검사한다
-  const gold = clampInt(r.gold, 0, 99999, 0)
-  const materials = clampInt(r.materials, 0, 9999, 0)
+  const golds = party.map((_, seat) =>
+    clampInt((r.golds as unknown[])?.[seat], 0, 99999, 0),
+  )
+  const materials = party.map((_, seat) =>
+    clampInt((r.materials as unknown[])?.[seat], 0, 9999, 0),
+  )
   const memberIds = new Set(memberIdsOf(party.map((p) => p.job)))
   const upgradeStats = new Set<string>(data.economy.upgrade.stats)
   const maxUpgrade = data.economy.upgrade.maxLevel
@@ -251,11 +264,11 @@ export function sanitizeSnapshot(raw: unknown, data: GameData): SaveSnapshot | n
       defeated,
       openedChests,
     },
-    inventory,
+    bags,
     kills,
     party,
     xp,
-    gold,
+    golds,
     materials,
     upgrades,
     seenDialogues,

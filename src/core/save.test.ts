@@ -104,7 +104,7 @@ describe('저장과 복원', () => {
     a.moveField('west') // (2,4) 보물상자
     const snapshot = a.snapshot()
     expect(snapshot.field.openedChests).toEqual(['a-t1'])
-    expect(snapshot.inventory).toEqual([
+    expect(snapshot.bags[0]).toEqual([
       { item: 'potion_small', count: 1 },
       { item: 'leather_armor', count: 1 },
     ])
@@ -223,10 +223,10 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
       {
         ...valid(),
         field: { ...valid().field, openedChests: ['a-t1', '없는상자', 'a-t1'] },
-        inventory: [
+        bags: [[
           { item: 'potion_small', count: 500 },
           { item: '없는아이템', count: 1 },
-        ],
+        ], [], []],
         kills: [
           { monster: 'slime', count: 5 },
           { monster: '없는몹', count: 2 },
@@ -235,7 +235,7 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
       DATA,
     )
     expect(s?.field.openedChests).toEqual(['a-t1'])
-    expect(s?.inventory).toEqual([{ item: 'potion_small', count: 99 }])
+    expect(s?.bags[0]).toEqual([{ item: 'potion_small', count: 99 }])
     expect(s?.kills).toEqual([{ monster: 'slime', count: 5 }])
   })
 
@@ -287,13 +287,13 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
     )
     expect(s?.party[0].equipment).toEqual({ shoes: 'leather_shoes' })
     // 밀려난 장비는 지워지지 않고 가방으로
-    expect(s?.inventory).toEqual(
+    expect(s?.bags[0]).toEqual(
       expect.arrayContaining([
         { item: 'chain_armor', count: 1 },
         { item: 'echo_armor', count: 1 },
       ]),
     )
-    expect(s?.inventory.some((e) => e.item === '없는장비')).toBe(false)
+    expect(s?.bags[0].some((e) => e.item === '없는장비')).toBe(false)
   })
 
 
@@ -320,9 +320,9 @@ describe('저장값 검증 — 깨진 값이 게임을 죽이지 않는다', () 
   })
 
   it('말이 안 되는 지갑은 범위 안으로 당긴다', () => {
-    expect(sanitizeSnapshot({ ...valid(), gold: -100 }, DATA)?.gold).toBe(0)
-    expect(sanitizeSnapshot({ ...valid(), gold: 1e9 }, DATA)?.gold).toBe(99999)
-    expect(sanitizeSnapshot({ ...valid(), materials: '많이' }, DATA)?.materials).toBe(0)
+    expect(sanitizeSnapshot({ ...valid(), golds: [-100, 0, 0] }, DATA)?.golds[0]).toBe(0)
+    expect(sanitizeSnapshot({ ...valid(), golds: [1e9, 0, 0] }, DATA)?.golds[0]).toBe(99999)
+    expect(sanitizeSnapshot({ ...valid(), materials: ['많이', 0, 0] }, DATA)?.materials[0]).toBe(0)
   })
 
   it('강화 기록은 실재하는 직업·능력치만, 한 쌍에 하나만 남는다', () => {
@@ -382,10 +382,10 @@ describe('쌓은 것이 하나도 빠지지 않는다', () => {
     g.moveField('north')
     g.moveField('south')
     skipDialogue(g)
-    const seed = g as unknown as { gold: number; materials: number; xp: number }
+    const seed = g as unknown as { golds: number[]; mats: number[]; xp: number }
     seed.xp = 160 // 여러 레벨 오른 상태
-    seed.gold = 400
-    seed.materials = 20
+    seed.golds[0] = 400
+    seed.mats[0] = 20
     // 사람마다 다른 장비 — 전용 무기라 서로 바꿔 낄 수 없는 것들로 고른다
     for (const [job, item] of [
       ['archer', 'wood_bow'],

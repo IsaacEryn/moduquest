@@ -353,7 +353,7 @@ describe('아이템과 보물상자', () => {
   it('전투에서 도구를 쓰면 회복하고 턴을 소모한다', () => {
     const { game, events } = makeGame()
     const base = game.snapshot()
-    game.restore({ ...base, inventory: [{ item: 'potion_small', count: 1 }] })
+    game.restore({ ...base, bags: [[{ item: 'potion_small', count: 1 }], [], []] })
     game.field.pos = { x: 4, y: 7 }
     game.moveField('north')
     skipDialogue(game)
@@ -374,10 +374,10 @@ describe('아이템과 보물상자', () => {
     const base = game.snapshot()
     game.restore({
       ...base,
-      inventory: [
+      bags: [[
         { item: 'mana_potion', count: 1 },
         { item: 'stamina_potion', count: 1 },
-      ],
+      ], [], []],
     })
     game.field.pos = { x: 4, y: 7 }
     game.moveField('north')
@@ -403,7 +403,7 @@ describe('아이템과 보물상자', () => {
   it('스태미나 물약은 기술 대기를 즉시 줄인다 — 바닥은 0', () => {
     const { game, events, timer } = makeGame()
     const base = game.snapshot()
-    game.restore({ ...base, inventory: [{ item: 'stamina_potion', count: 2 }] })
+    game.restore({ ...base, bags: [[{ item: 'stamina_potion', count: 2 }], [], []] })
     game.field.pos = { x: 4, y: 7 }
     game.moveField('north')
     skipDialogue(game)
@@ -433,7 +433,7 @@ describe('아이템과 보물상자', () => {
   it('필드에서도 물약을 쓴다 — 체력이 가득이면 쓰지 않는다', () => {
     const { game } = makeGame()
     const base = game.snapshot()
-    game.restore({ ...base, inventory: [{ item: 'potion_small', count: 2 }] })
+    game.restore({ ...base, bags: [[{ item: 'potion_small', count: 2 }], [], []] })
     expect(game.useItemInField('potion_small', 'rogue')).toBe(false) // 가득
     game.player.hp -= 10
     expect(game.useItemInField('potion_small', 'rogue')).toBe(true)
@@ -446,7 +446,7 @@ describe('장비', () => {
   it('입으면 능력치가 오르고 벗으면 돌아온다 — 가방과 어긋나지 않는다', () => {
     const { game } = makeGame()
     const base = game.snapshot()
-    game.restore({ ...base, inventory: [{ item: 'wood_sword', count: 1 }] })
+    game.restore({ ...base, bags: [[{ item: 'wood_sword', count: 1 }], [], []] })
     const before = game.player.patk
 
     expect(game.equip('rogue', 'wood_sword')).toBe(true)
@@ -464,10 +464,10 @@ describe('장비', () => {
     game.restore({
       ...base,
       xp: 70, // 4레벨 — 강철 검 조건
-      inventory: [
+      bags: [[
         { item: 'wood_sword', count: 1 },
         { item: 'steel_sword', count: 1 },
-      ],
+      ], [], []],
     })
     game.equip('rogue', 'wood_sword')
     expect(game.equip('rogue', 'steel_sword')).toBe(true)
@@ -478,7 +478,7 @@ describe('장비', () => {
   it('레벨이 모자라면 입을 수 없고 이유를 말해 준다', () => {
     const { game } = makeGame()
     const base = game.snapshot()
-    game.restore({ ...base, inventory: [{ item: 'steel_sword', count: 1 }] })
+    game.restore({ ...base, bags: [[{ item: 'steel_sword', count: 1 }], [], []] })
     const check = game.canEquip('rogue', 'steel_sword')
     expect(check.ok).toBe(false)
     expect(check.reason).toContain('4레벨')
@@ -492,10 +492,10 @@ describe('장비', () => {
     game.restore({
       ...base,
       xp: 160, // 6레벨 — 울림 장비 조건
-      inventory: [
+      bags: [[
         { item: 'echo_sword', count: 1 },
         { item: 'echo_armor', count: 1 },
-      ],
+      ], [], []],
     })
     game.equip('rogue', 'echo_sword')
     expect(game.statBreakdownOf('rogue')!.set.patk).toBe(0) // 1개는 세트가 아니다
@@ -508,7 +508,7 @@ describe('장비', () => {
   it('오라 장비는 착용자가 아니라 동료를 강화한다', () => {
     const { game } = makeGame()
     const base = game.snapshot()
-    game.restore({ ...base, xp: 70, inventory: [{ item: 'story_banner', count: 1 }] }) // 4레벨
+    game.restore({ ...base, xp: 70, bags: [[{ item: 'story_banner', count: 1 }], [], []] }) // 4레벨
     const warriorBefore = game.party[1].patk
     const rogueBefore = game.player.patk
     game.equip('warrior', 'story_banner')
@@ -526,7 +526,7 @@ describe('장비', () => {
     game.restore({
       ...base,
       xp: 70, // 3레벨
-      inventory: [{ item: 'wood_sword', count: 1 }],
+      bags: [[{ item: 'wood_sword', count: 1 }], [], []],
       field: { ...base.field, pos: { x: 9, y: 2 }, checkpointReached: true }, // 쉼터
     })
     game.equip('rogue', 'wood_sword')
@@ -542,11 +542,11 @@ describe('장비', () => {
     game.restore({
       ...base,
       xp: 70, // 4레벨
-      inventory: [
+      bags: [[
         { item: 'wood_sword', count: 1 },
         { item: 'chain_armor', count: 1 },
         { item: 'cloth_gloves', count: 1 },
-      ],
+      ], [], []],
     })
     expect(game.equipVariantOf('rogue')).toBeNull() // 아무것도 안 입었다
 
@@ -567,7 +567,7 @@ describe('장비', () => {
   it('파티에서 빠지는 직업의 장비는 가방으로 돌아온다', () => {
     const { game } = makeGame()
     // 타이틀에서 장비를 채운 뒤 구성을 바꾼다
-    game.restore({ ...game.snapshot(), inventory: [{ item: 'wood_sword', count: 1 }] })
+    game.restore({ ...game.snapshot(), bags: [[{ item: 'wood_sword', count: 1 }], [], []] })
     game.equip('warrior', 'wood_sword')
     game.returnToTitle()
     expect(game.setParty(['rogue', 'mage', 'healer'])).toBe(true) // 전사가 빠진다
@@ -674,9 +674,9 @@ describe('새로 시작하면 지난 판이 따라오지 않는다', () => {
     game.restore({
       ...snap,
       xp: 200,
-      gold: 500,
-      materials: 30,
-      inventory: [{ item: 'potion_small', count: 3 }],
+      golds: [500, 0, 0],
+      materials: [30, 0, 0],
+      bags: [[{ item: 'potion_small', count: 3 }], [], []],
       kills: [{ monster: 'slime', count: 5 }],
       party: snap.party.map((p, i) =>
         i === 0 ? { ...p, equipment: { weapon: 'wood_sword' } } : p,
@@ -856,5 +856,97 @@ describe('스테이지를 끝내는 싸움', () => {
       a.encounters.some((e) => e.monsters.includes('echo_priest')),
     )!
     expect(priestArea.boss, '울림 사제가 선 구역에 보스가 있으면 안 된다').toBeUndefined()
+  })
+})
+
+/**
+ * 가방이 자리마다 갈린 뒤의 규칙들.
+ *
+ * 하나를 공유하던 시절에는 떨어진 무기를 두고 누가 가질지 다투게 되고, 내가
+ * 쓰려던 물약을 남이 마셔 버릴 수 있었다. 이제 보상은 사람이 앉은 자리마다 같은
+ * 것을 하나씩 받고, 남에게 주고 싶으면 직접 건넨다.
+ */
+describe('자리별 가방과 지갑', () => {
+  const bagsOf = (game: Game) =>
+    (game as unknown as { bags: Map<string, number>[] }).bags
+  const goldsOf = (game: Game) => (game as unknown as { golds: number[] }).golds
+
+  it('솔로에서는 예전과 똑같이 한 벌만 나온다', () => {
+    // 사람이 앉은 자리가 0번뿐이라 보상도 한 벌이다 — 밸런스가 흔들리지 않는다
+    const { game } = makeGame()
+    game.start()
+    skipDialogue(game)
+    const add = (game as unknown as { addItemToAll: (id: string) => void }).addItemToAll
+    add.call(game, 'potion_small')
+    expect(bagsOf(game)[0].get('potion_small')).toBe(1)
+    expect(bagsOf(game)[1]?.get('potion_small') ?? 0).toBe(0)
+  })
+
+  it('사람이 앉은 자리마다 같은 것을 하나씩 받는다', () => {
+    const { game } = makeGame()
+    game.setSeatController(1, 'human')
+    game.start()
+    skipDialogue(game)
+    const add = (game as unknown as { addItemToAll: (id: string) => void }).addItemToAll
+    add.call(game, 'potion_small')
+    expect(bagsOf(game)[0].get('potion_small')).toBe(1)
+    expect(bagsOf(game)[1].get('potion_small')).toBe(1)
+    // 컴퓨터가 맡은 자리는 받지 않는다 — 쓸 손이 없다
+    expect(bagsOf(game)[2]?.get('potion_small') ?? 0).toBe(0)
+  })
+
+  it('동전도 자리마다 들어온다', () => {
+    const { game } = makeGame()
+    game.setSeatController(1, 'human')
+    const gain = (game as unknown as { gainGold: (n: number) => void }).gainGold
+    gain.call(game, 30)
+    expect(goldsOf(game)[0]).toBe(30)
+    expect(goldsOf(game)[1]).toBe(30)
+    expect(goldsOf(game)[2] ?? 0).toBe(0)
+  })
+
+  it('내 가방의 물건을 동료에게 건넨다', () => {
+    const { game } = makeGame()
+    game.setSeatController(1, 'human')
+    const add = (game as unknown as { addItem: (id: string, seat: number) => void }).addItem
+    add.call(game, 'potion_small', 0)
+    expect(game.giveItem('potion_small', 1, 0)).toBe(true)
+    expect(game.countOf('potion_small', 0)).toBe(0)
+    expect(game.countOf('potion_small', 1)).toBe(1)
+  })
+
+  it('없는 물건도, 나 자신에게도, 컴퓨터 자리에도 건넬 수 없다', () => {
+    // 화면의 버튼만 막으면 원격 입력이 들어오는 순간 구멍이 된다 — 코어가 최종 책임자다
+    const { game } = makeGame()
+    game.setSeatController(1, 'human')
+    const add = (game as unknown as { addItem: (id: string, seat: number) => void }).addItem
+    add.call(game, 'potion_small', 0)
+    expect(game.canGiveItem('potion_big', 1, 0).ok).toBe(false)
+    expect(game.canGiveItem('potion_small', 0, 0).ok).toBe(false)
+    expect(game.canGiveItem('potion_small', 2, 0).ok).toBe(false)
+    expect(game.canGiveItem('potion_small', 9, 0).ok).toBe(false)
+  })
+
+  it('저장했다 되돌리면 자리별 가방과 지갑이 그대로다', () => {
+    const { game } = makeGame()
+    game.setSeatController(1, 'human')
+    game.start()
+    skipDialogue(game)
+    const add = (game as unknown as { addItem: (id: string, seat: number) => void }).addItem
+    add.call(game, 'potion_small', 0)
+    add.call(game, 'wood_sword', 1)
+    const gain = (game as unknown as { gainGold: (n: number) => void }).gainGold
+    gain.call(game, 40)
+
+    const snap = game.snapshot()
+    expect(snap.bags[0].map((b) => b.item)).toContain('potion_small')
+    expect(snap.bags[1].map((b) => b.item)).toContain('wood_sword')
+    expect(snap.golds[0]).toBe(40)
+
+    const { game: other } = makeGame()
+    other.restore(snap)
+    expect(other.countOf('potion_small', 0)).toBe(1)
+    expect(other.countOf('wood_sword', 1)).toBe(1)
+    expect(other.goldOf(1)).toBe(40)
   })
 })
