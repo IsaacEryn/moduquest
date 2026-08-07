@@ -284,7 +284,12 @@ export interface PartyMemberData {
 export interface TraitData {
   name: string
   summary: string
-  category: 'basic' | 'combat' | 'challenge'
+  /**
+   * 어떤 사람에게 맞는지 — 장애 이름이 아니라 원하는 리듬과 상황으로 적는다.
+   * 고르는 근거가 "무엇을 못 하는가"가 아니라 "어떻게 즐기고 싶은가"여야 한다.
+   */
+  fit: string
+  category: TraitCategory
   stats: { hp: number; atk: number; def: number; spd: number }
   combat: {
     /** 상대 방어력을 이만큼 무시한다 */
@@ -298,9 +303,18 @@ export interface TraitData {
   perception: { radius: number | null }
 }
 
+export type TraitCategory = 'basic' | 'combat' | 'challenge'
+
+/** 특성 묶음의 이름과 안내 — 화면의 소제목이 여기서 나온다 */
+export interface TraitCategoryData {
+  name: string
+  note: string
+}
+
 export interface TraitsFile {
   default: string
   limits: { minStat: number; minRadius: number }
+  categories: Record<TraitCategory, TraitCategoryData>
   traits: Record<string, TraitData>
 }
 

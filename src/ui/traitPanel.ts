@@ -1,6 +1,9 @@
 import type { Game } from '../core/game'
-import type { TraitData } from '../core/types'
+import type { TraitCategory, TraitData } from '../core/types'
 import type { TraitStore } from './traitStore'
+
+/** 화면에 나오는 묶음 순서 — 처음 여는 사람이 볼 것부터 */
+const CATEGORY_ORDER: TraitCategory[] = ['basic', 'combat', 'challenge']
 
 /**
  * 이득과 대가를 데이터에서 문장으로 만든다.
@@ -43,6 +46,10 @@ function traitSentence(t: TraitData): string {
 /**
  * 특성 선택 패널. 옵션 패널과 같은 <dialog> 구조라 포커스 트랩과
  * ESC 닫기를 브라우저가 처리한다.
+ *
+ * 이 창에는 설명 책임이 하나 더 있다. 도움이 필요해서 여기까지 온 사람이
+ * "특성을 잘 고르면 편해지나?" 하고 오해하기 쉬운데, 몸에 맞추는 것은 옵션의
+ * 일이고 특성은 게임 상태만 바꾼다. 그 경계를 말하고, 옵션으로 가는 길도 연다.
  */
 export class TraitPanel {
   private dialog: HTMLDialogElement
@@ -52,27 +59,66 @@ export class TraitPanel {
   constructor(
     private game: Game,
     private store: TraitStore,
-    private hooks: { onOpen?: () => void; onClose?: () => void } = {},
+    private hooks: { onOpen?: () => void; onClose?: () => void; onOpenOptions?: () => void } = {},
   ) {
     this.dialog = document.createElement('dialog')
     this.dialog.className = 'options traits'
     this.dialog.setAttribute('aria-labelledby', 'traits-title')
     this.dialog.innerHTML = `
       <h2 id="traits-title">특성 고르기</h2>
-      <p class="intro">이득과 대가가 함께 붙은 플레이 스타일이다. 타이틀 화면과 쉼터에서
-        바꿀 수 있고, 어떤 특성을 골라도 낭독·키보드·저자극 모드는 그대로 동작한다.</p>
-      <fieldset><legend class="visually-hidden">특성</legend></fieldset>
+      <p class="intro">이득과 대가가 한 묶음으로 붙은 플레이 스타일이다. 어느 것을 골라도
+        끝까지 갈 수 있게 맞춰 두었으니, 더 센 쪽이 아니라 더 편한 쪽으로 고르면 된다.
+        준비하는 자리(타이틀·쉼터)에서 언제든 다시 바꿀 수 있다.</p>
+      <div class="trait-boundary">
+        <p>화면·소리·조작을 몸에 맞추는 것은 특성이 아니라 <strong>옵션</strong>이 한다.
+          낭독·자막·키보드 조작·큰 글씨·저자극은 어떤 특성을 골라도 늘 켜져 있고,
+          특성이 그것들을 끄거나 줄이는 일은 없다.</p>
+        <button type="button" id="traits-to-options">옵션 열기</button>
+      </div>
       <button type="button" id="traits-close">닫기</button>
     `
     document.body.append(this.dialog)
 
-    const fieldset = this.dialog.querySelector('fieldset')!
-    for (const [id, trait] of Object.entries(this.game.traits.traits)) {
-      fieldset.append(this.row(id, trait))
+    const closeBtn = this.dialog.querySelector('#traits-close')!
+    for (const key of CATEGORY_ORDER) {
+      const group = this.categoryGroup(key)
+      if (group) this.dialog.insertBefore(group, closeBtn)
     }
 
-    this.dialog.querySelector('#traits-close')!.addEventListener('click', () => this.close())
+    const toOptions = this.dialog.querySelector<HTMLButtonElement>('#traits-to-options')!
+    if (this.hooks.onOpenOptions) {
+      // 창을 겹치지 않는다 — 이 창을 닫고 옵션을 연다
+      toOptions.addEventListener('click', () => {
+        const open = this.hooks.onOpenOptions!
+        this.close()
+        open()
+      })
+    } else {
+      toOptions.remove()
+    }
+
+    closeBtn.addEventListener('click', () => this.close())
     this.dialog.addEventListener('close', () => this.afterClose())
+  }
+
+  /** 한 묶음(기본·전투·도전)을 fieldset 하나로 — 소제목이 곧 고르는 기준이 된다 */
+  private categoryGroup(key: TraitCategory): HTMLElement | null {
+    const entries = Object.entries(this.game.traits.traits).filter(
+      ([, t]) => t.category === key,
+    )
+    if (!entries.length) return null
+    const meta = this.game.traits.categories[key]
+
+    const fieldset = document.createElement('fieldset')
+    fieldset.className = 'trait-group'
+    const legend = document.createElement('legend')
+    legend.textContent = meta.name
+    const note = document.createElement('p')
+    note.className = 'trait-cat-note'
+    note.textContent = meta.note
+    fieldset.append(legend, note)
+    for (const [id, trait] of entries) fieldset.append(this.row(id, trait))
+    return fieldset
   }
 
   private row(id: string, trait: TraitData): HTMLElement {
@@ -83,10 +129,15 @@ export class TraitPanel {
     input.name = 'trait'
     input.id = `trait-${id}`
     input.value = id
-    input.setAttribute('aria-describedby', `trait-desc-${id}`)
+    // 맞음새를 수치보다 먼저 읽는다 — 고를 근거가 숫자가 아니라 상황이어야 한다
+    input.setAttribute('aria-describedby', `trait-fit-${id} trait-desc-${id}`)
     const label = document.createElement('label')
     label.htmlFor = input.id
     label.textContent = trait.name
+    const fit = document.createElement('p')
+    fit.id = `trait-fit-${id}`
+    fit.className = 'trait-fit'
+    fit.textContent = trait.fit
     const desc = document.createElement('p')
     desc.id = `trait-desc-${id}`
     desc.className = 'trait-desc'
@@ -96,7 +147,7 @@ export class TraitPanel {
     input.addEventListener('change', () => {
       if (input.checked) this.select(id)
     })
-    wrap.append(input, label, desc)
+    wrap.append(input, label, fit, desc)
     return wrap
   }
 
@@ -122,7 +173,9 @@ export class TraitPanel {
       el.disabled = !ok
     })
     this.dialog.querySelector<HTMLElement>('.intro')!.textContent = ok
-      ? '이득과 대가가 함께 붙은 플레이 스타일이다. 어떤 특성을 골라도 낭독·키보드·저자극 모드는 그대로 동작한다.'
+      ? '이득과 대가가 한 묶음으로 붙은 플레이 스타일이다. 어느 것을 골라도 끝까지 갈 수 있게 ' +
+        '맞춰 두었으니, 더 센 쪽이 아니라 더 편한 쪽으로 고르면 된다. ' +
+        '준비하는 자리(타이틀·쉼터)에서 언제든 다시 바꿀 수 있다.'
       : `${reason} 지금 특성은 ${this.game.trait.name}이다.`
     this.dialog.showModal()
     // 다른 패널과 같은 규칙으로 첫 조작 지점에 포커스를 둔다 — 브라우저 기본 동작에

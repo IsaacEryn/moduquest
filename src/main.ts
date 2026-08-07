@@ -115,7 +115,11 @@ const options = new OptionsPanel(store, {
   },
   announce: (text) => announcer.polite(text),
 })
-const traitPanel = new TraitPanel(port, traitStore, pauseHooks)
+const traitPanel = new TraitPanel(port, traitStore, {
+  ...pauseHooks,
+  // 몸에 맞추는 일은 옵션이 한다 — 특성 창에서 그리로 가는 길을 연다
+  onOpenOptions: () => options.open(),
+})
 const battleUI = new BattleUI(port, bus, () => options.open())
 
 // 낭독과 같은 문장이 텍스트 기록 창에도 쌓인다 — 글만으로 게임을 따라가는 렌즈

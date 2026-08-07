@@ -179,3 +179,56 @@ describe('지각 반경', () => {
     expect(game.field.isKnown({ x: 10, y: 1 })).toBe(true)
   })
 })
+
+/**
+ * 특성 문구가 지켜야 할 규칙. 원칙이 문서에만 있으면 언젠가 슬며시 어긋난다 —
+ * "장애를 능력치로 만들지 않는다"는 결정을 여기서 강제한다.
+ */
+describe('특성 문구', () => {
+  it('모든 특성이 누구에게 맞는지 말한다', () => {
+    for (const [id, t] of Object.entries(TRAITS.traits)) {
+      expect(t.fit.trim().length, id).toBeGreaterThan(20)
+      expect(t.summary.trim().length, id).toBeGreaterThan(0)
+    }
+  })
+
+  it('특성은 장애 이름을 부르지 않는다', () => {
+    // 특성은 정체성이 아니라 플레이 스타일이다(vision 원칙 5). 고르는 근거는
+    // "무엇을 못 하는가"가 아니라 "어떤 리듬으로 즐기고 싶은가"여야 한다
+    const forbidden = [
+      '장애',
+      '비장애',
+      '시각장애',
+      '청각장애',
+      '난청',
+      '저시력',
+      '실명',
+      '색맹',
+      '색약',
+      '휠체어',
+      'ADHD',
+      'ASD',
+      '자폐',
+      '인지장애',
+      '지적장애',
+      '발달장애',
+    ]
+    for (const [id, t] of Object.entries(TRAITS.traits)) {
+      const text = `${t.name} ${t.summary} ${t.fit}`
+      for (const word of forbidden) {
+        expect(text, `${id}에 "${word}"`).not.toContain(word)
+      }
+    }
+  })
+
+  it('모든 특성이 화면에 있는 묶음에 속한다', () => {
+    for (const [id, t] of Object.entries(TRAITS.traits)) {
+      expect(TRAITS.categories[t.category], `${id}의 묶음 ${t.category}`).toBeTruthy()
+    }
+    // 빈 묶음이 소제목만 남기지 않도록 — 화면에 이름만 뜨는 자리가 생긴다
+    for (const key of Object.keys(TRAITS.categories)) {
+      const used = Object.values(TRAITS.traits).some((t) => t.category === key)
+      expect(used, `쓰이지 않는 묶음 ${key}`).toBe(true)
+    }
+  })
+})
