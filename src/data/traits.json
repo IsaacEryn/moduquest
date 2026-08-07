@@ -1,6 +1,9 @@
 {
   "default": "balanced",
-  "limits": { "minStat": 3, "minRadius": 2 },
+  "limits": {
+    "minStat": 3,
+    "minRadius": 2
+  },
   "categories": {
     "basic": {
       "name": "먼저 이것부터",
@@ -21,63 +24,161 @@
       "summary": "치우침 없는 기본. 아무것도 가리지 않는다.",
       "fit": "처음이라면 이것으로 충분하다. 지도 전체가 보이고 턴 순서도 평범해서, 게임이 어떻게 굴러가는지 익히기에 가장 조용한 자리다.",
       "category": "basic",
-      "stats": { "hp": 0, "atk": 0, "def": 0, "spd": 0 },
-      "combat": { "pierce": 0, "guardEvery": 0, "cooldownDelta": 0 },
-      "perception": { "radius": null }
+      "stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spd": 0
+      },
+      "combat": {
+        "pierce": 0,
+        "guardEvery": 0,
+        "cooldownDelta": 0
+      },
+      "perception": {
+        "radius": null
+      }
     },
     "swift-step": {
       "name": "날렵한 걸음",
       "summary": "먼저 움직이고 공격을 흘린다. 대신 한 방이 가볍다.",
       "fit": "상대보다 먼저 두고 싶을 때. 네 번째 피격은 반드시 흘리므로, 고민하다 한 대 맞아도 판이 무너지지 않는다.",
       "category": "combat",
-      "stats": { "hp": 0, "atk": -2, "def": 0, "spd": 3 },
-      "combat": { "pierce": 0, "guardEvery": 4, "cooldownDelta": 0 },
-      "perception": { "radius": null }
+      "stats": {
+        "hp": 0,
+        "atk": -2,
+        "def": 0,
+        "spd": 3
+      },
+      "combat": {
+        "pierce": 0,
+        "guardEvery": 4,
+        "cooldownDelta": 0
+      },
+      "perception": {
+        "radius": null
+      }
     },
     "steady-hand": {
       "name": "정확한 손",
       "summary": "상대의 방어를 뚫는다. 대신 행동이 느리다.",
       "fit": "한 턴을 천천히 곱씹는 편이 편할 때. 순서가 늦게 오는 대신 한 번의 공격이 크게 들어가서, 상황을 낭독으로 듣고 판단하든 화면을 오래 들여다보든 서두를 이유가 줄어든다.",
       "category": "combat",
-      "stats": { "hp": 0, "atk": 0, "def": 0, "spd": -3 },
-      "combat": { "pierce": 4, "guardEvery": 0, "cooldownDelta": 0 },
-      "perception": { "radius": null }
+      "stats": {
+        "hp": 0,
+        "atk": 0,
+        "def": 0,
+        "spd": -3
+      },
+      "combat": {
+        "pierce": 4,
+        "guardEvery": 0,
+        "cooldownDelta": 0
+      },
+      "perception": {
+        "radius": null
+      }
     },
     "firm-stance": {
       "name": "단단한 자세",
       "summary": "잘 버틴다. 대신 공격이 약하고 느리다.",
       "fit": "실수해도 되는 여유가 필요할 때. 체력이 두꺼워서 잘못 고른 한 수가 곧바로 패배로 이어지지 않는다. 전투가 길어지는 대신 되돌릴 기회가 많다.",
       "category": "combat",
-      "stats": { "hp": 20, "atk": -2, "def": 3, "spd": -1 },
-      "combat": { "pierce": 0, "guardEvery": 0, "cooldownDelta": 0 },
-      "perception": { "radius": null }
+      "stats": {
+        "hp": 18,
+        "atk": -2,
+        "def": 2,
+        "spd": -1
+      },
+      "combat": {
+        "pierce": 0,
+        "guardEvery": 0,
+        "cooldownDelta": 0
+      },
+      "perception": {
+        "radius": null
+      }
     },
     "quick-turn": {
       "name": "짧은 호흡",
       "summary": "판을 빨리 끝낸다. 대신 잘 버티지 못한다.",
       "fit": "한 판을 짧게 끝내고 싶을 때. 오래 앉아 있기 어렵거나 긴 전투에서 집중이 흩어진다면, 주고받는 횟수 자체가 줄어드는 쪽이 편하다.",
       "category": "combat",
-      "stats": { "hp": -10, "atk": 3, "def": -2, "spd": 2 },
-      "combat": { "pierce": 0, "guardEvery": 0, "cooldownDelta": 0 },
-      "perception": { "radius": null }
+      "stats": {
+        "hp": -10,
+        "atk": 3,
+        "def": -1,
+        "spd": 2
+      },
+      "combat": {
+        "pierce": 0,
+        "guardEvery": 0,
+        "cooldownDelta": 0
+      },
+      "perception": {
+        "radius": null
+      }
     },
     "measured-pace": {
       "name": "차분한 준비",
       "summary": "필살기를 더 자주 쓴다. 대신 평타가 약하다.",
       "fit": "같은 공격을 반복하기보다 고르는 재미가 좋을 때. 스킬 대기가 한 라운드 짧아서 매 턴 쓸 만한 수가 남아 있다.",
       "category": "combat",
-      "stats": { "hp": 0, "atk": -2, "def": 1, "spd": 0 },
-      "combat": { "pierce": 0, "guardEvery": 0, "cooldownDelta": -1 },
-      "perception": { "radius": null }
+      "stats": {
+        "hp": 0,
+        "atk": -2,
+        "def": 1,
+        "spd": 0
+      },
+      "combat": {
+        "pierce": 0,
+        "guardEvery": 0,
+        "cooldownDelta": -1
+      },
+      "perception": {
+        "radius": null
+      }
     },
     "narrow-focus": {
       "name": "좁은 지각",
       "summary": "가까운 곳만 알 수 있다. 대신 빠르고 잘 흘린다.",
       "fit": "동료와 정보를 나누는 재미를 원할 때. 멀리 있는 것을 모르는 대신 발이 빠르고 잘 흘린다. 넓게 보는 동료가 길과 위험을 일러 주는 판이 되어서, 함께 하기에서 가장 이야기가 많아진다.",
       "category": "challenge",
-      "stats": { "hp": 0, "atk": 1, "def": 0, "spd": 2 },
-      "combat": { "pierce": 0, "guardEvery": 4, "cooldownDelta": 0 },
-      "perception": { "radius": 4 }
+      "stats": {
+        "hp": 0,
+        "atk": 1,
+        "def": 0,
+        "spd": 2
+      },
+      "combat": {
+        "pierce": 0,
+        "guardEvery": 4,
+        "cooldownDelta": 0
+      },
+      "perception": {
+        "radius": 4
+      }
+    },
+    "ambidextrous": {
+      "name": "양손잡이",
+      "summary": "주력이 아닌 쪽으로도 싸운다. 대신 어느 쪽도 최고는 아니다.",
+      "fit": "무엇이 나올지 모를 때. 물리에 강한 상대든 마법에 강한 상대든 무난하게 상대하는 대신, 약점을 찌를 때의 한 방은 작다. 혼자 다니며 여러 상대를 만나는 판에서 편하다.",
+      "category": "combat",
+      "stats": {
+        "hp": 0,
+        "atk": -3,
+        "def": 0,
+        "spd": 0
+      },
+      "offhand": 0.5,
+      "combat": {
+        "pierce": 0,
+        "guardEvery": 0,
+        "cooldownDelta": 0
+      },
+      "perception": {
+        "radius": null
+      }
     }
   }
 }

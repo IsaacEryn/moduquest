@@ -38,10 +38,16 @@ export function applyStats(
 ): TraitStats {
   const floor = (v: number) => Math.max(limits.minStat, v)
   const magic = mainType === 'magic'
+  const mainAtk = floor((magic ? base.matk : base.patk) + trait.stats.atk)
+  // 반대쪽은 원래 값 그대로. 양손잡이만 주력에 비례해 끌어올린다
+  const other = magic ? base.patk : base.matk
+  const offAtk = floor(
+    trait.offhand ? Math.max(other, Math.floor(mainAtk * trait.offhand)) : other,
+  )
   return {
     hp: floor(base.hp + trait.stats.hp),
-    patk: floor(base.patk + (magic ? 0 : trait.stats.atk)),
-    matk: floor(base.matk + (magic ? trait.stats.atk : 0)),
+    patk: magic ? offAtk : mainAtk,
+    matk: magic ? mainAtk : offAtk,
     pdef: floor(base.pdef + trait.stats.def),
     mdef: floor(base.mdef + trait.stats.def),
     spd: floor(base.spd + trait.stats.spd),

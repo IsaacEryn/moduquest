@@ -173,6 +173,7 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
     expect(rounds).toMatchInlineSnapshot(`
       {
         "stage1": {
+          "ambidextrous": 9,
           "balanced": 7,
           "firm-stance": 9,
           "measured-pace": 6,
@@ -182,6 +183,7 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
           "swift-step": 9,
         },
         "stage2": {
+          "ambidextrous": 9,
           "balanced": 8,
           "firm-stance": 9,
           "measured-pace": 8,
@@ -191,11 +193,12 @@ describe('밸런스 — 어떤 파티 조합과 특성으로도 전부 이길 �
           "swift-step": 9,
         },
         "stage3": {
+          "ambidextrous": 7,
           "balanced": 7,
           "firm-stance": 7,
           "measured-pace": 7,
           "narrow-focus": 7,
-          "quick-turn": 7,
+          "quick-turn": 6,
           "steady-hand": 7,
           "swift-step": 7,
         },

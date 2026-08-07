@@ -50,7 +50,7 @@ describe('특성 해석', () => {
   it('공격 보정은 주력 쪽에만 얹히고, 방어 보정은 양쪽에 걸린다', () => {
     // 특성은 플레이 스타일이지 속성이 아니다 — 마법사가 골라도 손해가 아니어야 한다
     const base = { hp: 90, patk: 18, matk: 18, pdef: 6, mdef: 6, spd: 12 }
-    const t = resolveTrait(TRAITS, 'quick-turn') // atk +3, def -2, hp -10, spd +2
+    const t = resolveTrait(TRAITS, 'quick-turn') // atk +3, def -1, hp -10, spd +2
     const body = applyStats(base, t, TRAITS.limits, 'physical')
     expect(body.patk).toBe(21)
     expect(body.matk).toBe(18)
@@ -58,10 +58,10 @@ describe('특성 해석', () => {
     expect(magic.matk).toBe(21)
     expect(magic.patk).toBe(18)
     // 방어는 어느 쪽 주력이든 똑같이 움직인다
-    expect(body.pdef).toBe(4)
-    expect(body.mdef).toBe(4)
-    expect(magic.pdef).toBe(4)
-    expect(magic.mdef).toBe(4)
+    expect(body.pdef).toBe(5)
+    expect(body.mdef).toBe(5)
+    expect(magic.pdef).toBe(5)
+    expect(magic.mdef).toBe(5)
   })
 
   it('능력치가 하한 아래로 내려가지 않는다', () => {
@@ -105,8 +105,8 @@ describe('특성 적용', () => {
   it('특성을 바꾸면 체력 비율이 유지된다', () => {
     const { game } = makeGame('balanced')
     game.player.hp = Math.floor(game.player.maxHp / 2)
-    game.setTrait('firm-stance') // hp +20
-    expect(game.player.maxHp).toBe(jobs.rogue.hp + 20)
+    game.setTrait('firm-stance') // hp +18
+    expect(game.player.maxHp).toBe(jobs.rogue.hp + TRAITS.traits['firm-stance'].stats.hp)
     // 절반이었으니 절반 근처여야 한다 — 껐다 켜서 회복하는 악용 차단
     expect(game.player.hp / game.player.maxHp).toBeCloseTo(0.5, 1)
   })

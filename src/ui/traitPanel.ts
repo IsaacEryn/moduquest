@@ -29,6 +29,9 @@ export function describeTrait(t: TraitData): { good: string[]; bad: string[] } {
   } else if (t.combat.cooldownDelta > 0) {
     bad.push(`스킬 대기가 ${t.combat.cooldownDelta}라운드 길다`)
   }
+  if (t.offhand) {
+    good.push(`주력이 아닌 쪽 공격이 주력의 ${Math.round(t.offhand * 100)}%까지 오른다`)
+  }
   if (t.perception.radius !== null) {
     bad.push(`걸어서 ${t.perception.radius}칸 밖은 알 수 없다`)
   }

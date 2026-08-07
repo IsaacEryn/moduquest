@@ -363,6 +363,12 @@ export interface TraitData {
    */
   fit: string
   category: TraitCategory
+  /**
+   * 주력이 아닌 쪽 공격을 주력의 이 비율만큼 끌어올린다(원래 값보다 낮으면 그대로).
+   * 물리와 마법이 갈리기 전에는 있을 수 없던 트레이드오프다 — 어느 상대에게나
+   * 무난한 대신 약점을 찌를 때의 한 방이 작아진다.
+   */
+  offhand?: number
   stats: { hp: number; atk: number; def: number; spd: number }
   combat: {
     /** 상대 방어력을 이만큼 무시한다 */
