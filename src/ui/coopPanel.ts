@@ -604,8 +604,9 @@ export class CoopPanel {
       */
       const waiting = session.notReady
       start.disabled = waiting.length > 0
+      // 이름 끝에 따라 조사가 갈린다 — "이순신이", "리사가". 규칙은 코어가 안다
       start.textContent = waiting.length
-        ? `출발하기 (${waiting.join(', ')}이(가) 고르는 중)`
+        ? `출발하기 (${josa(waiting.join(', '), '이', '가')} 고르는 중)`
         : '출발하기'
       start.addEventListener('click', () => this.hooks.hostStart())
       // 안내가 버튼보다 먼저 온다 — 무엇을 누르는지 알고 나서 누르도록
