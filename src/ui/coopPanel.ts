@@ -689,7 +689,7 @@ export class CoopPanel {
       input.checked = mine?.job === job.id
       input.addEventListener('change', () => {
         if (!session.pickJob(job.id)) return
-        this.hooks.announce(`${job.name}으로 간다.`)
+        this.hooks.announce(`${toward(job.name)} 간다.`)
         this.render()
       })
       const label = document.createElement('label')
