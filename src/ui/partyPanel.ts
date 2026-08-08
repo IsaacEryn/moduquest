@@ -46,6 +46,8 @@ export class PartyPanel {
   private status!: HTMLElement
   /** 자리 이름표 — 누가 그 자리에 앉는지를 열 때마다 다시 적는다 */
   private legends: HTMLElement[] = []
+  /** 자리별 라디오 묶음 — 남이 고른 자리를 잠글 때 쓴다 */
+  private fieldsets: HTMLFieldSetElement[] = []
 
   constructor(
     private game: Game,
@@ -96,6 +98,7 @@ export class PartyPanel {
       const legend = document.createElement('legend')
       legend.textContent = label
       this.legends[slot] = legend
+      this.fieldsets[slot] = fs
       fs.append(legend)
       for (const id of jobIds) {
         const j = this.game.jobs[id]
@@ -174,7 +177,14 @@ export class PartyPanel {
     return this.dialog.open
   }
 
-  open(opts: { allowDuplicates?: boolean; seatOwners?: (string | null)[] } = {}): void {
+  open(
+    opts: {
+      allowDuplicates?: boolean
+      seatOwners?: (string | null)[]
+      /** 그 자리 사람이 스스로 고른 직업 — 있으면 방장은 손대지 못한다 */
+      pickedJobs?: (string | null)[]
+    } = {},
+  ): void {
     this.closed = false
     this.allowDuplicates = opts.allowDuplicates ?? false
     this.hooks.onOpen?.()
@@ -185,9 +195,30 @@ export class PartyPanel {
       ? '나와 동료 둘의 직업을 고르자. 함께 하기에서는 같은 직업이 겹쳐도 된다.'
       : '나와 동료 둘의 직업을 고르자. 겹치게 고르면 그 자리가 내 이전 직업을 대신 맡는다.'
     this.selection = [...this.game.currentPartyJobs]
+    /*
+      동료가 로비에서 스스로 고른 자리는 그 선택을 그대로 세우고 잠근다.
+      무엇으로 싸울지는 그 사람이 그 판을 어떻게 겪을지를 정하는 첫 선택이라
+      방장이 대신 고칠 자리가 아니다 — 잠근 이유는 이름표에 적어 둔다.
+    */
+    opts.pickedJobs?.forEach((job, slot) => {
+      if (job) this.selection[slot] = job
+    })
     this.selection.forEach((job, slot) => this.checkRadio(slot, job))
+    this.lockPicked(opts.pickedJobs)
     this.dialog.showModal()
-    this.dialog.querySelector<HTMLElement>('input')?.focus()
+    this.dialog.querySelector<HTMLElement>('input:not([disabled])')?.focus()
+  }
+
+  /** 남이 고른 자리의 라디오를 잠근다 */
+  private lockPicked(picked?: (string | null)[]): void {
+    this.fieldsets.forEach((fs, slot) => {
+      const locked = Boolean(picked?.[slot])
+      for (const input of fs.querySelectorAll('input')) input.disabled = locked
+      const legend = this.legends[slot]
+      if (locked && legend && !legend.textContent?.includes('골랐다')) {
+        legend.textContent = `${legend.textContent} — 직접 골랐다`
+      }
+    })
   }
 
   close(): void {

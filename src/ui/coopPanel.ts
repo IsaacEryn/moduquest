@@ -62,6 +62,9 @@ export class CoopPanel {
       openFriends: (me: Profile) => void
       /** 계정 창 열기 — 닉네임·비밀번호·탈퇴는 그쪽이 담당한다 */
       openAccount?: () => void
+      /** 고를 수 있는 직업들 — 목록도 이름도 데이터가 정한다 */
+      jobList: () => { id: string; name: string; role: string }[]
+      jobName: (id: string) => string
     },
   ) {
     this.dialog = document.createElement('dialog')
@@ -528,7 +531,11 @@ export class CoopPanel {
       line.className = 'seat-line'
       if (info) {
         const who = info.userId === session.userId ? `${info.nickname} (나)` : info.nickname
-        line.textContent = `${role} — ${who}${info.controller === 'npc' ? ' (잠시 자리 비움)' : ''}`
+        // 무엇으로 걷기로 했는지도 함께 적는다 — 파티가 어떻게 서는지는
+        // 출발 전에 서로 보이는 편이 낫다(탱커가 없으면 누군가 바꾸게 된다)
+        const job = info.job ? this.hooks.jobName(info.job) : '아직 안 골랐다'
+        line.textContent =
+          `${role} — ${who}${info.controller === 'npc' ? ' (잠시 자리 비움)' : ''} · ${job}`
       } else if (closed) {
         line.textContent = `${role} — 컴퓨터가 맡는다`
       } else {
@@ -590,6 +597,10 @@ export class CoopPanel {
       wait.className = 'intro'
       wait.textContent = '방장이 출발하면 함께 시작된다.'
 
+      // 무엇으로 싸울지는 내가 고른다 — 특성도 가방도 자리마다 갈라 두었는데
+      // 직업만 방장이 정해 주고 있었다
+      this.body.append(wait, this.jobPicker(session))
+
       // 이 모험을 내 기록 어디에 남길지 — 같은 세계를 각자의 자리에 저장한다
       const row = document.createElement('p')
       row.className = 'form-row'
@@ -646,9 +657,48 @@ export class CoopPanel {
       leaveRow.className = 'coop-row'
       leaveBtn.className = 'alt-action'
       leaveRow.append(leaveBtn)
-      this.body.append(wait, row, leaveRow)
+      this.body.append(row, leaveRow)
       if (!handInside) leaveBtn.focus()
     }
+  }
+
+  /**
+   * 내 직업 고르기 — 동료 자리에만 선다.
+   *
+   * 방장은 파티 짜기 화면에서 자기 것과 컴퓨터 자리를 고르므로 여기 두지 않는다.
+   * 겹침은 막지 않는다 — 셋 다 힐러여도 그들의 모험이라는 규칙이 이미 있다.
+   */
+  private jobPicker(session: PartySession): HTMLElement {
+    const box = document.createElement('fieldset')
+    box.className = 'trait-group'
+    const legend = document.createElement('legend')
+    legend.textContent = '내 직업'
+    const note = document.createElement('p')
+    note.className = 'trait-cat-note'
+    note.textContent = '출발하기 전까지 바꿀 수 있다. 같은 직업이 겹쳐도 된다.'
+    box.append(legend, note)
+
+    const mine = session.seats.find((s) => s.userId === session.userId)
+    for (const job of this.hooks.jobList()) {
+      const row = document.createElement('p')
+      row.className = 'party-choice'
+      const input = document.createElement('input')
+      input.type = 'radio'
+      input.name = 'coop-job'
+      input.id = `coop-job-${job.id}`
+      input.checked = mine?.job === job.id
+      input.addEventListener('change', () => {
+        if (!session.pickJob(job.id)) return
+        this.hooks.announce(`${job.name}으로 간다.`)
+        this.render()
+      })
+      const label = document.createElement('label')
+      label.htmlFor = input.id
+      label.textContent = `${job.name} (${job.role})`
+      row.append(input, label)
+      box.append(row)
+    }
+    return box
   }
 }
 

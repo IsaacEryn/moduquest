@@ -191,6 +191,15 @@ const slotPanel = new SlotPanel(game, saves, {
         seatOwners: session
           ? [0, 1, 2].map((n) => session.seats.find((s) => s.seat === n)?.nickname ?? null)
           : undefined,
+        // 동료가 로비에서 스스로 고른 자리는 방장이 손대지 못한다.
+        // 내 자리(0번)는 여기서 고르는 것이 자연스러우므로 잠그지 않는다
+        pickedJobs: session
+          ? [0, 1, 2].map((n) => {
+              const info = session.seats.find((s) => s.seat === n)
+              if (n === 0 || !info || info.controller !== 'human') return null
+              return info.job ?? null
+            })
+          : undefined,
       })
     }
     void import('./ui/welcomePanel').then(({ WelcomePanel }) => {
@@ -348,6 +357,10 @@ async function openCoop(): Promise<void> {
         })()
       },
       openAccount: () => void openAccount(),
+      // 직업 목록도 이름도 데이터가 정한다 — 화면이 손으로 적으면 언젠가 어긋난다
+      jobList: () =>
+        Object.entries(data.jobs).map(([id, j]) => ({ id, name: j.name, role: j.role })),
+      jobName: (id) => data.jobs[id]?.name ?? id,
       openFriends: (me) => {
         void (async () => {
           const [{ FriendPanel }, { sendPartyInvite }] = await Promise.all([

@@ -8,6 +8,7 @@ import { worldChecksum } from './checksum'
 import { NetScheduler } from './netScheduler'
 import {
   isChecksum,
+  isJobPick,
   isPartyCode,
   isSeatsPayload,
   isSeedPayload,
@@ -226,6 +227,8 @@ export class PartySession {
     this.channel.onBroadcast('sync_req', (p) => {
       if (this.seatOfSender(p) !== null) this.receiveSyncReq(p)
     })
+    // 자리는 봉투가 말한다 — 페이로드가 아니라 발신자로 판정해야 남의 자리를 못 고른다
+    this.channel.onBroadcast('pick_job', (p) => this.receiveJobPick(p, this.seatOfSender(p)))
     this.channel.onBroadcast('checksum', (p) => this.receiveChecksum(p, this.seatOfSender(p)))
     this.channel.onPresence('join', (key) => this.presenceJoined(key))
     this.channel.onPresence('leave', (key) => this.presenceLeft(key))
@@ -335,6 +338,46 @@ export class PartySession {
     return true
   }
 
+  /**
+   * 내 자리의 직업을 고른다 — 출발 전 로비에서만.
+   *
+   * 무엇으로 싸울지는 그 판을 어떻게 겪을지를 정하는 첫 선택이라 남이 대신
+   * 고르지 않는다. 방장은 자기 명부를 바로 고치고, 동료는 방장에게 보낸다 —
+   * 명부의 주인이 하나여야 출발할 때 무엇으로 시작할지가 갈리지 않는다.
+   */
+  pickJob(job: string): boolean {
+    if (this.started || this.ended || this.mySeat === null) return false
+    if (this.isHost) {
+      this.setSeatJob(this.mySeat, job)
+      return true
+    }
+    this.broadcast('pick_job', { v: 1, userId: this.userId, job })
+    // 내 화면에도 곧바로 반영한다 — 방장의 답을 기다리는 동안 고른 것이
+    // 안 보이면 눌리지 않은 줄 알고 다시 누르게 된다
+    this.setSeatJob(this.mySeat, job)
+    this.hooks.onRosterChanged()
+    return true
+  }
+
+  /** 명부에 적고, 방장이면 전원에게 알린다 */
+  private setSeatJob(seat: Seat, job: string): void {
+    const info = this.seats.find((s) => s.seat === seat)
+    if (!info || info.job === job) return
+    info.job = job
+    if (this.isHost) {
+      this.shareSeats()
+      this.hooks.onRosterChanged()
+    }
+  }
+
+  private receiveJobPick(raw: unknown, from: Seat | null): void {
+    if (!this.isHost || this.started || this.ended || from === null) return
+    if (!isJobPick(raw)) return
+    // 없는 직업은 받지 않는다 — 출발 조건이 되는 값이라 여기서 걸러야 한다
+    if (!this.data.jobs[raw.job]) return
+    this.setSeatJob(from, raw.job)
+  }
+
   /** presence의 닉네임을 로스터에 옮겨 적는다 */
   private refreshNickname(seat: SeatInfo): void {
     const entry = this.channel.presenceOf(seat.userId)
@@ -400,9 +443,19 @@ export class PartySession {
 
   // --- 출발 (호스트) ---
 
-  /** 새 모험 — 출발 조건만 나누고 각자 재생한다 */
-  startNew(jobs: string[]): void {
+  /**
+   * 새 모험 — 출발 조건만 나누고 각자 재생한다.
+   *
+   * 방장이 넘긴 목록에서, **사람이 앉은 자리는 그 사람이 고른 것으로 덮는다.**
+   * 방장 화면이 남의 자리를 잠가 두기는 하지만 마지막 판정은 여기서 한다 —
+   * 고르는 화면과 출발하는 자리가 어긋나면 남이 정한 직업으로 걷게 된다.
+   */
+  startNew(hostJobs: string[]): void {
     if (!this.isHost || this.started) return
+    const jobs = hostJobs.slice()
+    for (const info of this.seats) {
+      if (info.controller === 'human' && info.job) jobs[info.seat] = info.job
+    }
     const seed: SeedPayload = {
       v: 1,
       kind: 'new',

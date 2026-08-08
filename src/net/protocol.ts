@@ -56,6 +56,30 @@ export interface SeatInfo {
   userId: string
   nickname: string
   controller: 'human' | 'npc'
+  /**
+   * 그 자리 사람이 고른 직업. 아직 안 골랐으면 없다.
+   *
+   * 특성도 가방도 자리마다 갈라 놓고 직업만 방장이 정해 주고 있었다 —
+   * 무엇으로 싸울지는 그 사람이 그 판을 어떻게 겪을지를 정하는 첫 선택이라,
+   * 남이 대신 고를 자리가 아니다.
+   */
+  job?: string
+}
+
+/**
+ * 게스트 → 방장: 내 자리의 직업을 이것으로 하겠다.
+ *
+ * 출발 전 로비에서만 오간다. 아직 세계가 서기 전이라 시퀀서를 지나지 않고,
+ * 방장이 받아 명부에 적은 뒤 전원에게 다시 알린다 — 명부의 주인이 하나여야
+ * 출발할 때 무엇으로 시작할지가 갈리지 않는다.
+ *
+ * 어느 자리인지는 여기 적지 않는다. 봉투가 나르는 발신자로 방장이 판정한다 —
+ * 자리를 페이로드에 적게 두면 남의 자리 직업을 바꾸는 길이 열린다.
+ */
+export interface JobPickPayload {
+  v: 1
+  userId: string
+  job: string
 }
 
 /** 로비·이탈·합류 때 호스트가 알리는 자리 배치 */
@@ -242,7 +266,10 @@ function isSeatInfo(v: unknown): v is SeatInfo {
     s.userId.length <= 64 &&
     typeof s.nickname === 'string' &&
     s.nickname.length <= 12 &&
-    (s.controller === 'human' || s.controller === 'npc')
+    (s.controller === 'human' || s.controller === 'npc') &&
+    // 직업은 아직 안 골랐을 수 있다. 실재하는 이름인지는 게임 데이터가 판정하므로
+    // 여기서는 길이만 본다 — 없는 직업으로 출발하려 들면 코어가 받지 않는다
+    (s.job === undefined || (typeof s.job === 'string' && s.job.length <= 32))
   )
 }
 
@@ -268,6 +295,20 @@ export function isSeatsPayload(v: unknown): v is SeatsPayload {
     // 옛 화면이 보낸 명부에는 이 항목이 없다 — 없으면 아무 자리도 닫지 않은 것
     (p.closedSeats === undefined ||
       (Array.isArray(p.closedSeats) && p.closedSeats.length <= 3 && p.closedSeats.every(isSeat)))
+  )
+}
+
+/** 게스트가 고른 직업 — 자리는 봉투가 나르므로 여기서는 이름만 본다 */
+export function isJobPick(v: unknown): v is JobPickPayload {
+  if (!v || typeof v !== 'object') return false
+  const p = v as Record<string, unknown>
+  return (
+    p.v === 1 &&
+    typeof p.userId === 'string' &&
+    p.userId.length <= 64 &&
+    typeof p.job === 'string' &&
+    p.job.length > 0 &&
+    p.job.length <= 32
   )
 }
 

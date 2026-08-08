@@ -436,6 +436,84 @@ describe('함께 하기 — 명령은 낸 사람의 가방에서 나간다', () 
   })
 })
 
+/**
+ * 무엇으로 싸울지는 그 판을 어떻게 겪을지를 정하는 첫 선택이다.
+ * 특성도 가방도 지갑도 자리마다 갈라 놓고 직업만 방장이 정해 주고 있었다.
+ *
+ * 자리는 봉투가 나르는 발신자로 판정한다 — 페이로드에 적게 두면 남의 자리
+ * 직업을 바꾸는 길이 열리므로, 그 길이 실제로 막혔는지도 함께 못박는다.
+ */
+describe('함께 하기 — 직업은 자기 자리 사람이 고른다', () => {
+  /** 로비까지만 세운다 — 직업 고르기는 출발 전의 일이다 */
+  async function lobby() {
+    const wire = new FakeWire()
+    const h = makeSide()
+    const host = await PartySession.host(
+      h.game,
+      DATA,
+      h.bus,
+      h.hooks,
+      { userId: 'host-1', nickname: '방장' },
+      wire.open,
+    )
+    const g = makeSide()
+    const guest = await PartySession.join(
+      host.code,
+      g.game,
+      DATA,
+      g.bus,
+      g.hooks,
+      { userId: 'guest-1', nickname: '동료1' },
+      wire.open,
+    )
+    return { wire, host, guest, h, g }
+  }
+
+  it('동료가 고른 직업이 방장의 명부에 적히고 출발 조건이 된다', async () => {
+    const { host, guest, h, g } = await lobby()
+    expect(guest.pickJob('mage')).toBe(true)
+
+    // 방장의 명부에 적혔는가 — 명부의 주인은 하나여야 출발이 갈리지 않는다
+    expect(host.seats.find((s) => s.seat === 1)?.job).toBe('mage')
+
+    // 방장이 다른 직업을 넘겨도 그 자리는 고른 것으로 선다
+    host.startNew(['warrior', 'healer', 'archer'])
+    expect(h.game.currentPartyJobs[1]).toBe('mage')
+    expect(g.game.currentPartyJobs[1]).toBe('mage')
+    // 고르지 않은 자리는 방장이 정한 대로다
+    expect(h.game.currentPartyJobs[0]).toBe('warrior')
+    expect(h.game.currentPartyJobs[2]).toBe('archer')
+  })
+
+  it('남의 자리 직업은 고르지 못한다 — 자리는 봉투가 말한다', async () => {
+    const { wire, host } = await lobby()
+    // 게스트가 방장 자리(0번)를 노리고 userId를 방장 것으로 적어 보낸다.
+    // 페이로드의 이름이 아니라 발신자로 자리를 정하므로, 이 시도는 남의 자리를
+    // 건드리지 못하고 자기 자리(1번)를 고른 것으로만 남는다
+    wire.inject('pick_job', { v: 1, userId: 'host-1', job: 'mage', from: 'guest-1' }, 'host-1')
+    expect(host.seats.find((s) => s.seat === 0)?.job).toBeUndefined()
+    expect(host.seats.find((s) => s.seat === 1)?.job).toBe('mage')
+
+    // 명부 밖 사람은 어느 자리도 건드리지 못한다
+    wire.lurk('stranger')
+    wire.inject('pick_job', { v: 1, userId: 'guest-1', job: 'healer', from: 'stranger' }, 'host-1')
+    expect(host.seats.find((s) => s.seat === 1)?.job).toBe('mage')
+    expect(host.seats.find((s) => s.seat === 0)?.job).toBeUndefined()
+  })
+
+  it('없는 직업은 받지 않는다', async () => {
+    const { wire, host } = await lobby()
+    wire.inject('pick_job', { v: 1, userId: 'guest-1', job: '없는직업', from: 'guest-1' }, 'host-1')
+    expect(host.seats.find((s) => s.seat === 1)?.job).toBeUndefined()
+  })
+
+  it('출발한 뒤에는 바꾸지 못한다', async () => {
+    const { host, guest } = await lobby()
+    host.startNew(['warrior', 'healer', 'archer'])
+    expect(guest.pickJob('mage')).toBe(false)
+  })
+})
+
 describe('함께 하기 — 길잡이는 받을 손이 있는 자리로만', () => {
   it('컴퓨터가 맡은 자리로는 넘기지 못한다 — 넘어가면 아무도 걷지 못한다', async () => {
     const { host, h } = await startedParty()
