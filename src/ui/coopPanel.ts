@@ -534,8 +534,15 @@ export class CoopPanel {
         // 무엇으로 걷기로 했는지도 함께 적는다 — 파티가 어떻게 서는지는
         // 출발 전에 서로 보이는 편이 낫다(탱커가 없으면 누군가 바꾸게 된다)
         const job = info.job ? this.hooks.jobName(info.job) : '아직 안 골랐다'
+        // 준비는 동료 자리에만 적는다 — 방장에게는 출발 버튼을 누르는 것이 곧 준비다
+        const ready =
+          seat === 0 || info.controller !== 'human'
+            ? ''
+            : info.ready
+              ? ' · 준비완료'
+              : ' · 고르는 중'
         line.textContent =
-          `${role} — ${who}${info.controller === 'npc' ? ' (잠시 자리 비움)' : ''} · ${job}`
+          `${role} — ${who}${info.controller === 'npc' ? ' (잠시 자리 비움)' : ''} · ${job}${ready}`
       } else if (closed) {
         line.textContent = `${role} — 컴퓨터가 맡는다`
       } else {
@@ -587,7 +594,19 @@ export class CoopPanel {
         '혼자여도 출발할 수 있다. 동료는 모험 중에도 초대 코드로 합류한다.'
       const start = document.createElement('button')
       start.type = 'button'
-      start.textContent = '출발하기'
+      /*
+        아직 고르는 중인 사람이 있으면 잠근다. 출발하면 직업을 바꿀 수 없으니,
+        누군가 고르는 동안 떠나 버리면 그 사람은 남이 정해 준 것으로 걷게 된다.
+
+        **왜 못 누르는지는 버튼이 스스로 말한다.** 이유 없이 회색인 버튼은
+        고장으로 읽히고, 그러면 기다리는 대신 새로고침을 하게 된다 —
+        이 규칙은 마을·전투·특성 화면이 이미 같은 꼴로 지키고 있다.
+      */
+      const waiting = session.notReady
+      start.disabled = waiting.length > 0
+      start.textContent = waiting.length
+        ? `출발하기 (${waiting.join(', ')}이(가) 고르는 중)`
+        : '출발하기'
       start.addEventListener('click', () => this.hooks.hostStart())
       // 안내가 버튼보다 먼저 온다 — 무엇을 누르는지 알고 나서 누르도록
       this.body.append(note, start)
@@ -600,6 +619,25 @@ export class CoopPanel {
       // 무엇으로 싸울지는 내가 고른다 — 특성도 가방도 자리마다 갈라 두었는데
       // 직업만 방장이 정해 주고 있었다
       this.body.append(wait, this.jobPicker(session))
+
+      /*
+        준비 신호. 방장은 이것이 올라오기 전까지 출발하지 않는다.
+
+        되돌릴 수 있게 둔 것은, 눌러 놓고 마음이 바뀌는 일이 흔하기 때문이다 —
+        한 번 누르면 못 무르는 문은 고르는 사람을 서두르게 만든다.
+      */
+      const me = session.seats.find((s) => s.userId === session.userId)
+      const ready = Boolean(me?.ready)
+      const readyBtn = document.createElement('button')
+      readyBtn.type = 'button'
+      readyBtn.className = ready ? 'alt-action' : ''
+      readyBtn.textContent = ready ? '다시 고를래' : '준비완료'
+      readyBtn.addEventListener('click', () => {
+        if (!session.setReady(!ready)) return
+        this.hooks.announce(ready ? '준비를 물렀다.' : '준비를 마쳤다. 방장이 출발할 수 있다.')
+        this.render()
+      })
+      this.body.append(readyBtn)
 
       // 이 모험을 내 기록 어디에 남길지 — 같은 세계를 각자의 자리에 저장한다
       const row = document.createElement('p')

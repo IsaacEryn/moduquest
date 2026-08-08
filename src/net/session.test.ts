@@ -109,6 +109,16 @@ class FakeWire {
     }
   }
 
+  /** 그 사람의 연결이 끊긴다 — presence가 빠지고 남은 화면들이 그것을 안다 */
+  leave(userId: string): void {
+    this.members.delete(userId)
+    this.presence.delete(userId)
+    this.presenceHooks.delete(userId)
+    for (const [other, hooks] of this.presenceHooks) {
+      if (other !== userId) for (const fn of hooks.leave) fn(userId)
+    }
+  }
+
   /** presence에만 올라와 있고 자리는 못 받은 사람 */
   lurk(userId: string): void {
     this.presence.set(userId, { nickname: 'lurker' })
@@ -511,6 +521,32 @@ describe('함께 하기 — 직업은 자기 자리 사람이 고른다', () => 
     const { host, guest } = await lobby()
     host.startNew(['warrior', 'healer', 'archer'])
     expect(guest.pickJob('mage')).toBe(false)
+  })
+
+  it('동료가 준비를 마쳐야 방장이 출발할 수 있다', async () => {
+    const { host, guest } = await lobby()
+    expect(host.notReady).toEqual(['동료1'])
+    guest.setReady(true)
+    expect(host.notReady).toEqual([])
+    // 물리면 다시 기다린다 — 눌러 놓고 마음이 바뀌는 일은 흔하다
+    guest.setReady(false)
+    expect(host.notReady).toEqual(['동료1'])
+  })
+
+  it('연결이 끊기면 기다림도 끝난다 — 떠난 사람이 문을 잠그면 안 된다', async () => {
+    const { wire, host } = await lobby()
+    expect(host.notReady).toEqual(['동료1'])
+    wire.leave('guest-1')
+    // 로비에서 나가면 자리 자체가 비므로 기다릴 사람이 없다.
+    // (모험 중 이탈은 자리를 남기고 대행으로 넘어가지만, 그때는 이미 출발한 뒤라
+    //  이 문과 무관하다 — notReady는 출발 전에만 값을 낸다)
+    expect(host.notReady).toEqual([])
+  })
+
+  it('출발한 뒤에는 아무도 기다리지 않는다', async () => {
+    const { host } = await lobby()
+    host.startNew(['warrior', 'healer', 'archer'])
+    expect(host.notReady).toEqual([])
   })
 })
 

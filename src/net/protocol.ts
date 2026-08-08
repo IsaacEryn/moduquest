@@ -64,6 +64,14 @@ export interface SeatInfo {
    * 남이 대신 고를 자리가 아니다.
    */
   job?: string
+  /**
+   * 이 자리 사람이 준비를 마쳤는가. 방장은 전원이 이것을 올린 뒤에야 출발한다.
+   *
+   * 고르는 중인 사람을 두고 떠나지 않으려고 둔 문인데, 문에는 늘 열쇠가 있어야
+   * 한다 — 자리를 비운 사람(controller가 npc가 된 자리)은 기다림에서 빼야
+   * 연결이 끊긴 동료 하나 때문에 남은 사람들이 영영 못 나가는 일이 없다.
+   */
+  ready?: boolean
 }
 
 /**
@@ -80,6 +88,17 @@ export interface JobPickPayload {
   v: 1
   userId: string
   job: string
+}
+
+/**
+ * 게스트 → 방장: 나는 준비를 마쳤다(또는 다시 고르겠다).
+ *
+ * 직업 고르기와 같은 길을 지난다 — 출발 전 로비에서만, 자리는 봉투가 판정한다.
+ */
+export interface ReadyPayload {
+  v: 1
+  userId: string
+  ready: boolean
 }
 
 /** 로비·이탈·합류 때 호스트가 알리는 자리 배치 */
@@ -269,7 +288,8 @@ function isSeatInfo(v: unknown): v is SeatInfo {
     (s.controller === 'human' || s.controller === 'npc') &&
     // 직업은 아직 안 골랐을 수 있다. 실재하는 이름인지는 게임 데이터가 판정하므로
     // 여기서는 길이만 본다 — 없는 직업으로 출발하려 들면 코어가 받지 않는다
-    (s.job === undefined || (typeof s.job === 'string' && s.job.length <= 32))
+    (s.job === undefined || (typeof s.job === 'string' && s.job.length <= 32)) &&
+    (s.ready === undefined || typeof s.ready === 'boolean')
   )
 }
 
@@ -295,6 +315,15 @@ export function isSeatsPayload(v: unknown): v is SeatsPayload {
     // 옛 화면이 보낸 명부에는 이 항목이 없다 — 없으면 아무 자리도 닫지 않은 것
     (p.closedSeats === undefined ||
       (Array.isArray(p.closedSeats) && p.closedSeats.length <= 3 && p.closedSeats.every(isSeat)))
+  )
+}
+
+/** 준비 신호 — 직업 고르기와 같은 규칙으로 본다 */
+export function isReadyPick(v: unknown): v is ReadyPayload {
+  if (!v || typeof v !== 'object') return false
+  const p = v as Record<string, unknown>
+  return (
+    p.v === 1 && typeof p.userId === 'string' && p.userId.length <= 64 && typeof p.ready === 'boolean'
   )
 }
 

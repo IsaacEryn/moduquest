@@ -9,6 +9,7 @@ import { NetScheduler } from './netScheduler'
 import {
   isChecksum,
   isJobPick,
+  isReadyPick,
   isPartyCode,
   isSeatsPayload,
   isSeedPayload,
@@ -229,6 +230,7 @@ export class PartySession {
     })
     // 자리는 봉투가 말한다 — 페이로드가 아니라 발신자로 판정해야 남의 자리를 못 고른다
     this.channel.onBroadcast('pick_job', (p) => this.receiveJobPick(p, this.seatOfSender(p)))
+    this.channel.onBroadcast('ready', (p) => this.receiveReady(p, this.seatOfSender(p)))
     this.channel.onBroadcast('checksum', (p) => this.receiveChecksum(p, this.seatOfSender(p)))
     this.channel.onPresence('join', (key) => this.presenceJoined(key))
     this.channel.onPresence('leave', (key) => this.presenceLeft(key))
@@ -376,6 +378,48 @@ export class PartySession {
     // 없는 직업은 받지 않는다 — 출발 조건이 되는 값이라 여기서 걸러야 한다
     if (!this.data.jobs[raw.job]) return
     this.setSeatJob(from, raw.job)
+  }
+
+  /** 준비를 마쳤다고 알린다(다시 고르려면 되돌린다) — 출발 전 로비에서만 */
+  setReady(ready: boolean): boolean {
+    if (this.started || this.ended || this.mySeat === null) return false
+    if (!this.isHost) this.broadcast('ready', { v: 1, userId: this.userId, ready })
+    this.markReady(this.mySeat, ready)
+    if (!this.isHost) this.hooks.onRosterChanged()
+    return true
+  }
+
+  private markReady(seat: Seat, ready: boolean): void {
+    const info = this.seats.find((s) => s.seat === seat)
+    if (!info || info.ready === ready) return
+    info.ready = ready
+    if (this.isHost) {
+      this.shareSeats()
+      this.hooks.onRosterChanged()
+    }
+  }
+
+  private receiveReady(raw: unknown, from: Seat | null): void {
+    if (!this.isHost || this.started || this.ended || from === null) return
+    if (!isReadyPick(raw)) return
+    this.markReady(from, raw.ready)
+  }
+
+  /**
+   * 아직 준비를 안 한 사람들 — 방장의 출발 버튼이 이것을 보고 잠긴다.
+   *
+   * 떠난 사람이 문을 잠그지 않아야 한다. 로비에서 연결이 끊기면 자리 자체가
+   * 비므로(presenceLeft) 여기서 저절로 빠지고, 모험 중 이탈은 이미 출발한
+   * 뒤라 이 문과 무관하다 — `started`면 아무도 기다리지 않는다.
+   *
+   * controller 검사는 그 두 길 밖에서 자리가 대행으로 남는 경우를 대비한
+   * 보수적인 방어다. 지금 경로에서는 로비에 npc 자리가 서지 않는다.
+   */
+  get notReady(): string[] {
+    if (this.started) return []
+    return this.seats
+      .filter((s) => s.controller === 'human' && s.seat !== 0 && !s.ready)
+      .map((s) => s.nickname)
   }
 
   /** presence의 닉네임을 로스터에 옮겨 적는다 */
