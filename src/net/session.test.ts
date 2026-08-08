@@ -181,6 +181,11 @@ async function startedParty(guests = 1) {
   return { wire, host, guest: joined[0], guests: joined, h, g: sides[0], sides }
 }
 
+/** 두 화면이 같은 세계를 보고 있는가 — 갈리면 락스텝이 깨진 것이다 */
+const agreed = (a: Game, b: Game): boolean =>
+  worldChecksum(a.snapshot(), a.liveFingerprint()) ===
+  worldChecksum(b.snapshot(), b.liveFingerprint())
+
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
 
@@ -402,11 +407,6 @@ describe('함께 하기 — 뒷정리', () => {
  * 지갑·가방을 견줘야 한다.
  */
 describe('함께 하기 — 명령은 낸 사람의 가방에서 나간다', () => {
-  /** 두 화면이 같은 세계를 보고 있는가 */
-  const agreed = (a: Game, b: Game): boolean =>
-    worldChecksum(a.snapshot(), a.liveFingerprint()) ===
-    worldChecksum(b.snapshot(), b.liveFingerprint())
-
   it('게스트가 쓴 물약은 게스트 가방에서 빠진다 — 방장 것이 줄지 않는다', async () => {
     const { guest, h, g } = await startedParty()
     // 양쪽 화면에 똑같이: 게스트 자리에만 물약 하나, 그리고 쓸 이유(다친 몸)
@@ -435,10 +435,13 @@ describe('함께 하기 — 명령은 낸 사람의 가방에서 나간다', () 
       const gm = side.game as unknown as { addItem(id: string, seat: number): void }
       gm.addItem('wood_sword', 1)
     }
+    // 게스트는 1번 자리 — 그 자리의 몸에만 입힐 수 있다
+    const mine = h.game.party[1].id
 
-    guest.propose({ kind: 'equip', memberId: 'warrior', itemId: 'wood_sword' })
+    guest.propose({ kind: 'equip', memberId: mine, itemId: 'wood_sword' })
 
     expect(agreed(h.game, g.game)).toBe(true)
+    expect(h.game.equipmentOf(mine).weapon).toBe('wood_sword')
     expect(h.game.countOf('wood_sword', 1)).toBe(0)
     // 방장 가방은 건드리지 않았다
     expect(h.game.countOf('wood_sword', 0)).toBe(0)
@@ -547,6 +550,82 @@ describe('함께 하기 — 직업은 자기 자리 사람이 고른다', () => 
     const { host } = await lobby()
     host.startNew(['warrior', 'healer', 'archer'])
     expect(host.notReady).toEqual([])
+  })
+})
+
+/**
+ * 장비에는 주인이 있다.
+ *
+ * 자리마다 가방을 갈라 놓고도 몸에는 주인을 두지 않았다. 그래서 동료가 내
+ * 캐릭터의 갑옷을 벗기면 그 갑옷이 **벗긴 사람의 가방**으로 들어갔고, 내 몸에서
+ * 나온 것을 내가 다시 입을 수 없었다 — 잃은 것이 아니라 빼앗긴 것에 가깝다.
+ * 실제로 걷다가 그 일을 겪고 나서 세운 규칙이다.
+ */
+describe('함께 하기 — 남의 몸은 만지지 않는다', () => {
+  it('동료가 내 장비를 벗겨 자기 가방에 넣지 못한다', async () => {
+    const { host, guest, h, g } = await startedParty()
+    const hostBody = h.game.party[0].id
+    for (const side of [h, g]) {
+      const gm = side.game as unknown as { addItem(id: string, seat: number): void }
+      gm.addItem('leather_armor', 0)
+    }
+    // 방장이 자기 몸에 입는다
+    host.propose({ kind: 'equip', memberId: hostBody, itemId: 'leather_armor' })
+    expect(h.game.equipmentOf(hostBody).armor).toBe('leather_armor')
+
+    // 동료가 그것을 벗기려 든다
+    guest.propose({ kind: 'unequip', memberId: hostBody, slot: 'armor' })
+
+    // 여전히 방장이 입고 있고, 동료 가방에도 들어가지 않았다
+    expect(h.game.equipmentOf(hostBody).armor).toBe('leather_armor')
+    expect(h.game.countOf('leather_armor', 1)).toBe(0)
+    expect(agreed(h.game, g.game)).toBe(true)
+  })
+
+  it('내 몸은 내가 벗긴다 — 벗은 것은 내 가방으로 돌아온다', async () => {
+    const { host, h, g } = await startedParty()
+    const hostBody = h.game.party[0].id
+    for (const side of [h, g]) {
+      const gm = side.game as unknown as { addItem(id: string, seat: number): void }
+      gm.addItem('leather_armor', 0)
+    }
+    host.propose({ kind: 'equip', memberId: hostBody, itemId: 'leather_armor' })
+    host.propose({ kind: 'unequip', memberId: hostBody, slot: 'armor' })
+
+    expect(h.game.equipmentOf(hostBody).armor).toBeUndefined()
+    expect(h.game.countOf('leather_armor', 0)).toBe(1)
+    expect(agreed(h.game, g.game)).toBe(true)
+  })
+
+  it('동료가 내 몸에 자기 물건을 입히지도 못한다', async () => {
+    const { guest, h, g } = await startedParty()
+    const hostBody = h.game.party[0].id
+    for (const side of [h, g]) {
+      const gm = side.game as unknown as { addItem(id: string, seat: number): void }
+      gm.addItem('wood_sword', 1)
+    }
+    guest.propose({ kind: 'equip', memberId: hostBody, itemId: 'wood_sword' })
+
+    expect(h.game.equipmentOf(hostBody).weapon).toBeUndefined()
+    // 물건은 동료 가방에 그대로 남는다
+    expect(h.game.countOf('wood_sword', 1)).toBe(1)
+    expect(agreed(h.game, g.game)).toBe(true)
+  })
+
+  it('컴퓨터가 맡은 자리는 방장이 돌본다', async () => {
+    const { host, guest, h } = await startedParty()
+    // 2번은 사람이 없는 자리다(게스트 하나짜리 판)
+    const npcBody = h.game.party[2].id
+    expect(h.game.seatControllerOf(2)).not.toBe('human')
+    const gm = h.game as unknown as { addItem(id: string, seat: number): void }
+    gm.addItem('wood_sword', 0)
+
+    // 동료는 그 자리도 만지지 못한다
+    expect(h.game.canEquip(npcBody, 'wood_sword', 1).ok).toBe(false)
+    // 방장은 돌볼 수 있다
+    expect(h.game.canEquip(npcBody, 'wood_sword', 0).ok).toBe(true)
+    void host
+    void guest
   })
 })
 

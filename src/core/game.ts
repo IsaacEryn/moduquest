@@ -98,6 +98,25 @@ export class Game {
     return at === -1 ? null : this.partyJobs[at]
   }
 
+  /**
+   * 그 사람의 몸을 이 자리가 만질 수 있는가 — 장비를 입히고 벗기는 자격.
+   *
+   * 자리마다 가방을 갈라 놓고도 장비에는 주인이 없었다. 그래서 동료가 내
+   * 캐릭터의 갑옷을 벗기면 그 갑옷이 **벗긴 사람의 가방**으로 들어갔다.
+   * 내 몸에서 나온 것이 남의 가방에 있으니 나는 다시 입을 수 없다 —
+   * 잃어버린 것도 아니고 빼앗긴 것에 가깝다.
+   *
+   * 규칙은 자리를 따른다. 사람이 앉은 자리의 몸은 그 사람만, 컴퓨터가 맡은
+   * 자리는 방장이 돌본다. 혼자 걸을 때는 방장이 곧 나이므로 셋 다 내 몫이다 —
+   * 규칙 하나로 혼자와 함께가 같은 말을 한다.
+   */
+  canOutfit(memberId: string, seat = this.localSeat): boolean {
+    const at = this.memberIds.indexOf(memberId)
+    if (at === -1) return false
+    if (at === seat) return true
+    return this.seatControllerOf(at) !== 'human' && seat === 0
+  }
+
   constructor(
     private data: GameData,
     private bus: EventBus,
@@ -584,6 +603,9 @@ export class Game {
     }
     const job = this.jobOfMember(memberId)
     if (!job) return { ok: false }
+    if (!this.canOutfit(memberId, seat)) {
+      return { ok: false, reason: '그 사람의 장비는 그 사람이 정한다.' }
+    }
     const item = this.data.items[itemId]
     if (!item || item.kind !== 'equipment' || !item.slot) {
       return { ok: false, reason: '입을 수 있는 것이 아니다.' }
@@ -631,9 +653,16 @@ export class Game {
     return true
   }
 
-  /** 벗은 물건은 명령을 낸 자리의 가방으로 — equip과 같은 이유다 */
+  /**
+   * 벗은 물건은 명령을 낸 자리의 가방으로 — equip과 같은 이유다.
+   *
+   * 그래서 **누가 벗기느냐**가 물건의 주인을 정한다. 아무나 남의 몸을 만질 수
+   * 있으면 벗기는 것이 곧 가져가는 것이 된다 — 실제로 동료가 내 갑옷을 벗겨
+   * 자기 가방에 넣는 일이 있었다. 만질 자격은 canOutfit이 쥔다.
+   */
   unequip(memberId: string, slot: EquipSlot, seat = this.localSeat): boolean {
     if (this.mode !== 'field' && this.mode !== 'title') return false
+    if (!this.canOutfit(memberId, seat)) return false
     const eq = this.equipment.get(memberId)
     const id = eq?.[slot]
     if (!eq || !id) return false

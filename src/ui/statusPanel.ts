@@ -360,6 +360,16 @@ export class StatusPanel {
       }
     }
 
+    /*
+      목록에 서는 것은 **내 가방의 장비**와 **누군가 입고 있는 장비**다.
+      남의 가방은 보이지 않는다 — 서로의 주머니를 들여다볼 이유가 없고,
+      보이면 "저 사람이 가진 것"과 "내가 쓸 수 있는 것"이 섞인다.
+      입은 것은 서로 보인다. 파티가 어떻게 서 있는지는 함께 아는 편이 낫다.
+
+      개수는 **내 가방 것만** 센다. 예전에는 남이 입은 것까지 더해서, 동료와
+      내가 같은 갑옷을 하나씩 가졌을 때 내 화면에 둘로 보였다 — 그러고는
+      하나를 입으면 나머지 하나가 왜 안 만져지는지 알 수 없었다.
+    */
     const bag = g.inventoryList.filter((row) => row.kind === 'equipment')
     const ids = new Set<string>([...bag.map((r) => r.id), ...wornBy.keys()])
 
@@ -369,8 +379,8 @@ export class StatusPanel {
       return {
         id,
         item: g.itemData(id)!,
-        count: inBag + worn.length,
-        tag: worn.length ? worn.map((w) => w.name).join('·') : undefined,
+        count: inBag,
+        tag: worn.length ? `${worn.map((w) => w.name).join('·')} 착용` : undefined,
       }
     })
 
@@ -393,6 +403,9 @@ export class StatusPanel {
           return mine ? `${who} 해제` : `${who} 입기`
         },
         can: (e) => {
+          // 남의 몸은 만지지 않는다 — 벗기는 것이 곧 가져가는 것이 되기 때문이다.
+          // 벗은 물건은 벗긴 사람의 가방으로 가므로, 자격을 먼저 본다
+          if (!g.canOutfit(member.id)) return { ok: false, reason: '본인만 바꾼다' }
           const worn = wornBy.get(e.id)?.find((w) => w.member === member.id)
           if (worn) return { ok: true }
           // 가방에 없으면 남이 입고 있는 것뿐이다 — 벗겨 오지는 않는다
